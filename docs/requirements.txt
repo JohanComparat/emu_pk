@@ -4,5 +4,8 @@ sphinx>=7
 myst-parser>=2
 furo
 sphinx-copybutton
-# The package itself, core install only, so autodoc can import it.
--e ..
+# The package itself is NOT listed here.  A `-e ..` would resolve against
+# pip's working directory rather than this file's location, and ReadTheDocs
+# runs pip from the repository root -- so it would point one level above the
+# repo, at a directory with no pyproject.toml, and the build fails before it
+# starts.  `.readthedocs.yaml` installs the package with `path: .` instead.

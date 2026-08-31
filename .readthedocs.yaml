@@ -19,6 +19,11 @@ sphinx:
 python:
   install:
     - requirements: docs/requirements.txt
+    # The package itself, by path rather than from the requirements file: a
+    # relative path inside a requirements file is resolved against pip's
+    # working directory, not the file, and RTD runs pip from the repo root.
+    - method: pip
+      path: .
 
 formats:
   - pdf
