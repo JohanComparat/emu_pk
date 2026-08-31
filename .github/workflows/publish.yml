@@ -3,20 +3,18 @@ name: publish
 # Trusted publishing (OIDC), not an API token: nothing secret is stored in the
 # repository and the workflow can only publish this project.
 #
-# Run against TestPyPI first with workflow_dispatch, then tag.  The tag path is
-# the only one that reaches PyPI proper.
+# The trigger is a *published GitHub release*, not a tag push.  Tags get moved
+# while a release is being prepared -- `v1.0.0` was repointed several times
+# before 1.0.0 went out -- and PyPI refuses to re-upload a version that already
+# exists, so a tag-push trigger turns every one of those into a failed run.  A
+# release is made once, which is the shape an upload wants.
+#
+# Creating the release is therefore the step that publishes.  Pushing the tag
+# does nothing on its own.
 
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      target:
-        description: "Where to upload"
-        required: true
-        default: testpypi
-        type: choice
-        options: [testpypi]
 
 jobs:
   build:
@@ -26,8 +24,14 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: |
-          python -m pip install --upgrade pip build
+          python -m pip install --upgrade pip build twine
           python -m build
+
+      - name: The metadata must render on PyPI
+        # A README that fails to render leaves the project page blank, and PyPI
+        # accepts the upload anyway.  Cheaper to find here.
+        run: python -m twine check dist/*
+
       - name: The wheel must carry its data
         run: |
           python - <<'PY'
@@ -38,9 +42,10 @@ jobs:
                   "emu_pk/data/validation.json", "emu_pk/py.typed"]
           missing = [n for n in need if n not in names]
           assert not missing, f"{w} is missing {missing}"
+          print(f"{w}: data present")
           PY
+
       - name: The tag must match the version
-        if: github.event_name == 'release'
         run: |
           python - <<'PY'
           import os, pathlib, re
@@ -48,26 +53,14 @@ jobs:
           ver = re.search(r'^version = "([^"]+)"',
                           pathlib.Path("pyproject.toml").read_text(), re.M).group(1)
           assert tag == ver, f"tag {tag!r} but version {ver!r}"
+          print(f"tag {tag} matches pyproject {ver}")
           PY
+
       - uses: actions/upload-artifact@v4
         with: {name: dist, path: dist/}
 
-  testpypi:
-    needs: build
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    environment: testpypi
-    permissions: {id-token: write}
-    steps:
-      - uses: actions/download-artifact@v4
-        with: {name: dist, path: dist/}
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-
   pypi:
     needs: build
-    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     environment: pypi
     permissions: {id-token: write}
