@@ -24,8 +24,7 @@ pk = emu.pk(k, z=0.0, params=theta)              # (Mpc/h)^3
 ```
 
 The parameter order is `emu_pk.box.PARAMS`, and it is read from there by
-everything downstream rather than repeated — a silently permuted column is the
-kind of error that trains perfectly well and predicts nonsense.
+everything downstream rather than repeated.
 
 ## Several redshifts at once
 
@@ -34,15 +33,60 @@ z = np.array([0.0, 0.5, 1.0, 2.0])
 pk = emu.pk(k, z, theta)          # shape (4, 400)
 ```
 
-## The cold field
+## The cold field: `pk` versus `pk_cb`
 
-Haloes form from the cold field rather than the total one, so both are
-available and both come from **one network with two heads** — they cannot drift
-apart the way two separately trained models would.
+The two methods return the power spectrum of two different fields.
+
+| | field | contains |
+|---|---|---|
+| `emu.pk` | total matter, $\delta_m$ | cold dark matter **+ baryons + massive neutrinos** |
+| `emu.pk_cb` | the cold field, $\delta_{cb}$ | cold dark matter **+ baryons** |
+
+So `cb` is **c**old dark matter **and b**aryons — not cold dark matter alone.
+"Cold" here is in contrast to the neutrinos, which are light enough to be
+relativistic in the early universe and to free-stream out of potential wells
+afterwards. Everything that is *not* a neutrino is cold, and baryons are.
 
 ```python
-pk_cb = emu.pk_cb(k, z=0.0, params=theta)
+pk_m = emu.pk(k, z=0.0, params=theta)        # cdm + baryons + neutrinos
+pk_cb = emu.pk_cb(k, z=0.0, params=theta)    # cdm + baryons
 ```
+
+### Why the distinction exists
+
+Below the neutrino free-streaming scale, neutrinos do not fall into haloes.
+The field that actually collapses is the cold one, so quantities built for the
+halo model — $\sigma(M)$, the mass function, the halo bias — are more accurately
+predicted from $P_{cb}$ than from $P_m$. Lensing and other observables that
+respond to *all* the mass want $P_m$. Which one you need depends on what you
+are computing, which is why both are here.
+
+### How they relate
+
+With $f_\nu = \Omega_\nu/\Omega_m$ the neutrino mass fraction,
+
+$$\delta_m = (1 - f_\nu)\,\delta_{cb} + f_\nu\,\delta_\nu .$$
+
+On large scales the neutrinos cluster along with everything else,
+$\delta_\nu \to \delta_{cb}$, and the two spectra converge. On small scales
+they free-stream away, $\delta_\nu \to 0$, and
+
+$$P_m \to (1 - f_\nu)^2\,P_{cb},$$
+
+so **$P_{cb}$ is the larger of the two**. For $\Sigma m_\nu = 0.3$ eV at the
+Planck cosmology, $f_\nu = 0.023$ and the emulator gives $P_{cb}/P_m = 1.0000$
+at $k = 10^{-4}$ and $1.0456$ at $k = 1\ h\,\mathrm{Mpc}^{-1}$, against the
+free-streaming limit $1/(1-f_\nu)^2 = 1.0472$.
+
+With $\Sigma m_\nu = 0$ there are no massive neutrinos, the cold field *is* the
+total field, and the two are the same spectrum.
+
+### One network, two heads
+
+Both come from a single network with two output heads rather than two separately
+trained models. That is what stops them drifting apart in a way that would show
+up downstream as a spurious cold-versus-total effect — a difference between the
+two spectra that is a fitting artefact rather than physics.
 
 ## Derivatives
 

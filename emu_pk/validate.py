@@ -34,6 +34,12 @@ sizes says which of "``wa`` is 5.6 % wrong" is the network and which is the
 ruler.  Without it a run can spend a week chasing its own finite
 difference.
 
+**The amplitude, which the shape metric removes.**  Scoring renormalises at
+:data:`K_NORM`, so a spectrum right in shape and wrong in amplitude scores
+zero.  The discarded factor is reported as ``amplitude`` beside each shape
+summary, which is what makes the shape number readable as an accuracy claim
+about :math:`P(k)` rather than about its shape alone.
+
 **Where in the box.**  An eight-dimensional Latin hypercube essentially never
 samples a corner, so a median over the design says nothing about the walls --
 and the walls are where a sampler with a wide prior spends its time.  Points
@@ -164,6 +170,11 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
     design = box.sample(n, seed=seed)
 
     errs = {w: {float(zz): [] for zz in z_nodes} for w in which}
+    # What the shape metric divides out, kept rather than discarded: the
+    # renormalisation at K_NORM makes a spectrum right in shape and wrong in
+    # amplitude score zero, so the amplitude has to be reported separately or
+    # it is not reported at all.
+    amps = {w: {float(zz): [] for zz in z_nodes} for w in which}
     where = []
     for theta in design:
         try:
@@ -176,26 +187,35 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
             ref = _pick(*solved, w)
             got = np.asarray(emu.predict(k, z_nodes, theta, w))
             for j, zz in enumerate(z_nodes):
+                a = got[j, i0] / ref[j, i0]
                 r = (got[j] / got[j, i0]) / (ref[j] / ref[j, i0])
                 errs[w][float(zz)].append(float(np.max(np.abs(r - 1))))
+                amps[w][float(zz)].append(float(abs(a - 1)))
 
     out = {w: {f"{zz:g}": _summary(errs[w][float(zz)], where, n)
                for zz in z_nodes} for w in which}
+    for w in which:
+        for zz in z_nodes:
+            s = out[w][f"{zz:g}"]
+            if s.get("n_scored"):
+                s["amplitude"] = _summary(amps[w][float(zz)], where, n)
     if verbose:
         for w in which:
             print(f"shape error vs CLASS, P_{w}, {len(where)}/{n} held-out points:")
             print(f"  {'z':>5}  {'median':>9} {'90th':>9} {'max':>9}   "
-                  f"{'edge p90':>9} {'corner max':>10}")
+                  f"{'edge p90':>9} {'corner max':>10}   {'amp med':>9}")
             for zz in z_nodes:
                 s = out[w][f"{zz:g}"]
                 if not s.get("n_scored"):
                     continue
                 e = s["edge"].get("p90")
                 c = s["quintessence_corner"].get("max")
+                am = s.get("amplitude", {}).get("median")
                 print(f"  {zz:5g}  {s['median']:8.4%} {s['p90']:8.4%} "
                       f"{s['max']:8.4%}   "
                       f"{'--' if e is None else format(e, '8.4%')} "
-                      f"{'--' if c is None else format(c, '9.4%')}")
+                      f"{'--' if c is None else format(c, '9.4%')}   "
+                      f"{'--' if am is None else format(am, '8.4%')}")
     return out
 
 

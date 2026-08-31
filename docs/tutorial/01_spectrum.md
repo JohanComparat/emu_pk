@@ -35,12 +35,16 @@ renormalising.
 
 ## Two spectra
 
-Haloes form from the cold field, not the total one. Both are available:
-
 ```python
-pk_m = emu.pk(k, 0.0, theta)          # total matter
-pk_cb = emu.pk_cb(k, 0.0, theta)      # cold dark matter + baryons
+pk_m = emu.pk(k, 0.0, theta)          # cdm + baryons + massive neutrinos
+pk_cb = emu.pk_cb(k, 0.0, theta)      # cdm + baryons only
 ```
+
+`cb` is **c**old dark matter **and b**aryons. Neutrinos do not fall into haloes
+below their free-streaming scale, so the field that collapses is the cold one
+and $\sigma(M)$ is better built from $P_{cb}$; lensing and anything responding
+to all the mass wants $P_m$. See {doc}`../quickstart` for the relation between
+them.
 
 They come from **one network with two output heads**, which is what stops them
 drifting apart in a way that would show up downstream as a spurious

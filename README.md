@@ -19,7 +19,7 @@ k = np.logspace(-3, 1, 200)                      # h/Mpc
 theta = np.array([0.02237,    0.1200, 0.6736, 0.9649,  3.044,    0.06, -1.0, 0.0])
 
 pk = emu.pk(k, z=0.5, params=theta)              # P_m(k, z) in (Mpc/h)^3
-pk_cb = emu.pk_cb(k, z=0.5, params=theta)        # the cold field haloes form from
+pk_cb = emu.pk_cb(k, z=0.5, params=theta)        # cdm + baryons, without neutrinos
 ```
 
 ## Accuracy

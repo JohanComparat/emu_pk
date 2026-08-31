@@ -93,6 +93,44 @@ class TestShapeError:
                             which=("m",), verbose=False)
         assert out["m"]["0"]["max"] < 1e-10
 
+    def test_but_that_amplitude_error_is_still_reported(self, fake_class):
+        """...and it must not vanish entirely.
+
+        The renormalisation is what makes the shape number meaningful, but on
+        its own it would let a spectrum wrong by a constant factor score
+        perfectly. The discarded factor is reported beside the shape, so the
+        two together are an accuracy claim about `P(k)` rather than about its
+        shape alone.
+        """
+        out = V.shape_error(FakeEmulator(amp=1.5), n=4, z_nodes=(0.0,),
+                            which=("m",), verbose=False)["m"]["0"]
+        assert out["max"] < 1e-10, "the shape must still be perfect"
+        assert out["amplitude"]["median"] == pytest.approx(0.5, rel=1e-9)
+        assert out["amplitude"]["max"] == pytest.approx(0.5, rel=1e-9)
+
+    def test_a_perfect_emulator_has_no_amplitude_error_either(self, fake_class):
+        out = V.shape_error(FakeEmulator(), n=4, z_nodes=(0.0, 1.0),
+                            which=("m",), verbose=False)
+        for z in ("0", "1"):
+            assert out["m"][z]["amplitude"]["max"] < 1e-10
+
+    def test_the_amplitude_is_the_offset_at_k_norm_exactly(self, fake_class):
+        """`FakeEmulator`'s tilt is `k**d`, pivoted at k = 1 rather than at
+        K_NORM, so it moves the value at K_NORM as well as the shape.
+
+        That makes it a closed-form check on the amplitude number: the reported
+        figure has to be `|k_norm**d - 1|` and nothing else, which pins that it
+        is read at K_NORM and is not picking up any of the shape.
+        """
+        d = 1e-3
+        k = np.logspace(np.log10(V.K_TRUSTED[0]), np.log10(V.K_TRUSTED[1]), 300)
+        k0 = k[int(np.argmin(abs(k - V.K_NORM)))]      # the grid point used
+        out = V.shape_error(FakeEmulator(tilt=d), n=2, z_nodes=(0.0,),
+                            which=("m",), verbose=False)["m"]["0"]
+        assert out["amplitude"]["max"] == pytest.approx(abs(k0 ** d - 1),
+                                                        rel=1e-9)
+        assert out["max"] > 1e-6, "the tilt is still a shape error too"
+
     def test_a_tilt_is_a_shape_error_of_the_right_size(self, fake_class):
         r"""A tilt `d` multiplies the renormalised ratio by
         `(k/k_norm)^d`, so the max error over the scored range is

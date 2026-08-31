@@ -6,10 +6,7 @@ energy, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
 It reproduces CLASS's shape to a **median 0.111 %**, and because it is written
 in JAX its derivatives with respect to cosmological parameters come from
-automatic differentiation rather than finite differences. Two of those
-derivatives are *exact*: the primordial power law is divided out of the training
-target and restored in closed form, so a Fisher matrix built on this network is
-exactly right in two of its eight directions.
+automatic differentiation rather than finite differences. 
 
 ```python
 import numpy as np
@@ -69,8 +66,39 @@ reproducing
 
 ## Citing
 
-Please cite `emu_pk` via its `CITATION.cff`, and also
-**CosmoPower** (Spurio Mancini et al. 2022, MNRAS 511, 1771), whose network
-architecture and learned activation this reproduces, and **CLASS**
-(Blas, Lesgourgues & Tram 2011, JCAP 07, 034), which produced every training
-spectrum and every validation reference.
+Please cite `emu_pk` itself through its
+[`CITATION.cff`](https://github.com/JohanComparat/emu_pk/blob/main/CITATION.cff),
+and the two works it is built on.
+
+### CosmoPower
+
+The network architecture — four dense layers of 512 with the learned
+$[\gamma + (1-\gamma)\sigma(\beta x)]\,x$ activation — is theirs, and so is
+the direct-output choice for this quantity. `emu_pk` is an independent
+implementation of that architecture in JAX; it differs in the training box, the
+wavenumber reach and the training target.
+
+> Spurio Mancini, A., Piras, D., Alsing, J., Joachimi, B. & Hobson, M. P.,
+> *CosmoPower: emulating cosmological power spectra for accelerated Bayesian
+> inference from next-generation surveys*,
+> **MNRAS 511** (2022) 1771–1788.
+
+- Paper: [doi:10.1093/mnras/stac064](https://doi.org/10.1093/mnras/stac064)
+  · [arXiv:2106.03846](https://arxiv.org/abs/2106.03846)
+  · [ADS](https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.1771S)
+- Code: [github.com/alessiospuriomancini/cosmopower](https://github.com/alessiospuriomancini/cosmopower)
+
+### CLASS
+
+Every training spectrum and every validation reference is a CLASS solve, and
+the correction table in `emu_pk.ratio` is distilled from CLASS directly. Its
+authors ask that any use cite at least the *Approximation schemes* paper.
+
+> Blas, D., Lesgourgues, J. & Tram, T.,
+> *The Cosmic Linear Anisotropy Solving System (CLASS). Part II: Approximation
+> schemes*, **JCAP 07** (2011) 034.
+
+- Paper: [doi:10.1088/1475-7516/2011/07/034](https://doi.org/10.1088/1475-7516/2011/07/034)
+  · [arXiv:1104.2933](https://arxiv.org/abs/1104.2933)
+  · [ADS](https://ui.adsabs.harvard.edu/abs/2011JCAP...07..034B)
+- Code: [github.com/lesgourg/class_public](https://github.com/lesgourg/class_public)
