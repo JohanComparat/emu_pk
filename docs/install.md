@@ -66,4 +66,4 @@ python -c "from emu_pk import PkEmulator; print(PkEmulator().pk([0.1], 0.0, \
 ```
 
 The trained weights and the correction table ship inside the package — about
-17 MB — so there is no download step and the package works offline.
+18 MB — so there is no download step and the package works offline.

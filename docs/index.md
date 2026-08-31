@@ -6,9 +6,31 @@ energy, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
 It reproduces CLASS's shape to a **median 0.111 %** and its amplitude to
 **0.012 %**, so the total error on $P(k)$ itself is **0.112 %** — the shape
-metric renormalises, but there is almost nothing there to renormalise away.
+metric renormalises, and the amplitude it divides out is accurate to an order
+of magnitude better than the shape.
+
 Because it is written in JAX, its derivatives with respect to cosmological
 parameters come from automatic differentiation rather than finite differences.
+Against central differences of CLASS at $z = 0$:
+
+| `omega_cdm` | `h` | `w0` | `sum_mnu` | `omega_b` | `wa` |
+|---|---|---|---|---|---|
+| 0.06 % | 0.12 % | 0.16 % | 0.18 % | 0.20 % | 0.41 % |
+
+`ln10A_s` and `n_s` are **exact**, to $2\times10^{-14}$ and $6\times10^{-8}$:
+the primordial power law is divided out of the training target and restored in
+closed form, so those two are analytic rather than fitted, and a Fisher matrix
+built on this network is exact in two of its eight directions.
+
+The derivative with respect to redshift, which $f\sigma_8$ is built from:
+
+| z = 0 | z = 0.5 | z = 1 | z = 2 |
+|---|---|---|---|
+| 0.155 % | 0.015 % | 0.012 % | 0.008 % |
+
+Away from $z = 0$ that is within about a factor of two of what the comparison
+itself can resolve; the per-parameter floors are on the
+{doc}`accuracy page <tutorial/02_accuracy>`.
 
 
 ```python

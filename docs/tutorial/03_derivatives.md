@@ -63,11 +63,17 @@ handles it, so `jax.grad` of `pk` is still $\mathrm{d}/\mathrm{d}z$.
 ## Under jit and vmap
 
 ```python
-@jax.jit
-def spectrum(theta, z):
-    return emu.pk(k, z, theta)
+from emu_pk import box
 
-batch = jax.vmap(spectrum, in_axes=(0, None))(thetas, 0.5)
+thetas = box.sample(64, seed=0)                  # (64, 8), a Latin hypercube
+
+@jax.jit
+def spectrum(params, redshift):
+    return emu.pk(k, z=redshift, params=params)
+
+# in_axes=(0, None): map over the rows of `thetas`, hold the redshift fixed.
+batch = jax.vmap(spectrum, in_axes=(0, None))(jnp.asarray(thetas), 0.5)
+batch.shape                                      # (64, len(k))
 ```
 
 The box check is skipped under tracing, where the values are not available —

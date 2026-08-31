@@ -178,7 +178,7 @@ pip install 'emu_pk[dev]'
 python -m pytest tests/ -q
 ```
 
-225 tests. Every statement in `emu_pk` is executed by the suite and 99 % of
+230 tests. Every statement in `emu_pk` is executed by the suite and 99 % of
 its branches. The suite runs without `classy` or `optax` — CLASS is replaced by
 a stub wherever a test needs a spectrum rather than a *correct* spectrum — and
 the tests that compare conventions against the consuming package skip when it
