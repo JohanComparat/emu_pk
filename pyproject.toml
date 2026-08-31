@@ -40,7 +40,11 @@ dependencies = [
 gen   = ["classy"]
 # Training the network.
 train = ["optax"]
-dev   = ["pytest", "pytest-cov"]
+# `optax` is here because ~25 tests exercise the trainer, and the trainer
+# imports it.  The *package* still does not: `[train]` is what a user
+# installs to fit a network, and `tests/` asserts that importing `emu_pk`
+# pulls in neither `optax` nor `classy`.
+dev   = ["pytest", "pytest-cov", "optax"]
 # Building the documentation.  Deliberately free of `classy`: the docs must
 # build on ReadTheDocs, which cannot compile a Boltzmann solver, so every
 # figure is a committed artefact made by `docs/make_figures.py`.

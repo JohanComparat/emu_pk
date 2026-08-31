@@ -1,5 +1,11 @@
 # emu_pk
 
+[![PyPI](https://img.shields.io/pypi/v/emu_pk.svg)](https://pypi.org/project/emu_pk/)
+[![Python](https://img.shields.io/pypi/pyversions/emu_pk.svg)](https://pypi.org/project/emu_pk/)
+[![Tests](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml/badge.svg)](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml)
+[![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=latest)](https://emu-pk.readthedocs.io/en/latest/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Differentiable emulation of the **linear matter power spectrum**, over an
 eight-parameter cosmology that includes the summed neutrino mass and CPL dark
 energy, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
@@ -179,10 +185,12 @@ python -m pytest tests/ -q
 ```
 
 230 tests. Every statement in `emu_pk` is executed by the suite and 99 % of
-its branches. The suite runs without `classy` or `optax` — CLASS is replaced by
-a stub wherever a test needs a spectrum rather than a *correct* spectrum — and
-the tests that compare conventions against the consuming package skip when it
-is not importable.
+its branches. `[dev]` installs everything the suite needs, including `optax`,
+since the tests that exercise the trainer import it. CLASS is not needed: it is
+replaced by a stub wherever a test wants a spectrum rather than a *correct*
+one, and the few tests that do want the real solver skip without it. The tests
+that compare conventions against the consuming package skip when it is not
+importable.
 
 ## Documentation
 
