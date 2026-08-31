@@ -37,8 +37,9 @@ difference.
 **The amplitude, which the shape metric removes.**  Scoring renormalises at
 ``K_NORM``, so a spectrum right in shape and wrong in amplitude scores
 zero.  The discarded factor is reported as ``amplitude`` beside each shape
-summary, which is what makes the shape number readable as an accuracy claim
-about :math:`P(k)` rather than about its shape alone.
+summary, and the comparison with nothing removed is reported as ``total``.
+The three together say what the emulator does to :math:`P(k)`: an amplitude, a
+shape, and the whole thing.
 
 **Where in the box.**  An eight-dimensional Latin hypercube essentially never
 samples a corner, so a median over the design says nothing about the walls --
@@ -175,6 +176,9 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
     # amplitude score zero, so the amplitude has to be reported separately or
     # it is not reported at all.
     amps = {w: {float(zz): [] for zz in z_nodes} for w in which}
+    # The same comparison with nothing removed: amplitude and shape are
+    # separate statements, and this is the one number that covers P(k) itself.
+    tots = {w: {float(zz): [] for zz in z_nodes} for w in which}
     where = []
     for theta in design:
         try:
@@ -191,6 +195,8 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                 r = (got[j] / got[j, i0]) / (ref[j] / ref[j, i0])
                 errs[w][float(zz)].append(float(np.max(np.abs(r - 1))))
                 amps[w][float(zz)].append(float(abs(a - 1)))
+                tots[w][float(zz)].append(
+                    float(np.max(np.abs(got[j] / ref[j] - 1))))
 
     out = {w: {f"{zz:g}": _summary(errs[w][float(zz)], where, n)
                for zz in z_nodes} for w in which}
@@ -199,11 +205,13 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
             s = out[w][f"{zz:g}"]
             if s.get("n_scored"):
                 s["amplitude"] = _summary(amps[w][float(zz)], where, n)
+                s["total"] = _summary(tots[w][float(zz)], where, n)
     if verbose:
         for w in which:
             print(f"shape error vs CLASS, P_{w}, {len(where)}/{n} held-out points:")
             print(f"  {'z':>5}  {'median':>9} {'90th':>9} {'max':>9}   "
-                  f"{'edge p90':>9} {'corner max':>10}   {'amp med':>9}")
+                  f"{'edge p90':>9} {'corner max':>10}   {'amp med':>9}"
+                  f" {'total med':>10}")
             for zz in z_nodes:
                 s = out[w][f"{zz:g}"]
                 if not s.get("n_scored"):
@@ -215,7 +223,8 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                       f"{s['max']:8.4%}   "
                       f"{'--' if e is None else format(e, '8.4%')} "
                       f"{'--' if c is None else format(c, '9.4%')}   "
-                      f"{'--' if am is None else format(am, '8.4%')}")
+                      f"{'--' if am is None else format(am, '8.4%')}"
+                      f" {format(s['total']['median'], '9.4%')}")
     return out
 
 

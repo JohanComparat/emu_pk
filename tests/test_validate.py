@@ -333,3 +333,30 @@ class TestTheCommandLine:
         assert "derivative error vs CLASS" in out
         assert "dlnP/dz vs CLASS" in out
         assert "floor" in out, "the metric's own noise floor must be shown"
+
+
+class TestTheTotalIsReportedToo:
+    """`amplitude` and `shape` are separate statements; `total` is the one
+    number that covers `P(k)` itself, so it is measured rather than inferred
+    from the other two."""
+
+    def test_a_pure_amplitude_error_is_the_total(self, fake_class):
+        """With the shape exact, the total is the amplitude and nothing else."""
+        out = V.shape_error(FakeEmulator(amp=1.5), n=4, z_nodes=(0.0,),
+                            which=("m",), verbose=False)["m"]["0"]
+        assert out["max"] < 1e-10
+        assert out["total"]["max"] == pytest.approx(0.5, rel=1e-9)
+
+    def test_a_perfect_emulator_has_no_total_error(self, fake_class):
+        out = V.shape_error(FakeEmulator(), n=4, z_nodes=(0.0,),
+                            which=("m",), verbose=False)["m"]["0"]
+        assert out["total"]["max"] < 1e-10
+
+    def test_the_total_is_never_below_the_amplitude(self, fake_class):
+        """The amplitude is the error at one k; the total is the max over all
+        of them, so the total bounds it from above by construction."""
+        for emu in (FakeEmulator(amp=1.02), FakeEmulator(tilt=1e-3),
+                    FakeEmulator(amp=1.02, tilt=1e-3)):
+            s = V.shape_error(emu, n=3, z_nodes=(0.0,), which=("m",),
+                              verbose=False)["m"]["0"]
+            assert s["total"]["max"] >= s["amplitude"]["max"] - 1e-12
