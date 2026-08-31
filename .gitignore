@@ -21,7 +21,5 @@ work/
 oarsub/logs/*
 !oarsub/logs/.gitkeep
 training_set.npz
-plan_prompt.txt
-PLAN_PublicRelease.md
 docs/_build/
 dist/
