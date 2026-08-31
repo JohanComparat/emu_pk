@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/emu_pk.svg)](https://pypi.org/project/emu_pk/)
 [![Python](https://img.shields.io/pypi/pyversions/emu_pk.svg)](https://pypi.org/project/emu_pk/)
 [![Tests](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml/badge.svg)](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml)
-[![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=latest)](https://emu-pk.readthedocs.io/en/latest/)
+[![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=stable)](https://emu-pk.readthedocs.io/en/stable/)
 [![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
 
 Differentiable emulation of the **linear matter power spectrum**, over an
@@ -195,7 +195,7 @@ importable.
 ## Documentation
 
 Full documentation, including a tutorial with figures, is at
-[emu-pk.readthedocs.io](https://emu-pk.readthedocs.io). Decisions that would
+[emu-pk.readthedocs.io](https://emu-pk.readthedocs.io/en/stable/). Decisions that would
 look arbitrary from the source alone are in
 [`docs/design_notes.md`](docs/design_notes.md).
 

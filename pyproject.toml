@@ -52,7 +52,7 @@ docs  = ["sphinx", "myst-parser", "furo", "sphinx-copybutton", "matplotlib"]
 
 [project.urls]
 Homepage = "https://github.com/JohanComparat/emu_pk"
-Documentation = "https://emu-pk.readthedocs.io"
+Documentation = "https://emu-pk.readthedocs.io/en/stable/"
 Repository = "https://github.com/JohanComparat/emu_pk"
 Issues = "https://github.com/JohanComparat/emu_pk/issues"
 
