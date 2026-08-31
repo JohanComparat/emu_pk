@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/emu_pk.svg)](https://pypi.org/project/emu_pk/)
 [![Tests](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml/badge.svg)](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml)
 [![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=latest)](https://emu-pk.readthedocs.io/en/latest/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
 
 Differentiable emulation of the **linear matter power spectrum**, over an
 eight-parameter cosmology that includes the summed neutrino mass and CPL dark
