@@ -1,6 +1,5 @@
 # Design notes
 
-Choices in the current code that would look arbitrary without their reason.
 This is for someone reading or changing the source; using the package needs
 none of it.
 

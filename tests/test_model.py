@@ -282,8 +282,9 @@ class TestTheShippedWeightsAreTheOnesValidated:
         """CosmoPower reproduces the CLASS shape to 0.159 %.
 
         That is the number this package has to beat to justify existing, so it
-        is the threshold worth pinning -- on a box that is wider in every shared
-        axis and carries `sum_mnu`, `w0` and `wa`, which CosmoPower does not.
+        is the threshold worth pinning -- on a box that is wider in four of the
+        five shared axes, equal on `n_s`, and carries `sum_mnu`, `w0` and `wa`,
+        which CosmoPower does not.
         """
         _, v = self._both()
         assert self._shape_m(v)["median"] < 0.00159

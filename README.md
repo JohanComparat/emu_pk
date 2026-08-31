@@ -29,17 +29,24 @@ training design, so no scored point was trained on. The full record is
 [`emu_pk/data/validation.json`](emu_pk/data/validation.json), written by
 `python -m emu_pk.validate` and not typed by hand.
 
-**Shape error** here is the largest fractional departure from CLASS over
-$k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$, after renormalising both spectra
-at $k = 0.05\ h\,\mathrm{Mpc}^{-1}$ — so a spectrum that is right in shape and
-wrong in amplitude is not counted as wrong in both. The median below is taken
-over the held-out cosmologies.
+Three quantities are scored, and together they describe $P(k)$: its amplitude
+at $k = 0.05\ h\,\mathrm{Mpc}^{-1}$, its shape once both spectra are
+renormalised there, and the two combined with nothing removed. Medians are over
+the held-out cosmologies, at $z = 0$.
 
-| | `emu_pk` | CosmoPower |
-|---|---|---|
-| shape error vs CLASS, median | **0.111 %** | 0.159 % |
-| 90th percentile | 0.224 % | — |
-| maximum | 0.621 % | — |
+| at $z = 0$ | median | 90th | max |
+|---|---|---|---|
+| amplitude at $k = 0.05$ | 0.012 % | 0.035 % | 0.059 % |
+| shape, renormalised | **0.111 %** | 0.224 % | 0.621 % |
+| **total, absolute** | **0.112 %** | 0.221 % | 0.603 % |
+
+**0.112 %** is the single number for $P(k)$. CosmoPower's released
+linear-matter model reaches 0.159 % on the shape measure, on a box narrower in
+four of the five axes the two share and equal on the fifth. Shape error is the
+largest fractional departure from CLASS over
+$k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$; the amplitude is the factor that
+renormalisation divides out, and it holds between 0.005 % and 0.012 % across
+the whole redshift range.
 
 Derivatives are what a Fisher forecast actually consumes, and an emulator can
 reproduce $P(k)$ to a tenth of a percent and still get

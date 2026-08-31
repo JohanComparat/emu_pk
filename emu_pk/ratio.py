@@ -70,16 +70,27 @@ __all__ = ["load", "suppression_m", "suppression_cb",
 
 _NPZ = pathlib.Path(__file__).resolve().parent / "data" / "class_pk_ratio.npz"
 
-#: Validity limits.  These are *hand-written constants*, not read from the
-#: table: a caller has to be able to ask where the correction is valid without
-#: paying to load a 13 MB array first, and `_refuse_outside` enforces these and
-#: not the axes.  So they can disagree with what is actually on disk, and once
-#: did -- the shipped file carried one set of mass nodes while `build()`'s
-#: defaults produced another.  `tests/test_ratio.py` asserts the two agree,
-#: which is the only thing keeping this comment true.
+# Validity limits.  These are *hand-written constants*, not read from the
+# table: a caller has to be able to ask where the correction is valid without
+# paying to load a 13 MB array first, and `_refuse_outside` enforces these and
+# not the axes.  So they can disagree with what is actually on disk, and once
+# did -- the shipped file carried one set of mass nodes while the builder's
+# defaults produced another.  `tests/test_ratio.py` asserts the two agree,
+# which is the only thing keeping this comment true.  The builder is
+# `emu_pk.assemble.build_ratio`.
+
+#: Largest summed neutrino mass the table covers, in eV.
 MNU_MAX = 0.60
+
+#: Largest redshift the table covers.
 Z_MAX = 5.0
+
+#: Range of ``w0`` the table covers, as ``(low, high)``.  Narrower than
+#: ``emu_pk.box``'s own bounds: the table was built for a different purpose and
+#: its grid was sized for that.
 W0_RANGE = (-1.30, -0.70)
+
+#: Range of ``wa`` the table covers, as ``(low, high)``.
 WA_RANGE = (-0.70, 0.50)
 
 

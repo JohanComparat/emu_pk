@@ -6,8 +6,14 @@ what lets ``ggah_mod`` depend on this package without inheriting a Boltzmann
 solver or a training stack.
 
 The network is a dense MLP over CosmoPower's architecture -- four layers of 512
-with a learned :math:`(\gamma + (1-\gamma)\sigma(\beta x))x` activation -- whose
-output is read one of two ways, declared by the checkpoint's ``output_form``:
+with a learned :math:`(\gamma + (1-\gamma)\sigma(\beta x))x` activation.  The
+architecture is theirs; this implementation is written from the published
+description (Spurio Mancini et al. 2022, MNRAS 511, 1771) rather than derived
+from their source, and CosmoPower is neither imported nor vendored here.  That
+is what lets this package be BSD-3-Clause while theirs is GPL-3.
+
+The output is read one of two ways, declared by the checkpoint's
+``output_form``:
 
 ``direct``
     standardised :math:`\ln P` at every wavenumber.  This is what CosmoPower's

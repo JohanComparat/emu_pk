@@ -55,7 +55,6 @@ tutorial/01_spectrum
 tutorial/02_accuracy
 tutorial/03_derivatives
 tutorial/04_the_box
-tutorial/05_correction
 ```
 
 ```{toctree}
@@ -77,9 +76,11 @@ and the two works it is built on.
 
 The network architecture — four dense layers of 512 with the learned
 $[\gamma + (1-\gamma)\sigma(\beta x)]\,x$ activation — is theirs, and so is
-the direct-output choice for this quantity. `emu_pk` is an independent
-implementation of that architecture in JAX; it differs in the training box, the
-wavenumber reach and the training target.
+the direct-output choice for this quantity. `emu_pk` implements that
+architecture independently in JAX, written from the published description
+rather than derived from their source, and differs in the training box, the
+wavenumber reach and the training target. CosmoPower itself is not a
+dependency: `emu_pk` neither imports nor vendors it.
 
 > Spurio Mancini, A., Piras, D., Alsing, J., Joachimi, B. & Hobson, M. P.,
 > *CosmoPower: emulating cosmological power spectra for accelerated Bayesian
