@@ -3,18 +3,19 @@ name: publish
 # Trusted publishing (OIDC), not an API token: nothing secret is stored in the
 # repository and the workflow can only publish this project.
 #
-# The trigger is a *published GitHub release*, not a tag push.  Tags get moved
-# while a release is being prepared -- `v1.0.0` was repointed several times
-# before 1.0.0 went out -- and PyPI refuses to re-upload a version that already
-# exists, so a tag-push trigger turns every one of those into a failed run.  A
-# release is made once, which is the shape an upload wants.
+# Pushing a `v*` tag publishes.  There is no GitHub release step and nothing to
+# click -- the same shape as `emu_hmf`'s `release.yml`.
 #
-# Creating the release is therefore the step that publishes.  Pushing the tag
-# does nothing on its own.
+# `skip-existing` is what makes that safe.  A tag is a moving pointer while a
+# release is being prepared, and PyPI refuses to re-upload a version that
+# already exists; without it, every `git push --force origin v1.0.0` after the
+# first would be a red run.  With it, a repointed tag re-runs the checks and
+# leaves the uploaded files alone.  Publishing a *new* version means bumping
+# `version` in pyproject.toml and tagging that -- which the gate below enforces.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
 
 jobs:
   build:
@@ -68,3 +69,5 @@ jobs:
       - uses: actions/download-artifact@v4
         with: {name: dist, path: dist/}
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
