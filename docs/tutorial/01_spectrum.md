@@ -17,21 +17,26 @@ theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0])
 pk = emu.pk(k, z=0.0, params=theta)
 ```
 
-![The spectrum, and its response to neutrinos and dark energy](../_static/figures/01_spectrum.png)
+![The spectrum, and its residual against CLASS](../_static/figures/01_spectrum.png)
 
 *Left:* $P_m(k,z)$ at the Planck 2018 cosmology across the trained redshift
-range. *Right:* the fractional response to the three parameters CosmoPower's
-`mpk_lin` does not carry, plus a tilt for scale. All at $z=0$, relative to the
-Planck values.
+range. *Right:* the same five curves, as a fractional residual against a CLASS
+solve of the same cosmology. The shaded band is the range the accuracy claims
+are scored over, $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$.
 
-The neutrino panel is the familiar step: free streaming suppresses power below
-the free-streaming scale and saturates at high $k$. The textbook rule of thumb
-is $\Delta P/P \approx -8f_\nu$; at $\Sigma m_\nu = 0.4$ eV, where
-$f_\nu = \Omega_\nu/\Omega_m = 0.029$, that rule would give $-23\%$ and the
-emulator gives $-20\%$, which is the usual size of the rule's error. What
-matters downstream is that this is a *shape* change and not an amplitude one —
-which is exactly why an emulator that cannot represent it cannot be rescued by
-renormalising.
+Two things to read off it. The residual is well under a tenth of a percent
+across six decades of $k$ and the whole redshift range, and its structure is
+concentrated at the acoustic scale, $k \approx 0.1$–$0.5\
+h\,\mathrm{Mpc}^{-1}$, where the spectrum has the most features per decade and
+where any emulator works hardest.
+
+```{note}
+This is the **fiducial** cosmology, which sits near the middle of the training
+box where the emulator is at its best. It is not a held-out average, and the
+residual here is smaller than the accuracy you should assume. For that, see
+{doc}`02_accuracy`, which scores a held-out design and reports a median of
+0.111 %.
+```
 
 ## Two spectra
 

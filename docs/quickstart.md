@@ -20,7 +20,7 @@ theta = np.array([
     0.0,       # wa
 ])
 
-pk = emu.pk(k, z=0.0, params=theta)              # (Mpc/h)^3
+pk_m = emu.pk(k, z=0.0, params=theta)            # P_m(k) in (Mpc/h)^3
 ```
 
 The parameter order is `emu_pk.box.PARAMS`, and it is read from there by
@@ -29,8 +29,11 @@ everything downstream rather than repeated.
 ## Several redshifts at once
 
 ```python
-z = np.array([0.0, 0.5, 1.0, 2.0])
-pk = emu.pk(k, z, theta)          # shape (4, 400)
+z_nodes = np.array([0.0, 0.5, 1.0, 2.0])
+pk_m = emu.pk(k, z=z_nodes, params=theta)
+
+pk_m.shape        # (4, 400) == (len(z_nodes), len(k)) -- one row per redshift
+pk_m[2]           # P_m(k) at z = 1.0
 ```
 
 ## The cold field: `pk` versus `pk_cb`
@@ -96,21 +99,34 @@ This is the point of the package. `emu.pk` is a JAX function, so:
 import jax
 import jax.numpy as jnp
 
-def ln_pk(t):
-    return jnp.log(emu.pk(k, 0.0, t))
+from emu_pk import box
 
-jac = jax.jacfwd(ln_pk)(jnp.asarray(theta))       # (400, 8)
+# jax.jacfwd differentiates with respect to the FIRST argument, so the thing
+# you want derivatives of has to be that argument.  Here it is the parameter
+# vector; k and the redshift are held fixed inside.
+def ln_pk_m(params):
+    return jnp.log(emu.pk(k, z=0.0, params=params))
+
+dlnP_dtheta = jax.jacfwd(ln_pk_m)(jnp.asarray(theta))
+
+dlnP_dtheta.shape                                # (400, 8) == (len(k), len(PARAMS))
+dlnP_dtheta[:, box.PARAMS.index("omega_cdm")]    # d ln P / d omega_cdm, across k
 ```
 
-`jac[:, i]` is $\partial\ln P/\partial\theta_i$ across $k$. For `ln10A_s` it is
-exactly 1 and for `n_s` exactly $\ln(kh/k_*)$, because those two are not
-learned — see {doc}`design_notes`.
+Index the columns through `box.PARAMS` rather than by number: the order is
+defined once, there, and reading it back is what keeps a column from silently
+meaning a different parameter. For `ln10A_s` the column is exactly 1 and for
+`n_s` exactly $\ln(kh/k_*)$, because those two are not learned — see
+{doc}`design_notes`.
 
-You can differentiate with respect to redshift the same way, which is what
-$f\sigma_8$ is built from:
+Redshift works the same way. Make the redshift the first argument, and hold the
+cosmology fixed inside:
 
 ```python
-dlnP_dz = jax.jacfwd(lambda s: jnp.log(emu.pk(k, s, theta)))(0.5)
+def ln_pk_m_at(redshift):
+    return jnp.log(emu.pk(k, z=redshift, params=theta))
+
+dlnP_dz = jax.jacfwd(ln_pk_m_at)(0.5)            # (400,), evaluated at z = 0.5
 ```
 
 ## Staying inside the box
@@ -120,9 +136,12 @@ returning a number that is finite, smooth and unwarranted. `PkEmulator` checks
 on every call where the values are concrete:
 
 ```python
-bad = theta.copy()
-bad[6] = -0.2                                     # w0, outside [-1.5, -0.5]
-emu.pk(k, 0.0, bad)
+from emu_pk import box
+
+theta_outside = theta.copy()
+theta_outside[box.PARAMS.index("w0")] = -0.2      # w0 bound is [-1.5, -0.5]
+
+emu.pk(k, z=0.0, params=theta_outside)
 # ValueError: outside the emulator training box, where the network
 # extrapolates with no accuracy guarantee: w0 = -0.2 not in [-1.5, -0.5].
 ```

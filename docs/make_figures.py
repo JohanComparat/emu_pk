@@ -55,30 +55,39 @@ def _save(fig, name):
 
 # ---------------------------------------------------------------- core only
 def fig_spectrum(plt, emu):
-    """P(k, z) for a few cosmologies: what the package does."""
-    k = np.logspace(-4, np.log10(grid.K_MAX), 400)
-    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.4))
+    """P(k, z), and the same curves' residual against CLASS.
 
-    for z in (0.0, 0.5, 1.0, 2.0, 5.0):
-        a.loglog(k, emu.pk(k, z, PLANCK), lw=1.4, label=f"$z = {z:g}$")
+    Needs `[gen]`: the right panel is the emulator against the solver it is
+    distilled from, on the same lines as the left, which is the comparison a
+    reader most wants next to the spectrum itself.
+    """
+    from emu_pk import validate as V
+
+    zs = (0.0, 0.5, 1.0, 2.0, 5.0)
+    k = np.logspace(-4, np.log10(grid.K_MAX), 400)
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9.4, 3.6))
+
+    # One CLASS solve returns every redshift.
+    ref = V._class_pk(PLANCK, np.array(zs), k)[0]
+    got = np.asarray(emu.pk(k, np.array(zs), PLANCK))
+
+    for i, z in enumerate(zs):
+        a.loglog(k, got[i], lw=1.4, label=f"$z = {z:g}$")
     a.set(xlabel=r"$k\ [h\,\mathrm{Mpc}^{-1}]$",
           ylabel=r"$P_m(k,z)\ [(h^{-1}\mathrm{Mpc})^3]$",
           title="Planck 2018, across the trained range")
     a.legend(frameon=False, fontsize=8)
 
-    ref = np.asarray(emu.pk(k, 0.0, PLANCK))
-    for lbl, j, v in ((r"$\Sigma m_\nu = 0.4$ eV", 5, 0.4),
-                      (r"$w_0 = -0.7$", 6, -0.7),
-                      (r"$w_a = +0.5$", 7, 0.5),
-                      (r"$n_s = 1.02$", 3, 1.02)):
-        t = PLANCK.copy()
-        t[j] = v
-        b.semilogx(k, np.asarray(emu.pk(k, 0.0, t)) / ref - 1.0, lw=1.4, label=lbl)
+    for i, z in enumerate(zs):
+        b.semilogx(k, 100.0 * (got[i] / ref[i] - 1.0), lw=1.2,
+                   label=f"$z = {z:g}$")
     b.axhline(0, color="k", lw=0.7)
+    b.axvspan(V.K_TRUSTED[0], V.K_TRUSTED[1], color="0.85", alpha=0.45,
+              zorder=0, label="scored range")
     b.set(xlabel=r"$k\ [h\,\mathrm{Mpc}^{-1}]$",
-          ylabel=r"$P/P_{\rm Planck} - 1$",
-          title="response to parameters CosmoPower lacks")
-    b.legend(frameon=False, fontsize=8)
+          ylabel=r"$P_{\rm emu}/P_{\rm CLASS} - 1$ [%]",
+          title="residual against CLASS, same curves")
+    b.legend(frameon=False, fontsize=7, ncol=2)
     return _save(fig, "01_spectrum")
 
 
@@ -246,7 +255,6 @@ def main(argv=None):
     plt = _style()
     emu = PkEmulator(check_box=False)
     print(f"emu_pk {emu_pk.__version__}")
-    fig_spectrum(plt, emu)
     fig_validation(plt)
     fig_derivatives(plt, emu)
     fig_box(plt)
@@ -255,12 +263,14 @@ def main(argv=None):
     except Exception as e:                       # the table is optional data
         print(f"  skipped 05_correction: {type(e).__name__}: {e}")
     if a.fast:
-        print("  --fast: skipping the CLASS comparison")
+        print("  --fast: skipping the figures that need CLASS "
+              "(01_spectrum, 02_residuals)")
         return
     try:
+        fig_spectrum(plt, emu)
         fig_against_class(plt, emu)
     except ImportError:
-        print("  skipped 02_residuals: needs `pip install 'emu_pk[gen]'`")
+        print("  skipped the CLASS figures: needs `pip install 'emu_pk[gen]'`")
 
 
 if __name__ == "__main__":

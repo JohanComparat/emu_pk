@@ -35,7 +35,7 @@ ruler.  Without it a run can spend a week chasing its own finite
 difference.
 
 **The amplitude, which the shape metric removes.**  Scoring renormalises at
-:data:`K_NORM`, so a spectrum right in shape and wrong in amplitude scores
+``K_NORM``, so a spectrum right in shape and wrong in amplitude scores
 zero.  The discarded factor is reported as ``amplitude`` beside each shape
 summary, which is what makes the shape number readable as an accuracy claim
 about :math:`P(k)` rather than about its shape alone.

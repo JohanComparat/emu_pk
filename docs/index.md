@@ -4,9 +4,12 @@ Differentiable emulation of the **linear matter power spectrum**, over an
 eight-parameter cosmology that includes the summed neutrino mass and CPL dark
 energy, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-It reproduces CLASS's shape to a **median 0.111 %**, and because it is written
-in JAX its derivatives with respect to cosmological parameters come from
-automatic differentiation rather than finite differences. 
+It reproduces CLASS's shape to a **median 0.111 %** and its amplitude to
+**0.012 %**, so the total error on $P(k)$ itself is **0.112 %** — the shape
+metric renormalises, but there is almost nothing there to renormalise away.
+Because it is written in JAX, its derivatives with respect to cosmological
+parameters come from automatic differentiation rather than finite differences.
+
 
 ```python
 import numpy as np
