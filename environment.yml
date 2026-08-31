@@ -1,0 +1,54 @@
+# Minimal conda/mamba environment for emu_pk.
+#
+#   mamba env create -f environment.yml     # or: conda env create -f environment.yml
+#   mamba activate emu_pk
+#   pip install -e .
+#
+# Deliberately minimal: this is what `import emu_pk` needs and nothing more.
+# Everything that *builds* a table or *trains* a network is commented out
+# below, because a forecast that only evaluates a spectrum should not have to
+# install a Boltzmann solver or a deep-learning stack. `tests/` asserts that
+# the import works in exactly this environment.
+name: emu_pk
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  # 3.11 is the floor in pyproject.toml; the upper bound is where CI stops
+  # testing (3.11, 3.12, 3.13) rather than a known incompatibility.
+  - python >=3.11,<3.14
+  - pip
+
+  # --- the whole runtime -----------------------------------------------------
+  - numpy
+  # jax and jaxlib are separate: jax is the pure-python frontend, jaxlib the
+  # compiled backend, and conda-forge ships CPU and CUDA builds of jaxlib. The
+  # CPU build is pinned here because it is the minimal one -- 64 MB against
+  # 199 MB -- and because leaving it free makes the environment depend on
+  # whether the machine that solved it happened to have a CUDA driver. For a
+  # GPU, swap the pin for `- jaxlib=*=*cuda*`.
+  - jax
+  - jaxlib=*=cpu*
+
+  # --- optional: uncomment the block you need --------------------------------
+  #
+  # [dev] run the test suite
+  # - pytest
+  # - pytest-cov
+  #
+  # [train] fit a network
+  # - optax
+  #
+  # [docs] build the documentation
+  # - sphinx
+  # - myst-parser
+  # - furo
+  # - sphinx-copybutton
+  # - matplotlib
+  #
+  # [gen] generate training data, and validate against CLASS.
+  #       `classy` is NOT on conda-forge, so it comes from pip, and it compiles
+  #       CLASS from source -- you need a C compiler. Add `compilers` from
+  #       conda-forge if your system has none.
+  # - pip:
+  #     - classy

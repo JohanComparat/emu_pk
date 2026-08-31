@@ -1,0 +1,91 @@
+cff-version: 1.2.0
+title: "emu_pk: a differentiable linear matter power spectrum emulator"
+message: "If you use this software, please cite it and the works it builds on."
+type: software
+authors:
+  - family-names: Comparat
+    given-names: Johan
+    email: jcomparat@lpsc.in2p3.fr
+    orcid: "https://orcid.org/0000-0001-9200-1497"
+repository-code: "https://github.com/JohanComparat/emu_pk"
+url: "https://emu-pk.readthedocs.io"
+license: BSD-3-Clause
+version: 1.0.0
+date-released: "2026-08-31"
+abstract: >-
+  emu_pk emulates the linear matter power spectrum over an eight-parameter
+  cosmology, including the summed neutrino mass and CPL dark energy, to
+  k = 200 h/Mpc and z = 5. It is written in JAX and is differentiable, so
+  derivatives with respect to cosmological parameters come from automatic
+  differentiation rather than finite differences. Two of those derivatives are
+  exact by construction, because the primordial power law is divided out of the
+  training target and restored analytically.
+references:
+  - type: article
+    title: >-
+      CosmoPower: emulating cosmological power spectra for accelerated Bayesian
+      inference from next-generation surveys
+    authors:
+      - family-names: "Spurio Mancini"
+        given-names: A.
+      - family-names: Piras
+        given-names: D.
+      - family-names: Alsing
+        given-names: J.
+      - family-names: Joachimi
+        given-names: B.
+      - family-names: Hobson
+        given-names: M. P.
+    journal: "Monthly Notices of the Royal Astronomical Society"
+    volume: 511
+    issue: 2
+    start: 1771
+    end: 1788
+    year: 2022
+    doi: 10.1093/mnras/stac064
+    notes: >-
+      The network architecture and the learned activation are theirs; emu_pk
+      reproduces both and differs in the training box, the wavenumber reach and
+      the training target.
+  - type: article
+    title: >-
+      The Cosmic Linear Anisotropy Solving System (CLASS). Part II:
+      Approximation schemes
+    authors:
+      - family-names: Blas
+        given-names: Diego
+      - family-names: Lesgourgues
+        given-names: Julien
+      - family-names: Tram
+        given-names: Thomas
+    journal: "Journal of Cosmology and Astroparticle Physics"
+    volume: 2011
+    issue: 07
+    start: 034
+    year: 2011
+    doi: 10.1088/1475-7516/2011/07/034
+    notes: "Every training spectrum and every validation reference is a CLASS solve."
+  - type: article
+    title: >-
+      CSST cosmological emulator I: Matter power spectrum emulation with one
+      percent accuracy to k = 10 h/Mpc
+    authors:
+      - family-names: Chen
+        given-names: Zhao
+      - family-names: Yu
+        given-names: Yu
+      - family-names: Han
+        given-names: Jiaxin
+      - family-names: Jing
+        given-names: Yipeng
+    journal: "Science China Physics, Mechanics, and Astronomy"
+    volume: 68
+    issue: 8
+    start: 289512
+    year: 2025
+    doi: 10.1007/s11433-025-2671-0
+    url: "https://arxiv.org/abs/2502.11160"
+    notes: >-
+      The CSST matter power spectrum emulator, cited as the closest comparable
+      work rather than a dependency: emu_pk emulates the *linear* spectrum and
+      does not use CEmulator.

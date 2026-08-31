@@ -1,0 +1,8 @@
+# Documentation build.  Deliberately no `classy` and no `optax`: ReadTheDocs
+# cannot compile a Boltzmann solver, and `conf.py` mocks both for autodoc.
+sphinx>=7
+myst-parser>=2
+furo
+sphinx-copybutton
+# The package itself, core install only, so autodoc can import it.
+-e ..

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emu_pk"
+version = "1.0.0"
+description = "Differentiable linear-P(k) emulation and the CLASS-distilled correction that carries massive neutrinos and CPL dark energy"
+authors = [{name = "Johan Comparat", email = "jcomparat@lpsc.in2p3.fr"}]
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+keywords = ["cosmology", "power spectrum", "emulator", "jax", "differentiable"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    # No "License ::" classifier: PEP 639 supersedes it with the `license`
+    # expression above, and setuptools now refuses to build with both.
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.11"
+# The core install is what `ggah_mod` depends on, and it is deliberately two
+# packages.  Everything that *builds* a table or *trains* a network is an extra,
+# so importing the model at inference time never drags in a Boltzmann solver or
+# a deep-learning stack.  That split is the reason this repository exists
+# separately from `ggah_mod`.
+dependencies = [
+    "numpy",
+    "jax",
+    "jaxlib",
+]
+
+[project.optional-dependencies]
+# Generating training data and rebuilding the correction table: needs CLASS.
+gen   = ["classy"]
+# Training the network.
+train = ["optax"]
+dev   = ["pytest", "pytest-cov"]
+# Building the documentation.  Deliberately free of `classy`: the docs must
+# build on ReadTheDocs, which cannot compile a Boltzmann solver, so every
+# figure is a committed artefact made by `docs/make_figures.py`.
+docs  = ["sphinx", "myst-parser", "furo", "sphinx-copybutton", "matplotlib"]
+
+[project.urls]
+Homepage = "https://github.com/JohanComparat/emu_pk"
+Documentation = "https://emu-pk.readthedocs.io"
+Repository = "https://github.com/JohanComparat/emu_pk"
+Issues = "https://github.com/JohanComparat/emu_pk/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["emu_pk*"]
+
+# The shipped tables and weights are part of the package, not build artefacts:
+# without this glob a wheel installs the code and none of its data, and
+# `emu_pk.ratio.load()` raises on first use.
+[tool.setuptools.package-data]
+# `*.json` as well as `*.npz`: `validation.json` is the record of what the
+# shipped weights score, the README quotes it, and a test asserts it describes
+# the weights beside it -- so a wheel without it installs a package whose own
+# test suite fails.  Caught by building the wheel and looking, which is now a
+# CI step rather than a hope.
+"emu_pk.data" = ["*.npz", "*.json"]
+# PEP 561: the package ships inline type information.
+"emu_pk" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: runs CLASS or trains a network",
+    "x64: needs JAX_ENABLE_X64=1 (gradient-vs-finite-difference checks)",
+]

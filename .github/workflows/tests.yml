@@ -1,0 +1,99 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    # The install a user actually gets: numpy + jax and nothing else.  If this
+    # ever needs `classy` or `optax` the extras split has broken, which is the
+    # property that lets another package depend on this one without inheriting
+    # a Boltzmann solver.
+    name: core install, py${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+      - name: The import must not pull in the extras
+        run: |
+          python - <<'PY'
+          import sys
+          import emu_pk
+          from emu_pk import PkEmulator
+          bad = [m for m in ("classy", "optax") if m in sys.modules]
+          assert not bad, f"core import pulled in {bad}"
+          print("emu_pk", emu_pk.__version__, "-> clean core import")
+          PY
+      - name: Test
+        run: pytest tests/ -q --cov=emu_pk --cov-report=term-missing
+      - name: The wheel must contain its data
+        run: |
+          pip install build
+          python -m build --wheel --outdir dist/
+          python - <<'PY'
+          import glob, zipfile
+          w = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(w).namelist()
+          need = ["emu_pk/data/emu_pk_mlp.npz", "emu_pk/data/class_pk_ratio.npz",
+                  "emu_pk/data/validation.json", "emu_pk/py.typed"]
+          missing = [n for n in need if n not in names]
+          assert not missing, f"{w} is missing {missing}"
+          print(f"{w}: data present")
+          PY
+
+  versions-agree:
+    # Three files carry the version and they must not drift.
+    name: version agreement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: |
+          python - <<'PY'
+          import pathlib, re
+          pj = re.search(r'^version = "([^"]+)"',
+                         pathlib.Path("pyproject.toml").read_text(), re.M).group(1)
+          init = re.search(r'__version__ = "([^"]+)"',
+                           pathlib.Path("emu_pk/__init__.py").read_text()).group(1)
+          cff = re.search(r'^version: (\S+)',
+                          pathlib.Path("CITATION.cff").read_text(), re.M).group(1)
+          assert pj == init == cff, f"pyproject={pj} __init__={init} CITATION={cff}"
+          print("version", pj)
+          PY
+
+  docs:
+    # Warnings are broken cross-references; the published site must have none.
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[docs]'
+      - run: python -m sphinx -b html docs docs/_build/html -W
+
+  shell:
+    # `bash -n a.sh b.sh` parses only a.sh; one file per invocation.
+    name: cluster scripts parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          for f in oarsub/*.sh; do bash -n "$f" || exit 1; done
+          echo "all $(ls oarsub/*.sh | wc -l) scripts parse"

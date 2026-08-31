@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Coverage databases embed absolute paths from the machine that ran them.
+.coverage
+.coverage.*
+htmlcov/
+
+# Site configuration: allocation name, cluster login, remote paths.  Never
+# committed -- see oarsub/site.sh.example for the template.
+oarsub/site.sh
+
+# Generated products.  Shards are tens of GB and live on /bettik; the assembled
+# table and the trained weights are committed deliberately, when they land.
+shards*/
+work/
+oarsub/logs/*
+!oarsub/logs/.gitkeep
+training_set.npz
+plan_prompt.txt
+PLAN_PublicRelease.md
+docs/_build/
+dist/

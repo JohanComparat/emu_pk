@@ -1,0 +1,24 @@
+# ReadTheDocs build.
+#
+# The core install only: `classy` needs a C compiler and minutes, `optax` is
+# not needed to document anything, and `docs/conf.py` mocks both for autodoc.
+# Every tutorial figure is a committed artefact from `docs/make_figures.py`,
+# because nothing here can run CLASS.
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+sphinx:
+  configuration: docs/conf.py
+  # Warnings are broken cross-references; do not publish them.
+  fail_on_warning: true
+
+python:
+  install:
+    - requirements: docs/requirements.txt
+
+formats:
+  - pdf

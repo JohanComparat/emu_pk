@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Site configuration -- copy to `oarsub/site.sh` and fill in.
+#
+#   cp oarsub/site.sh.example oarsub/site.sh
+#   $EDITOR oarsub/site.sh
+#
+# `oarsub/site.sh` is git-ignored.  Nothing that identifies an account, an
+# allocation or a host belongs anywhere else in this repository: every script
+# here reads these variables and none of them carries a default that would work
+# only for one person.
+#
+# Sourced by `_campaign_env.sh`, which every other script sources in turn.  Any
+# of these may equally be set in the environment instead; the file simply saves
+# retyping them.
+# =============================================================================
+
+# OAR allocation charged for the job -- `oarsub --project`.  Required: the
+# scripts refuse to submit without it rather than guessing.
+export EMU_PK_PROJECT="your-oar-project"
+
+# Login used by `rsync_to_dahu.sh` and `pull_results.sh`, which run on your own
+# machine and use your existing ssh access.  `user@host`, or a `~/.ssh/config`
+# Host alias, which is the better answer: then no login name appears here
+# either.  Required only by those two scripts.
+export EMU_PK_SSH_HOST="dahu"
+
+# Conda/mamba environment name.  Defaults to `hod_mod` on Dahu and `emu_pk` on
+# Bigfoot; set it if yours is named otherwise.
+# export EMU_PK_ENV="emu_pk"
+
+# Where shards and the training set live on the cluster.  On the cluster this
+# defaults to /bettik/PROJECTS/$EMU_PK_PROJECT/$USER/emu_pk, the GRICAD layout.
+# `pull_results.sh` runs on your own machine and *requires* it, because the
+# local $USER is not necessarily your cluster login -- spell the cluster one
+# out here.
+# export EMU_PK_WORK="/bettik/PROJECTS/your-oar-project/your-cluster-login/emu_pk"
+
+# Path to the checkout on the cluster, relative to the remote login home.
+# Used by `rsync_to_dahu.sh` only.
+# export EMU_PK_REPO_REMOTE="software/emu_pk"
