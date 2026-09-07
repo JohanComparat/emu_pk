@@ -17,7 +17,7 @@
 #
 # The training families read three settings from the *submitting* shell -- which
 # is a login node, so this is safe where passing them to the node would not be;
-# `run_train.sh` receives them as arguments:
+# `run_train.sh` receives them as arguments (epochs, tag, arm, then flags):
 #
 #   EPOCHS       epochs to train                              (default 240)
 #   TAG          names the weights, so ablation arms coexist   (default base)
@@ -64,7 +64,11 @@ TRAIN_FLAGS="${TRAIN_FLAGS:-}"
 # Quoted as one word so `run_train.sh` sees "240 base --no-reduced ..." and
 # splits it itself; TRAIN_FLAGS is deliberately unquoted inside so multi-flag
 # strings expand.
-TRAIN_ARGS="${EPOCHS} ${TAG} ${TRAIN_FLAGS}"
+# The arm sits between the tag and the flags because `run_train.sh` reads
+# positionally and then shifts.  Leaving it out did not fail -- it defaulted to
+# `c`, so `EMU_ARM=f ... train` assembled the *curved* shards into the curved
+# dataset and wrote the curved weights, under a submission that said `f`.
+TRAIN_ARGS="${EPOCHS} ${TAG} ${ARM} ${TRAIN_FLAGS}"
 
 # The generator's shard count follows from the design, so it is computed rather
 # than written down twice.  A submitter and an audit that disagree about how

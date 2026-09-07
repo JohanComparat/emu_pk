@@ -157,3 +157,67 @@ class TestTheDesignReachesTheWorker:
             'echo "$EMU_N_TOTAL"\n')
         r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
         assert r.stdout.strip() == "150000"
+
+
+class TestEveryJobParameterTravelsAsAnArgument:
+    r"""OAR does not propagate the submitting shell's environment to the node.
+
+    This has now bitten three times in one campaign, each silently:
+
+    * the **mode** -- documented at the top of `run_generate.sh`, and the reason
+      the other two were recognised at all;
+    * the **design** (`EMU_N_TOTAL`, `EMU_PER_SHARD`) -- the submitter sized the
+      array from 16000 and the workers generated from 150000;
+    * the **arm** for training -- `EMU_ARM=f ... train` assembled the *curved*
+      shards and wrote the *curved* weights, under a submission that printed
+      `f`.
+
+    Every one of them defaulted to something plausible instead of failing, which
+    is why none was caught by running the thing.  So the rule is checked
+    structurally: whatever a job needs in order to know *which* work it is
+    doing has to appear inside the `-S` string.
+    """
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_every_generate_submission_names_arm_and_design(self):
+        for line in (OARSUB / "submit_campaign.sh").read_text().splitlines():
+            if "run_generate.sh emu" not in line:
+                continue
+            for var in ("${ARM}", "${EMU_N_TOTAL}", "${EMU_PER_SHARD}"):
+                assert var in line, (
+                    f"{var} is missing from a submission that would then use "
+                    f"the node's default: {line.strip()}")
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_the_training_submission_names_the_arm(self):
+        src = (OARSUB / "submit_campaign.sh").read_text()
+        args = [l for l in src.splitlines() if l.startswith("TRAIN_ARGS=")]
+        assert args, "TRAIN_ARGS is not defined"
+        assert "${ARM}" in args[0], (
+            f"the arm is missing, so a training job silently trains arm 'c': "
+            f"{args[0].strip()}")
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_the_arm_lands_in_the_position_run_train_reads(self):
+        """Positional, and `run_train.sh` shifts past it to reach the flags."""
+        script = (
+            'EPOCHS=240; TAG=t; ARM=f; TRAIN_FLAGS="--no-schedule --no-reduced"\n'
+            'TRAIN_ARGS="${EPOCHS} ${TAG} ${ARM} ${TRAIN_FLAGS}"\n'
+            'set -- $TRAIN_ARGS\n'
+            'a="$1|$2|$3"\n'
+            'if [ $# -gt 3 ]; then shift 3; else set --; fi\n'
+            'echo "$a|$*"\n')
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        assert r.stdout.strip() == "240|t|f|--no-schedule --no-reduced"
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_no_job_script_reads_a_campaign_variable_it_was_not_given(self):
+        """`run_generate.sh` must prefer its arguments over the defaults.
+
+        The defaults exist for a login-node run and must stay; what must not
+        happen is a job silently using them when the submitter named something
+        else.
+        """
+        src = (OARSUB / "run_generate.sh").read_text()
+        assert 'EMU_N_TOTAL="${3:-${EMU_N_TOTAL}}"' in src
+        assert 'EMU_PER_SHARD="${4:-${EMU_PER_SHARD}}"' in src
