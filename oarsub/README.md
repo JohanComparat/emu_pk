@@ -104,6 +104,33 @@ fix is always a longer element, since a besteffort kill costs a *chunk*, not an
 element. At `EMU_N_TOTAL=300000` that means `EMU_PER_SHARD=3200`, which is 5.8 h
 of solves against a 6 h walltime, so raise the walltime too.
 
+### The rate depends on which node you land on
+
+Measured on Dahu, same code, same design, same day:
+
+| node | s/solve | how |
+|---|---|---|
+| `dahu-fat4` | **7.44** | `calibrate`, 8 solves of a 64-point design |
+| `dahu127` | **12.2** | `emu --devel`, 100 solves of the production design |
+
+A factor 1.6, and OAR says why on every submission — *"resources may be
+heterogeneous"*. `calibrate` does not pin `/cpumodel=1/`, so its number is
+whichever node it got. **Size on the slow figure**, or the array dies on
+walltime at 90 %:
+
+| design | per element | at 12.2 s/solve | walltime | |
+|---|---|---|---|---|
+| 16 000 | 1 000 | 3.4 h | 6 h | fine |
+| 150 000 | 1 600 | **5.4 h** | 6 h | **tight** |
+| 150 000 | 3 200 | **10.8 h** | 12 h | **tight** |
+
+The shipped 1.0.0 campaign was sized at ~6.5 s/solve, which fits 1 600 solves
+into 6 h with room. At 12.2 it does not. Before submitting production, either
+raise the `emu` walltime to 12 h at `EMU_PER_SHARD=1600`, or pin the CPU model
+so the rate is the one you measured. A besteffort kill is cheap — chunks skip —
+but a *walltime* kill on the last chunk of every element wastes the tail of
+each one.
+
 ### Do not size a run from a laptop
 
 Measured on an i9-11900H (8 physical cores, 16 threads): 2.75 s/solve solo on a
