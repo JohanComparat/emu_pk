@@ -42,6 +42,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from . import box, cosmo
+from .model import ANALYTIC as model_ANALYTIC
 from .model import Z_VARS as model_Z_VARS
 from .model import activation, primordial_ln_pk
 
@@ -55,7 +56,12 @@ COLS = list(box.PARAMS) + ["z"]
 
 #: Inputs the reduced target does not need, because it does not depend on them.
 #: See :func:`emu_pk.model.primordial_ln_pk`.
-ANALYTIC = ("ln10A_s", "n_s")
+#:
+#: Defined in :mod:`emu_pk.model` and re-exported here.  The *inference* path is
+#: what has to know which absent inputs are legitimate -- it refuses a
+#: checkpoint that fails to feed a sampled parameter -- and the trainer must
+#: drop exactly the same ones, or the two disagree about what the file means.
+ANALYTIC = model_ANALYTIC
 
 #: Staged learning schedule, ``(lr, patience, max_epochs)``.
 #:

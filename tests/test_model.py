@@ -44,8 +44,20 @@ def toy(tmp_path):
     return PkEmulator(p, check_box=False)
 
 
-def _theta():
-    return np.array([0.0224, 0.12, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0])
+#: A fiducial value for every axis the box has ever carried.  Built by name so
+#: that adding a parameter to `box.PARAMS` does not require editing eight
+#: array literals scattered through this file -- and, more to the point, so
+#: that a *missing* entry fails loudly here rather than producing a `theta`
+#: that is silently one short.  A short `theta` used to return a spectrum.
+_FID = {"omega_b": 0.0224, "omega_cdm": 0.12, "h": 0.6736, "n_s": 0.9649,
+        "ln10A_s": 3.044, "sum_mnu": 0.06, "w0": -1.0, "wa": 0.0,
+        "Omega_k": 0.0}
+
+
+def _theta(**over):
+    missing = [p for p in box.PARAMS if p not in _FID]
+    assert not missing, f"_FID has no fiducial for {missing}; add one."
+    return np.array([(_FID | over)[p] for p in box.PARAMS])
 
 
 def test_shapes_and_redshift_vmap(toy):
@@ -1012,3 +1024,125 @@ class TestTheColdAndTotalSpectraAreConsistent:
         r = (np.asarray(emu.pk_cb(self.K, 0.0, th))
              / np.asarray(emu.pk(self.K, 0.0, th)))
         assert np.abs(r - 1.0).max() < 5e-3
+
+
+class TestAShortParameterVectorIsRefused:
+    r"""JAX clamps an out-of-range gather.  Nothing else here would notice.
+
+    ``_forward`` reads the inputs the checkpoint asked for with
+    ``p[self._in_idx]``.  If ``p`` is shorter than the box, that gather does not
+    raise -- JAX silently returns the last valid element for every out-of-range
+    index -- so the missing parameter takes some other parameter's value and the
+    network returns a finite, smooth, wrong spectrum.
+
+    ``_validate`` cannot catch it either: it is a ``zip`` over
+    ``box.PARAMS`` and ``params``, and ``zip`` stops at the shorter one.
+
+    Measured against the shipped weights before the guard existed: a seven-long
+    vector where eight were wanted moved ``P(0.05)`` by 10.3 %, with nothing
+    raised.  The number is why this is a test and not a docstring.
+    """
+
+    def test_jax_really_does_clamp_rather_than_raise(self):
+        """The premise, pinned.  If JAX ever starts raising here, the guard is
+        still right but this class's reason for existing has changed."""
+        p = jnp.arange(8.0)
+        assert list(p[np.array([6, 7, 8, 99])]) == [6.0, 7.0, 7.0, 7.0]
+
+    @pytest.mark.parametrize("n", [1, len(box.PARAMS) - 1, len(box.PARAMS) + 1])
+    def test_a_wrong_length_theta_raises(self, toy, n):
+        with pytest.raises(ValueError, match="entries; this box has"):
+            toy.pk(np.logspace(-3, 0, 5), 0.0, np.zeros(n))
+
+    def test_the_message_names_the_box(self, toy):
+        with pytest.raises(ValueError) as e:
+            toy.pk(np.logspace(-3, 0, 5), 0.0, np.zeros(2))
+        for p in box.PARAMS:
+            assert p in str(e.value)
+
+    def test_the_right_length_still_works(self, toy):
+        assert np.isfinite(np.asarray(toy.pk(np.logspace(-3, 0, 5), 0.0,
+                                             _theta()))).all()
+
+
+class TestACheckpointMustFeedEverySampledParameter:
+    r"""The mirror of the "unknown input" check, and the one that bites.
+
+    ``__init__`` already refuses a checkpoint naming an input this package does
+    not know.  The dangerous direction is the other one: a checkpoint written
+    against a *narrower* box names nothing unknown, so it loads, ``_in_idx``
+    comes out bit-identical, and it predicts a spectrum that simply ignores
+    whatever axis has been added since.
+
+    That is the failure this package keeps designing against -- finite, smooth
+    and unwarranted -- and only this check sees it.  ``ln10A_s`` and ``n_s`` are
+    exempt under the reduced target because they are restored in closed form and
+    are deliberately not fed to any reduced network.
+    """
+
+    def _narrow(self, tmp_path, drop, reduced):
+        """A checkpoint shaped like the toy but blind to ``drop``."""
+        keep = [p for p in box.PARAMS if p != drop] + ["z"]
+        rng = np.random.default_rng(0)
+        n_in, n_comp, n_k = len(keep), 4, 64
+        lnk = np.log(np.logspace(np.log10(grid.K_MIN), np.log10(grid.K_MAX), n_k))
+        d = {"W0": rng.normal(size=(n_in, 8)) * 0.1, "b0": np.zeros(8),
+             "beta0": np.ones(8), "gamma0": np.zeros(8),
+             "W1": rng.normal(size=(8, 2 * n_comp)) * 0.1,
+             "b1": np.zeros(2 * n_comp),
+             "n_layers": np.int64(2), "epoch": np.int64(1),
+             "val_loss": np.float64(0.0), "x_mean": np.zeros(n_in),
+             "x_std": np.ones(n_in), "lnk": lnk,
+             "params_order": np.array(keep, dtype="U16"),
+             "target_form": "reduced" if reduced else "raw"}
+        for tag in ("m", "cb"):
+            d[f"pca_{tag}"] = rng.normal(size=(n_comp, n_k)) * 0.01
+            d[f"pca_mean_{tag}"] = 10.0 - 2.0 * (lnk - lnk[0])
+            d[f"coeff_mean_{tag}"] = np.zeros(n_comp)
+            d[f"coeff_std_{tag}"] = np.ones(n_comp)
+        p = tmp_path / f"narrow_{drop}.npz"
+        np.savez(p, **d)
+        return p
+
+    def test_a_checkpoint_blind_to_a_sampled_parameter_is_refused(self, tmp_path):
+        drop = box.PARAMS[-1]
+        p = self._narrow(tmp_path, drop, reduced=True)
+        with pytest.raises(ValueError, match="no input for"):
+            PkEmulator(p, check_box=False)
+
+    def test_the_message_names_the_parameter(self, tmp_path):
+        drop = box.PARAMS[-1]
+        p = self._narrow(tmp_path, drop, reduced=True)
+        with pytest.raises(ValueError) as e:
+            PkEmulator(p, check_box=False)
+        assert drop in str(e.value)
+
+    def test_the_escape_hatch_loads_it(self, tmp_path):
+        """`allow_narrow_box` exists so a pilot arm fitted without an axis can
+        still be scored.  It is off by default, which is the point."""
+        drop = box.PARAMS[-1]
+        p = self._narrow(tmp_path, drop, reduced=True)
+        emu = PkEmulator(p, check_box=False, allow_narrow_box=True)
+        assert emu._narrow == (drop,)
+        assert np.isfinite(np.asarray(
+            emu.pk(np.logspace(-3, 0, 5), 0.0, _theta()))).all()
+
+    @pytest.mark.parametrize("drop", M.ANALYTIC)
+    def test_the_analytic_inputs_may_be_absent_under_the_reduced_target(
+            self, tmp_path, drop):
+        """`ln10A_s` and `n_s` are restored in closed form, so a reduced
+        checkpoint is *supposed* not to feed them.  Refusing those would refuse
+        every model this package ships."""
+        p = self._narrow(tmp_path, drop, reduced=True)
+        assert PkEmulator(p, check_box=False)._narrow == ()
+
+    @pytest.mark.parametrize("drop", M.ANALYTIC)
+    def test_but_a_raw_checkpoint_still_needs_them(self, tmp_path, drop):
+        """Nothing restores them for a raw target, so absent means blind."""
+        p = self._narrow(tmp_path, drop, reduced=False)
+        with pytest.raises(ValueError, match="no input for"):
+            PkEmulator(p, check_box=False)
+
+    def test_the_shipped_weights_are_not_narrow(self):
+        """The guard has to pass on the file the package actually ships."""
+        assert PkEmulator(check_box=False)._narrow == ()

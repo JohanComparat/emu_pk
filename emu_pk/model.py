@@ -40,7 +40,7 @@ from . import box, cosmo, grid
 from .interp import concrete
 
 __all__ = ["PkEmulator", "load_weights", "activation", "primordial_ln_pk",
-           "Z_VARS", "DEFAULT_WEIGHTS"]
+           "ANALYTIC", "Z_VARS", "DEFAULT_WEIGHTS"]
 
 DEFAULT_WEIGHTS = pathlib.Path(__file__).resolve().parent / "data" / "emu_pk_mlp.npz"
 
@@ -51,6 +51,16 @@ _I_H = box.PARAMS.index("h")
 _I_NS = box.PARAMS.index("n_s")
 _I_LN10AS = box.PARAMS.index("ln10A_s")
 
+
+#: Inputs the reduced target restores in closed form, so a checkpoint is
+#: allowed not to feed them.  Everything else in :data:`emu_pk.box.PARAMS` it
+#: *must* feed -- see the "absent" check in :meth:`PkEmulator.__init__`.
+#:
+#: Defined here rather than in :mod:`emu_pk.train` because the *inference* path
+#: is what has to know which missing inputs are legitimate, and ``model`` cannot
+#: import ``train`` -- that would be a cycle and would drag ``optax`` into the
+#: core install.  ``train.ANALYTIC`` is this name, re-exported.
+ANALYTIC = ("ln10A_s", "n_s")
 
 #: Redshift variables the network may be fed.  The value is what goes in; the
 #: emulator's public interface is always ``z``, and the chain rule through these
@@ -179,7 +189,8 @@ class PkEmulator:
     has_native_z = True
     differentiable = True
 
-    def __init__(self, weights=None, check_box: bool = True):
+    def __init__(self, weights=None, check_box: bool = True,
+                 allow_narrow_box: bool = False):
         self.w = load_weights(weights)
         self._check_box = bool(check_box)
         self.lnk = jnp.asarray(self.w["lnk"])
@@ -223,6 +234,26 @@ class PkEmulator:
             raise ValueError(
                 f"the checkpoint feeds inputs this package does not name: "
                 f"{unknown}.  It was written against a different box.")
+        # **The mirror of `unknown`, and the one that actually bites.**  A
+        # checkpoint written against a *narrower* box names no input this
+        # package does not know, so `unknown` is empty, `_in_idx` comes out
+        # bit-identical, and the file loads -- predicting a spectrum that
+        # ignores whatever axis was added since.  That is the silent failure
+        # this package keeps designing against, and only this check sees it.
+        #
+        # A parameter the reduced target restores in closed form is allowed to
+        # be absent: it is not fed to any reduced network.  See `ANALYTIC`.
+        absent = [q for q in box.PARAMS
+                  if q not in order and not (self._reduced and q in ANALYTIC)]
+        if absent and not allow_narrow_box:
+            raise ValueError(
+                f"the checkpoint has no input for {absent}, which this "
+                f"package's box samples.  It was trained on a narrower box: "
+                f"it would ignore those values and return a spectrum rather "
+                f"than an error.  Retrain, or install the emu_pk whose box it "
+                f"was trained on.  Pass allow_narrow_box=True only to score a "
+                f"pilot arm you know was fitted without them.")
+        self._narrow = tuple(absent)
         self._in_idx = np.array([box.PARAMS.index(p) for p in order[:-1]],
                                 dtype=int)
         n_in = len(self.w["x_mean"])
@@ -241,6 +272,9 @@ class PkEmulator:
         """
         if not self._check_box:
             return
+        # `zip` truncates, so this loop cannot be what notices a short vector;
+        # `_forward` checks the length.  Named here because a reader looking
+        # for the guard looks here first.
         vals = {p: concrete(v) for p, v in zip(box.PARAMS, params)}
         vals = {p: v for p, v in vals.items() if v is not None}
         if vals:
@@ -258,6 +292,19 @@ class PkEmulator:
         # reduced target ln10A_s and n_s are not fed in at all -- they enter
         # analytically at the bottom of this function instead.
         p = jnp.asarray(params, dtype=float).ravel()
+        # **JAX clamps an out-of-range gather instead of raising**, so a short
+        # `params` does not fail here -- it silently repeats whatever sits at
+        # the last valid index in the missing slot and returns a spectrum.
+        # Measured against the shipped weights: a seven-long vector where eight
+        # were wanted moved P(0.05) by 10.3 %, with nothing raised.  The shape
+        # is static under `jit`, so checking it costs no tracing and does not
+        # touch the gradient.
+        if p.shape[0] != len(box.PARAMS):
+            raise ValueError(
+                f"params has {p.shape[0]} entries; this box has "
+                f"{len(box.PARAMS)} ({', '.join(box.PARAMS)}).  A short vector "
+                "is not an error to JAX: it clamps the gather and returns a "
+                "finite, smooth, wrong spectrum.")
         zt = Z_VARS[self._z_var](jnp.asarray(z, dtype=float))
         x = jnp.concatenate([p[self._in_idx], jnp.atleast_1d(zt)])
         x = (x - jnp.asarray(self.w["x_mean"])) / jnp.asarray(self.w["x_std"])
