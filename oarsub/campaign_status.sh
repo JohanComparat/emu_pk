@@ -58,7 +58,12 @@ audit () {
     fi
     [ "${nb}" -gt 0 ] && bad "${nb} unreadable: $(printf '%s ' "${broken[@]:0:12}")"
     [ "${partial}" -gt 0 ] && echo "     ${partial} .part files: chunks still in flight"
-    echo "     resubmit with:  ./oarsub/submit_campaign.sh <PROJECT> ${label}"
+    # The command as it can actually be typed.  `${label}` is a human string
+    # like "emu (arm c)", which is right in the heading and wrong in a command
+    # line -- and a resubmit hint that does not run is worse than none, because
+    # it is read at the moment somebody is in a hurry.  The family and the arm
+    # are passed the way the submitter takes them.
+    echo "     resubmit with:  ${RESUBMIT_HINT:-./oarsub/submit_campaign.sh ${label}}"
     echo "     (a chunk that landed is skipped, so this only redoes the gaps)"
 }
 
@@ -72,6 +77,7 @@ if [ "${WHICH}" = "all" ] || [ "${WHICH}" = "ratio" ]; then
     # Process substitution, not a pipe: the right-hand side of a pipe runs in a
     # subshell, so `miss` would be incremented there and lost, and the summary
     # would print "complete" over its own MISS lines.
+    RESUBMIT_HINT="./oarsub/submit_campaign.sh ratio"
     audit "${EMU_PK_SHARDS_RATIO}" ratio < <(
         for (( i=0; i<N_RATIO; i++ )); do printf 'ratio_%05d.npz\n' "${i}"; done)
 fi
@@ -85,6 +91,8 @@ if [ "${WHICH}" = "all" ] || [ "${WHICH}" = "emu" ]; then
         # One file per chunk, named for the shard that owns it and the design
         # index it starts at -- so the name says which cosmologies are inside
         # without opening it, and a resubmitted shard writes the same names.
+        RESUBMIT_HINT="EMU_N_TOTAL=${EMU_N_TOTAL} EMU_PER_SHARD=${EMU_PER_SHARD}"
+        RESUBMIT_HINT="${RESUBMIT_HINT} EMU_ARM=${arm} ./oarsub/submit_campaign.sh emu"
         audit "${EMU_PK_SHARDS_EMU}" "emu (arm ${arm})" < <(
             for (( c=0; c<EMU_N_TOTAL; c+=CHUNK )); do
                 printf 'emu_%05d_%07d.npz\n' "$(( c / EMU_PER_SHARD ))" "${c}"
