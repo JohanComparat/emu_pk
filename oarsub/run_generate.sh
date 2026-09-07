@@ -3,6 +3,9 @@
 # GRICAD / OAR array worker: one shard of CLASS solves.
 #
 #   $1  mode   "ratio" (Phase 1 correction grid) or "emu" (Phase 2 training set)
+#   $2  arm    "c" (the nine-parameter design) or "f" (its flat control, with
+#              Omega_k pinned to zero).  Ignored by "ratio", which is a fiducial
+#              sweep and is not curved.
 #
 # The shard index comes from $OAR_ARRAY_INDEX, which OAR sets per array element
 # and numbers from 1; the generator numbers shards from 0, so it is decremented
@@ -28,8 +31,13 @@
 
 set -euo pipefail
 
-MODE="${1:?usage: run_generate.sh <ratio|emu>}"
+MODE="${1:?usage: run_generate.sh <ratio|emu> [arm]}"
+ARM="${2:-c}"
 source "$(dirname "${BASH_SOURCE[0]}")/_campaign_env.sh"
+# An argument, not an environment variable: OAR does not carry the submitting
+# shell's environment to the node, so an arm passed that way would run the
+# default one -- into the default one's directory, on top of its shards.
+campaign_arm "${ARM}"
 
 cd "${REPO}"
 mkdir -p oarsub/logs
@@ -40,7 +48,8 @@ NCORES="$(campaign_threads)"
 SHARD=$(( ${OAR_ARRAY_INDEX:-1} - 1 ))
 
 echo "host=$(hostname)  job=${OAR_JOB_ID:-local}  array=${OAR_ARRAY_INDEX:-1}" \
-     " shard=${SHARD}  cores=${NCORES}  mode=${MODE}  start=$(date -Is)"
+     " shard=${SHARD}  cores=${NCORES}  mode=${MODE}  arm=${EMU_PK_ARM}" \
+     " pin='${EMU_PIN}'  start=$(date -Is)"
 
 case "${MODE}" in
   ratio)
@@ -51,9 +60,12 @@ case "${MODE}" in
     ;;
   emu)
     mkdir -p "${EMU_PK_SHARDS_EMU}"
+    # ${EMU_PIN} is deliberately unquoted: it is either empty or the two words
+    # `--pin Omega_k=0`, and quoting it would pass an empty argument.
+    # shellcheck disable=SC2086
     python -u -m emu_pk.generate --mode emu \
         --shard "${SHARD}" --n-per-shard "${EMU_PER_SHARD}" \
-        --n-total "${EMU_N_TOTAL}" --out "${EMU_PK_SHARDS_EMU}"
+        --n-total "${EMU_N_TOTAL}" --out "${EMU_PK_SHARDS_EMU}" ${EMU_PIN}
     ;;
   *) echo "unknown mode '${MODE}' (ratio|emu)" >&2; exit 2 ;;
 esac

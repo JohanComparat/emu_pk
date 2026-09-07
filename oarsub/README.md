@@ -21,6 +21,52 @@ allocation. `EMU_PK_SSH_HOST` is needed only by the two scripts that run on your
 own machine (`rsync_to_dahu.sh`, `pull_results.sh`) and is best set to a
 `~/.ssh/config` Host alias, so that no login name is written down at all.
 
+## Two design arms, and why the control is not optional
+
+There are now two independent things a run can vary, and they are both called
+"arm" in the literature this repository borrows from. Keep them apart:
+
+* a **design arm** (`EMU_ARM`, below) is *which cosmologies were solved* — it
+  names a shard directory, a training set and a weights file;
+* a **training arm** (`TAG`, further down) is *how one training set was fitted*
+  — it names only a weights file.
+
+A training tag lives inside a design arm: `EMU_ARM=c TAG=nosched` fits the
+curved design without the schedule.
+
+`EMU_ARM` selects which design a job runs:
+
+| arm | design | writes |
+| --- | --- | --- |
+| `c` *(default)* | the nine-parameter box | `shards_emu_c`, `training_set_c.npz`, `emu_pk_mlp_c.npz` |
+| `f` | the same box and seed with `Omega_k` **pinned to zero** | `shards_emu_f`, ... `_f.npz` |
+
+At a pilot's design size *both* arms score worse than the shipped model, so
+"the nine-parameter fit is worse" and "this design is smaller than the shipped
+one" are the same observation without the control. Arm `f` is what separates
+them, and it is one number: the flat-slice error at that design size, which arm
+`c`'s flat slice is compared against.
+
+`EMU_ARM` is read on the **frontend** by `submit_campaign.sh` and passed to the
+job as an *argument*. It cannot travel as an environment variable — OAR does
+not propagate the submitting shell's environment, so `EMU_ARM=f oarsub -S
+./run_generate.sh emu` runs the curved arm into the curved arm's directory, on
+top of its shards. Same trap as `MODE`.
+
+Arm `f` is scored with `validate --flat-only`. Its `Omega_k` column has zero
+variance, so the checkpoint's `x_std` along that axis is ~1e-30 and the network
+is meaningful only at `Omega_k = 0`; scoring it on a curved design divides by
+that and returns numbers that mean nothing, smoothly and without raising.
+
+**A new box needs a new shard directory, and this is why.**
+`generate.emu_shard` skips on filename, and the filename carries the shard
+index and the design offset but *not* the parameters. A directory reused across
+a box change keeps the old shards and silently mixes two designs — and `z` and
+`lnk` do not change when the box does, so `assemble`'s grid check would not see
+it either. Shards now carry a `params` stamp and `assemble` refuses a mismatch
+by name, which also catches a permuted column. The unsuffixed `shards_emu` is
+deliberately untouched: it is the 1.0.0 reproduction.
+
 ## The campaign, in order
 
 | Gate | Family | Sizing | What it produces |
@@ -33,16 +79,39 @@ own machine (`rsync_to_dahu.sh`, `pull_results.sh`) and is best set to a
 
 ```bash
 ./oarsub/submit_campaign.sh calibrate      # measure first
-./oarsub/submit_campaign.sh ratio
 ./oarsub/submit_campaign.sh emu --devel    # one shard, smoke
-./oarsub/submit_campaign.sh emu
-./oarsub/campaign_status.sh                # which shards landed
-./oarsub/submit_campaign.sh train
+EMU_N_TOTAL=16000 EMU_PER_SHARD=1000               ./oarsub/submit_campaign.sh emu
+EMU_N_TOTAL=16000 EMU_PER_SHARD=1000 EMU_ARM=f     ./oarsub/submit_campaign.sh emu
+./oarsub/campaign_status.sh                # audits every arm that has a directory
+EPOCHS=240 TAG=p16k            ./oarsub/submit_campaign.sh train
+EPOCHS=240 TAG=p16k EMU_ARM=f  ./oarsub/submit_campaign.sh train
 ```
+
+`ratio` is **not** re-run for a box change. The correction grid is a fiducial
+sweep over `(sum_mnu, w0, wa)` and is deliberately not curved;
+`generate.ratio_shard` calls `class_params` without `Omega_k`, so with a default
+of zero the dict is byte-identical and `class_pk_ratio.npz` still describes what
+it says it does. That saves 300 solves and keeps one shipped artefact out of the
+change.
 
 **Gate 1 is not a formality.** The shard count and walltimes are computed from a
 measured rate. Sizing 94 array elements from a guess is how a run either
 wastes an allocation or dies on walltime at 90 %.
+
+`submit_campaign.sh` now refuses more than 94 array elements rather than letting
+the scheduler reject the submission with no hint about which knob to turn — the
+fix is always a longer element, since a besteffort kill costs a *chunk*, not an
+element. At `EMU_N_TOTAL=300000` that means `EMU_PER_SHARD=3200`, which is 5.8 h
+of solves against a 6 h walltime, so raise the walltime too.
+
+### Do not size a run from a laptop
+
+Measured on an i9-11900H (8 physical cores, 16 threads): 2.75 s/solve solo on a
+cool machine, and **0.44 solves/s in aggregate at any worker count** once it is
+hot — the cores drop to 1.1 GHz, below their 2.5 GHz base, at 100 °C. Sixteen
+concurrent CLASS instances also thrash a 24 MiB shared L3. A number taken from a
+burst on a mobile CPU is off by an order of magnitude from what a sustained run
+delivers, which is exactly what `calibrate` exists to prevent.
 
 ## Which machine
 
@@ -57,9 +126,10 @@ Training is a 4×512 MLP over ~64 PCA components — small enough that a 32-core
 Dahu node fits it in hours, so both run on Dahu. `run_train.sh` is identical on
 Bigfoot; only the resource line differs. See below.
 
-## Training arms
+## Training arms (tags)
 
-The target, the loss and the schedule are three separable choices, so a
+Within one design arm. The target, the loss and the schedule are three
+separable choices, so a
 comparison between them is several jobs of the same length and each has to be
 attributable. `run_train.sh` takes a **tag** and passes flags through; the tag
 names the weights so arms do not overwrite each other, and each arm can still
@@ -72,9 +142,10 @@ EPOCHS=240 TAG=c2noreduce TRAIN_FLAGS=--no-reduced  ./oarsub/submit_campaign.sh 
 EPOCHS=240 TAG=c2noweight TRAIN_FLAGS=--no-weighted ./oarsub/submit_campaign.sh train
 ```
 
-Tags name the weights: `emu_pk_mlp_<tag>.npz`. The default is `c2`, and
-**`base` is the only tag that takes the unsuffixed `emu_pk_mlp.npz`**. Pass it
-deliberately or not at all.
+Tags name the weights: `emu_pk_mlp_<arm>_<tag>.npz`, since `EMU_PK_WEIGHTS`
+already carries the design arm. The default tag is `c2`, and **`base` is the
+only tag that takes the unsuffixed name** — which is now `emu_pk_mlp_<arm>.npz`
+and no longer the 1.0.0 file. Pass it deliberately or not at all.
 
 Each arm writes `emu_pk_mlp_<tag>.npz` **and** `emu_pk_mlp_<tag>.validation.json`
 beside it — `run_train.sh` scores the weights it just trained, while the

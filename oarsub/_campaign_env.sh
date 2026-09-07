@@ -70,9 +70,43 @@ campaign_project () {
 WORK="${EMU_PK_WORK:-/bettik/PROJECTS/${EMU_PK_PROJECT:-UNSET}/${USER}/emu_pk}"
 
 export EMU_PK_SHARDS_RATIO="${WORK}/shards_ratio"
-export EMU_PK_SHARDS_EMU="${WORK}/shards_emu"
-export EMU_PK_DATASET="${WORK}/training_set.npz"
-export EMU_PK_WEIGHTS="${WORK}/emu_pk_mlp.npz"
+
+# --- which arm of the campaign this is ---------------------------------------
+# `c` is the nine-parameter design.  `f` is its flat control: the same box, the
+# same seed, `Omega_k` pinned to zero, and nothing else different.  Both are
+# needed to answer one question -- at a pilot's design size *both* arms score
+# worse than the shipped model, so "the nine-parameter fit is worse" and "this
+# design is smaller than the shipped one" are the same observation without the
+# control.
+#
+# **A new box needs a new shard directory.**  `generate.emu_shard` skips on
+# filename, and the filename carries the shard index and the design offset but
+# not the parameters -- so a directory reused across a box change keeps the old
+# shards and silently mixes two designs.  `z` and `lnk` are unchanged by a box
+# change, so `assemble`'s grid check would not see it either; it compares the
+# stamped parameter names instead, and refuses.  The unsuffixed `shards_emu`
+# is deliberately left alone: it is the 1.0.0 reproduction.
+#
+# The arm reaches a *job* as an argument, never as an environment variable --
+# OAR does not propagate the submitting shell's environment to the node, so
+# `EMU_ARM=f oarsub -S ./run_generate.sh` would silently run the default arm
+# into the default arm's directory.  That is the same trap as `MODE`.
+campaign_arm () {
+    local arm="${1:-c}"
+    case "${arm}" in
+        c) EMU_PIN="" ;;
+        f) EMU_PIN="--pin Omega_k=0" ;;
+        *) echo "!! unknown arm '${arm}' (c = curved, f = flat control)" >&2
+           return 2 ;;
+    esac
+    export EMU_PK_ARM="${arm}" EMU_PIN
+    export EMU_PK_SHARDS_EMU="${WORK}/shards_emu_${arm}"
+    export EMU_PK_DATASET="${WORK}/training_set_${arm}.npz"
+    export EMU_PK_WEIGHTS="${WORK}/emu_pk_mlp_${arm}.npz"
+}
+
+# Default arm, for the audit and for anything sourced outside a job.
+campaign_arm "${EMU_ARM:-c}" || true
 
 # --- conda / mamba -----------------------------------------------------------
 # Which modules a job actually needs.  Generation and validation need the

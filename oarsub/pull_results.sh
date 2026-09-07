@@ -38,14 +38,23 @@ DAHU_WORK="${EMU_PK_WORK}"
 
 mkdir -p emu_pk/data
 echo "== pulling assembled products from ${DAHU_HOST}:${DAHU_WORK}"
+# Named from the arm rather than hardcoded: a campaign with a curved arm and a
+# flat control writes `emu_pk_mlp_c.npz` and `emu_pk_mlp_f.npz`, and a run under
+# a tag writes `..._<tag>.npz` beside them.  Hardcoding `emu_pk_mlp.npz` pulled
+# the 1.0.0 file and reported success.
+#
+# The `.validation.json` beside each is the campaign's own record of what it
+# built.  It is NOT the file that ships: it names the cluster path it scored, and
+# the shipped one has to say "shipped".  See the release note in oarsub/README.md.
 rsync -avz --ignore-missing-args \
   "${DAHU_HOST}:${DAHU_WORK}/class_pk_ratio.npz" \
-  "${DAHU_HOST}:${DAHU_WORK}/emu_pk_mlp.npz" \
+  "${DAHU_HOST}:${DAHU_WORK}/emu_pk_mlp"*.npz \
+  "${DAHU_HOST}:${DAHU_WORK}/emu_pk_mlp"*.validation.json \
   emu_pk/data/ || echo "  (nothing to pull yet)"
 
 if [ "${1:-}" = "--shards" ]; then
   echo "== pulling raw shards (this is large)"
   rsync -avz --mkpath "${DAHU_HOST}:${DAHU_WORK}/shards_ratio" ./work/
-  rsync -avz --mkpath "${DAHU_HOST}:${DAHU_WORK}/shards_emu" ./work/
+  rsync -avz --mkpath "${DAHU_HOST}:${DAHU_WORK}/shards_emu"* ./work/
 fi
 ls -la emu_pk/data/

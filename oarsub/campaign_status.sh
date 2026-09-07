@@ -76,13 +76,21 @@ if [ "${WHICH}" = "all" ] || [ "${WHICH}" = "ratio" ]; then
         for (( i=0; i<N_RATIO; i++ )); do printf 'ratio_%05d.npz\n' "${i}"; done)
 fi
 if [ "${WHICH}" = "all" ] || [ "${WHICH}" = "emu" ]; then
-    # One file per chunk, named for the shard that owns it and the design index
-    # it starts at -- so the name says which cosmologies are inside without
-    # opening it, and a resubmitted shard writes the same names.
-    audit "${EMU_PK_SHARDS_EMU}" emu < <(
-        for (( c=0; c<EMU_N_TOTAL; c+=CHUNK )); do
-            printf 'emu_%05d_%07d.npz\n' "$(( c / EMU_PER_SHARD ))" "${c}"
-        done)
+    # Every arm that has a directory, not just the default one.  A campaign
+    # running the curved design and its flat control has two, and auditing only
+    # the one the environment happens to name is how the other looks finished.
+    for arm in ${EMU_ARMS:-c f}; do
+        campaign_arm "${arm}" || continue
+        [ -d "${EMU_PK_SHARDS_EMU}" ] || continue
+        # One file per chunk, named for the shard that owns it and the design
+        # index it starts at -- so the name says which cosmologies are inside
+        # without opening it, and a resubmitted shard writes the same names.
+        audit "${EMU_PK_SHARDS_EMU}" "emu (arm ${arm})" < <(
+            for (( c=0; c<EMU_N_TOTAL; c+=CHUNK )); do
+                printf 'emu_%05d_%07d.npz\n' "$(( c / EMU_PER_SHARD ))" "${c}"
+            done)
+    done
+    campaign_arm "${EMU_ARM:-c}"
 fi
 
 echo

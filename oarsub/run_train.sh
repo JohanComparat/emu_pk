@@ -40,15 +40,21 @@
 set -euo pipefail
 EPOCHS="${1:-60}"
 TAG="${2:-base}"
-# `shift 2` fails under `set -e` when fewer than two arguments were given, and
-# a job script that exits 1 before doing anything looks exactly like a job that
-# was never scheduled.
-if [ $# -gt 2 ]; then shift 2; else set --; fi
+# The arm, as an argument for the same reason the mode is one: OAR does not
+# carry the submitting environment to the node, and an arm that silently
+# defaults trains the curved dataset under the flat arm's name.
+ARM="${3:-c}"
+# `shift` fails under `set -e` when fewer arguments were given, and a job script
+# that exits 1 before doing anything looks exactly like one that was never
+# scheduled.
+if [ $# -gt 3 ]; then shift 3; else set --; fi
 source "$(dirname "${BASH_SOURCE[0]}")/_campaign_env.sh"
+campaign_arm "${ARM}"
 
 # One weights file per ablation arm.  Without this every arm overwrites the
 # last, and `--no-resume` is not the answer either: a besteffort arm has to be
 # able to resume *itself* without resuming its neighbour.
+# Computed after `campaign_arm`, which is what makes EMU_PK_WEIGHTS arm-specific.
 OUT="${EMU_PK_WEIGHTS}"
 [ "${TAG}" = "base" ] || OUT="${EMU_PK_WEIGHTS%.npz}_${TAG}.npz"
 if [ "${TAG}" = "base" ] && [ -f "${OUT}" ]; then
@@ -61,7 +67,8 @@ mkdir -p oarsub/logs
 campaign_activate_env train
 NCORES="$(campaign_threads)"
 echo "host=$(hostname)  job=${OAR_JOB_ID:-local}  cores=${NCORES}  tag=${TAG}" \
-     " epochs=${EPOCHS}  flags='$*'  out=${OUT}  start=$(date -Is)"
+     " arm=${EMU_PK_ARM}  epochs=${EPOCHS}  flags='$*'  out=${OUT}" \
+     " start=$(date -Is)"
 # Say which device JAX actually took.  A GPU job that quietly ran on the CPU is
 # indistinguishable from a slow GPU in every other line of this log.
 python -c "import jax; print('jax devices:', jax.devices())" || true
@@ -101,6 +108,18 @@ python -u -m emu_pk.train --dataset "${EMU_PK_DATASET}" \
 # smoke that trains for three epochs and then asks for the full score gets
 # killed in the scoring and reports nothing at all.  A smoke wants to know the
 # scoring *runs*, not what it says.
+# The flat control is trained on a design whose Omega_k column is constant, so
+# the checkpoint's x_std along that axis is ~1e-30 and the network is
+# meaningful only at Omega_k = 0.  Scoring it on the curved design would divide
+# by that and report numbers that mean nothing -- smoothly, and without
+# raising.  It exists to produce one number: the flat-slice error at this
+# design size, which is what arm C's flat slice is compared against.
+if [ "${EMU_PK_ARM}" = "f" ]; then
+    ARM_VAL_ARGS="--flat-only"
+    echo "-- flat control: scoring the flat slice only"
+else
+    ARM_VAL_ARGS=""
+fi
 if [ "${EPOCHS}" -lt 10 ]; then
     VAL_ARGS="--n-shape 4 --n-deriv 1 --z 0.0 1.0 --no-convergence"
     echo "-- ${EPOCHS} epochs is a smoke; scoring it with: ${VAL_ARGS}"
@@ -110,7 +129,7 @@ fi
 if python -c "import classy" 2>/dev/null; then
     # shellcheck disable=SC2086
     python -u -m emu_pk.validate --weights "${OUT}" \
-           --json "${OUT%.npz}.validation.json" ${VAL_ARGS} || \
+           --json "${OUT%.npz}.validation.json" ${VAL_ARGS} ${ARM_VAL_ARGS} || \
         echo "!! validation ran and failed; the weights are still at ${OUT}"
 else
     echo "-- no classy here (expected on bigfoot); score it on dahu with"

@@ -47,6 +47,13 @@ FAMILY="${1:?usage: submit_campaign.sh <calibrate|ratio|emu|train|train-gpu> [--
 DEVEL="${2:-}"
 PROJECT="$(campaign_project)"
 
+# Which arm.  Read from the environment *here*, on the frontend where that
+# works, and passed to the job as an argument, where it survives.  `c` is the
+# nine-parameter design; `f` is its flat control with Omega_k pinned to zero.
+ARM="${EMU_ARM:-c}"
+case "${ARM}" in c|f) ;; *) echo "!! EMU_ARM must be c or f" >&2; exit 2;; esac
+campaign_arm "${ARM}"
+
 EPOCHS="${EPOCHS:-240}"
 # Names the run, and therefore the weights file.  NOT "base": that maps to the
 # unsuffixed `emu_pk_mlp.npz`, where the shipped weights sit on /bettik, so a
@@ -65,6 +72,18 @@ TRAIN_ARGS="${EPOCHS} ${TAG} ${TRAIN_FLAGS}"
 N_RATIO_SHARDS=$(( (300 + RATIO_PER_SHARD - 1) / RATIO_PER_SHARD ))
 N_EMU_SHARDS=$(( (EMU_N_TOTAL + EMU_PER_SHARD - 1) / EMU_PER_SHARD ))
 
+# GRICAD refuses a submission that would leave more than 100 jobs waiting, and
+# an OAR array of N is N jobs.  Nothing checked this: raising EMU_N_TOTAL
+# without raising EMU_PER_SHARD produced a rejection from the scheduler with no
+# hint about which knob to turn.  Element *length* is not what a besteffort kill
+# costs -- chunk length is -- so the fix is always a longer element.
+if [ "${N_EMU_SHARDS}" -gt 94 ]; then
+  echo "!! ${N_EMU_SHARDS} array elements for ${EMU_N_TOTAL} cosmologies:" >&2
+  echo "   GRICAD refuses more than 100 waiting jobs." >&2
+  echo "   Raise EMU_PER_SHARD to $(( (EMU_N_TOTAL + 93) / 94 )) or more." >&2
+  exit 2
+fi
+
 log_flags () {
   printf -- '--name emupk_%s --stdout oarsub/logs/%%jobid%%.%s.out --stderr oarsub/logs/%%jobid%%.%s.err' \
     "$1" "$1" "$1"
@@ -73,6 +92,8 @@ log_flags () {
 echo "[submit] family=${FAMILY} project=${PROJECT} ${DEVEL:+(devel)}"
 echo "[submit] design: ratio ${N_RATIO_SHARDS} shards x ${RATIO_PER_SHARD}"
 echo "[submit]         emu   ${N_EMU_SHARDS} shards x ${EMU_PER_SHARD} = ${EMU_N_TOTAL} cosmologies"
+echo "[submit] arm:    ${ARM} (${EMU_PIN:-no pin, curved})"
+echo "[submit] shards: ${EMU_PK_SHARDS_EMU}"
 echo "[submit] work:   ${WORK}"
 case "${FAMILY}" in
   train|train-gpu)
@@ -110,7 +131,7 @@ case "${FAMILY}" in
       # shellcheck disable=SC2046
       oarsub --project "${PROJECT}" -t devel \
         -l "/nodes=1/core=2,walltime=00:30:00" \
-        $(log_flags emu_devel) -S "./oarsub/run_generate.sh emu"
+        $(log_flags emu_devel) -S "./oarsub/run_generate.sh emu ${ARM}"
     else
       # besteffort + idempotent: shards skip if their output exists, so a
       # killed element re-runs and costs only what it had not finished.  That
@@ -120,7 +141,7 @@ case "${FAMILY}" in
         -l "/nodes=1/core=2,walltime=06:00:00" \
         -t besteffort -t idempotent \
         --array "${N_EMU_SHARDS}" \
-        $(log_flags emu) -S "./oarsub/run_generate.sh emu"
+        $(log_flags emu) -S "./oarsub/run_generate.sh emu ${ARM}"
     fi
     ;;
 

@@ -500,6 +500,14 @@ def main(argv=None):
                          "more CLASS pass over the same design")
     ap.add_argument("--no-flat-slice", action="store_true",
                     help="skip the Omega_k = 0 score")
+    ap.add_argument("--flat-only", action="store_true",
+                    help="score the flat slice and nothing else.  For a "
+                         "control arm trained with the curvature column "
+                         "pinned: that column has zero variance, so the "
+                         "checkpoint's x_std along it is ~1e-30 and the "
+                         "network is meaningful only at Omega_k = 0.  "
+                         "Scoring it on a curved design divides by that and "
+                         "returns numbers that mean nothing.")
     ap.add_argument("--no-convergence", action="store_true",
                     help="skip the step-size check that measures the metric's "
                          "own noise floor; halves the CLASS solves")
@@ -531,15 +539,25 @@ def main(argv=None):
            "loss_form": str(emu.w.get("loss_form", "whitened_mse")),
            "epoch": int(emu.w.get("epoch", -1)),
            "weights": str(a.weights or "shipped")}
-    out["shape"] = shape_error(emu, a.n_shape, z_nodes)
-    if not a.no_flat_slice:
+    # A control arm is one number, and asking it for any other is asking a
+    # network about a direction it was never shown.
+    out["flat_only"] = bool(a.flat_only)
+    if a.flat_only:
         out["shape_flat"] = flat_slice_error(emu, a.n_shape, z_nodes)
-    if not a.no_lowk:
-        out["shape_lowk"] = shape_error(emu, a.n_shape, z_nodes, band=K_LOWK,
-                                        label="low-k band")
-    out["derivative"] = derivative_error(
-        emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
-    out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
+        if not a.no_lowk:
+            out["shape_flat_lowk"] = shape_error(
+                emu, a.n_shape, z_nodes, band=K_LOWK, label="flat low-k band",
+                design=box.sample(a.n_shape, seed=991, pin={"Omega_k": 0.0}))
+    else:
+        out["shape"] = shape_error(emu, a.n_shape, z_nodes)
+        if not a.no_flat_slice:
+            out["shape_flat"] = flat_slice_error(emu, a.n_shape, z_nodes)
+        if not a.no_lowk:
+            out["shape_lowk"] = shape_error(emu, a.n_shape, z_nodes,
+                                            band=K_LOWK, label="low-k band")
+        out["derivative"] = derivative_error(
+            emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
+        out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
     if a.json:
         import json
         with open(a.json, "w") as fh:
