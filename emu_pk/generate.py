@@ -294,6 +294,10 @@ def _time_calibration(n: int = 8, seed: int = 20260827):
     """
     import resource
     k, z = grid.k_grid(), grid.Z_NODES_EMU
+    # Drawn from a 64-point design rather than the production one, so the rate
+    # here is over a *different* sample of the same box.  Fine for sizing --
+    # the box is what sets the cost -- but it is why this number and a
+    # production shard's own timing lines need not agree point for point.
     design = box.sample(max(n * 8, 64), seed=seed)[:n]
     times, fails = [], 0
     for i, theta in enumerate(design):
@@ -308,7 +312,8 @@ def _time_calibration(n: int = 8, seed: int = 20260827):
             continue
         times.append(time.time() - t0)
         print(f"  [{i}] {times[-1]:6.2f} s   mnu={d['sum_mnu']:.3f} "
-              f"w0={d['w0']:+.2f} wa={d['wa']:+.2f} h={d['h']:.3f}", flush=True)
+              f"w0={d['w0']:+.2f} wa={d['wa']:+.2f} h={d['h']:.3f} "
+              f"Ok={d['Omega_k']:+.3f}", flush=True)
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
     t = np.array(times)
     print("\n=== CLASS calibration ===")
@@ -320,6 +325,7 @@ def _time_calibration(n: int = 8, seed: int = 20260827):
     print(f"  peak RSS      {rss:.0f} MB")
     print(f"  k grid        {len(k)} modes to {grid.K_MAX} h/Mpc")
     print(f"  z rows        {len(z)} per solve")
+    print(f"  box           {len(box.PARAMS)} parameters: {', '.join(box.PARAMS)}")
 
 
 if __name__ == "__main__":  # pragma: no cover

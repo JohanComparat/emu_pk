@@ -6,6 +6,17 @@
 #   $2  arm    "c" (the nine-parameter design) or "f" (its flat control, with
 #              Omega_k pinned to zero).  Ignored by "ratio", which is a fiducial
 #              sweep and is not curved.
+#   $3  n_total     size of the emu design
+#   $4  per_shard   cosmologies per array element
+#
+# $3 and $4 are arguments and not environment variables for the same reason $1
+# and $2 are, and the consequence here is the worst of the three.  The submitter
+# reads EMU_N_TOTAL on the frontend to size the array; the node re-reads it from
+# `_campaign_env.sh` and gets the default.  So `EMU_N_TOTAL=16000
+# submit_campaign.sh emu` submitted sixteen elements that each generated from
+# the 150000-point design -- a design nobody asked for, in files named as though
+# they were the one that was.  Nothing downstream could see it: the parameter
+# names match, the grids match, and only the *values* are from another design.
 #
 # The shard index comes from $OAR_ARRAY_INDEX, which OAR sets per array element
 # and numbers from 1; the generator numbers shards from 0, so it is decremented
@@ -31,9 +42,12 @@
 
 set -euo pipefail
 
-MODE="${1:?usage: run_generate.sh <ratio|emu> [arm]}"
+MODE="${1:?usage: run_generate.sh <ratio|emu> [arm] [n_total] [per_shard]}"
 ARM="${2:-c}"
 source "$(dirname "${BASH_SOURCE[0]}")/_campaign_env.sh"
+# Fall back to the campaign defaults only when the caller named nothing.
+EMU_N_TOTAL="${3:-${EMU_N_TOTAL}}"
+EMU_PER_SHARD="${4:-${EMU_PER_SHARD}}"
 # An argument, not an environment variable: OAR does not carry the submitting
 # shell's environment to the node, so an arm passed that way would run the
 # default one -- into the default one's directory, on top of its shards.
@@ -49,6 +63,7 @@ SHARD=$(( ${OAR_ARRAY_INDEX:-1} - 1 ))
 
 echo "host=$(hostname)  job=${OAR_JOB_ID:-local}  array=${OAR_ARRAY_INDEX:-1}" \
      " shard=${SHARD}  cores=${NCORES}  mode=${MODE}  arm=${EMU_PK_ARM}" \
+     " n_total=${EMU_N_TOTAL}  per_shard=${EMU_PER_SHARD}" \
      " pin='${EMU_PIN}'  start=$(date -Is)"
 
 case "${MODE}" in

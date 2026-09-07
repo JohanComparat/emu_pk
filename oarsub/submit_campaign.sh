@@ -131,7 +131,7 @@ case "${FAMILY}" in
       # shellcheck disable=SC2046
       oarsub --project "${PROJECT}" -t devel \
         -l "/nodes=1/core=2,walltime=00:30:00" \
-        $(log_flags emu_devel) -S "./oarsub/run_generate.sh emu ${ARM}"
+        $(log_flags emu_devel) -S "./oarsub/run_generate.sh emu ${ARM} ${EMU_N_TOTAL} ${EMU_PER_SHARD}"
     else
       # besteffort + idempotent: shards skip if their output exists, so a
       # killed element re-runs and costs only what it had not finished.  That
@@ -141,7 +141,7 @@ case "${FAMILY}" in
         -l "/nodes=1/core=2,walltime=06:00:00" \
         -t besteffort -t idempotent \
         --array "${N_EMU_SHARDS}" \
-        $(log_flags emu) -S "./oarsub/run_generate.sh emu ${ARM}"
+        $(log_flags emu) -S "./oarsub/run_generate.sh emu ${ARM} ${EMU_N_TOTAL} ${EMU_PER_SHARD}"
     fi
     ;;
 
