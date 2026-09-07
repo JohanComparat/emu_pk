@@ -98,12 +98,9 @@ def _class_pk(theta, z, k):
     Every redshift from one solve.  Scoring a z sweep by re-solving per
     redshift would cost six times as much for the same numbers.
     """
-    d = dict(zip(box.PARAMS, theta))
     z = np.atleast_1d(np.asarray(z, dtype=float))
-    return generate.solve(cosmo.class_params(
-        h=d["h"], omega_b=d["omega_b"], omega_cdm=d["omega_cdm"],
-        n_s=d["n_s"], ln10A_s=d["ln10A_s"], sum_mnu=d["sum_mnu"],
-        w0=d["w0"], wa=d["wa"], k_max_h=grid.K_MAX,
+    return generate.solve(generate.class_params_for(
+        theta, k_max_h=grid.K_MAX,
         z_max=max(grid.Z_MAX, float(z.max()))), z, k)
 
 

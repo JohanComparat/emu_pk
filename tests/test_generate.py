@@ -85,10 +85,11 @@ class TestTheTrainingSetIsAssembledInOrder:
     @staticmethod
     def _shard(path, i0, n, n_z, n_k, seed):
         rng = np.random.default_rng(seed)
-        theta = rng.random((n, 8)).astype(np.float32) + i0
+        theta = rng.random((n, len(box.PARAMS))).astype(np.float32) + i0
         pm = np.exp(rng.random((n, n_z, n_k)).astype(np.float32))
         np.savez_compressed(
-            path, theta=theta, z=np.linspace(0.0, 3.0, n_z),
+            path, theta=theta, params=np.array(box.PARAMS, dtype="U16"),
+            z=np.linspace(0.0, 3.0, n_z),
             lnk=np.linspace(-9.0, 5.0, n_k),
             idx=np.arange(i0, i0 + n), failed_idx=np.array([], dtype=np.int64),
             pm=pm, pcb=pm * 0.9)
@@ -111,7 +112,7 @@ class TestTheTrainingSetIsAssembledInOrder:
         X, ln_pm, _, _ = assemble.load_training_set(out, workers=3)
         with np.load(out) as d:
             idx = d["idx"]
-        assert X.shape == (6 * n * n_z, 9)          # 8 parameters plus z
+        assert X.shape == (6 * n * n_z, len(box.PARAMS) + 1)   # the box, plus z
         np.testing.assert_array_equal(idx, np.arange(6 * n))
         # Row (shard s, cosmology c, redshift j) must carry shard s's theta_c
         # and shard s's spectrum -- which is exactly what a permutation breaks.
@@ -119,8 +120,9 @@ class TestTheTrainingSetIsAssembledInOrder:
             for c in range(n):
                 r = (s * n + c) * n_z
                 np.testing.assert_allclose(
-                    X[r:r + n_z, :8],
-                    np.broadcast_to(want_theta[s][c], (n_z, 8)), rtol=1e-6)
+                    X[r:r + n_z, :len(box.PARAMS)],
+                    np.broadcast_to(want_theta[s][c], (n_z, len(box.PARAMS))),
+                    rtol=1e-6)
                 np.testing.assert_allclose(np.exp(ln_pm[r:r + n_z]),
                                            want_pm[s][c], rtol=1e-5)
 
@@ -149,7 +151,8 @@ class TestTheTrainingSetIsAssembledInOrder:
         self._shard(tmp_path / "emu_00000.npz", 0, 2, 3, 5, 0)
         np.savez_compressed(
             tmp_path / "emu_00001.npz",
-            theta=np.zeros((0, 8), dtype=np.float32),
+            theta=np.zeros((0, len(box.PARAMS)), dtype=np.float32),
+            params=np.array(box.PARAMS, dtype="U16"),
             z=np.linspace(0.0, 3.0, 3), lnk=np.linspace(-9.0, 5.0, 5),
             idx=np.array([], dtype=np.int64), failed_idx=np.array([2, 3]),
             pm=np.zeros((0, 3, 5), dtype=np.float32),

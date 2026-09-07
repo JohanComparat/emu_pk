@@ -30,7 +30,7 @@ import time
 
 import numpy as np
 
-from . import cosmo, grid
+from . import box, cosmo, grid
 
 __all__ = ["build_ratio", "build_training_set", "load_training_set",
            "main"]
@@ -169,8 +169,12 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
     # came to be measured at all.
     def _read(f):
         with np.load(f) as d:
+            # `params` postdates the first production run, so its absence is
+            # not an error -- a shard without it is checked on width instead.
+            names = ([str(x) for x in d["params"]] if "params" in d.files
+                     else None)
             return (f, d["z"], d["lnk"], d["theta"], d["idx"], d["failed_idx"],
-                    np.log(d["pm"]), np.log(d["pcb"]))
+                    np.log(d["pm"]), np.log(d["pcb"]), names)
 
     t0 = time.monotonic()
     shards = [None] * n_files
@@ -185,11 +189,30 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
 
     X, Ym, Ycb, idx, failed = [], [], [], [], []
     z = lnk = None
-    for f, z_f, lnk_f, th, idx_f, failed_f, ln_pm, ln_pcb in shards:
+    for f, z_f, lnk_f, th, idx_f, failed_f, ln_pm, ln_pcb, names in shards:
         if z is None:
             z, lnk = z_f, lnk_f
         elif not (np.array_equal(z, z_f) and np.array_equal(lnk, lnk_f)):
             raise ValueError(f"{f.name} uses a different grid from {files[0].name}")
+        # **Which box wrote this shard.**  `z` and `lnk` do not change when the
+        # box does, so the grid check above sees nothing, and `emu_shard` skips
+        # on filename rather than on box -- a directory reused across a box
+        # change therefore holds shards of two widths and the concatenation
+        # below dies with a bare dimension mismatch, far from the cause.
+        # Checked by name rather than by width, because that also catches a
+        # permuted column, which trains perfectly well and predicts nonsense.
+        if names is not None and names != list(box.PARAMS):
+            raise ValueError(
+                f"{f.name} was generated against parameters {names}; this box "
+                f"is {list(box.PARAMS)}.  `emu_shard` skips on filename, not on "
+                f"box, so a shard directory reused across a box change holds "
+                f"both.  Generate into a fresh directory.")
+        if names is None and th.shape[1] != len(box.PARAMS):
+            raise ValueError(
+                f"{f.name} has {th.shape[1]} design columns and this box has "
+                f"{len(box.PARAMS)}; it predates the `params` stamp and was "
+                f"written against a different box.  Generate into a fresh "
+                f"directory.")
         failed.extend(failed_f.tolist())
         if len(idx_f) == 0:
             continue

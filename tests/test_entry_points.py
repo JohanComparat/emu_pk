@@ -16,6 +16,20 @@ from emu_pk import assemble, box, cosmo, generate, grid, ratio
 from emu_pk.model import PkEmulator
 
 
+#: A fiducial for every axis the box carries, built by name.  A literal array
+#: here would be silently one short the next time `box.PARAMS` grows -- and a
+#: short theta used to return a spectrum rather than raise.
+_FID = {"omega_b": 0.02237, "omega_cdm": 0.12, "h": 0.6736, "n_s": 0.9649,
+        "ln10A_s": 3.044, "sum_mnu": 0.06, "w0": -1.0, "wa": 0.0,
+        "Omega_k": 0.0}
+
+
+def _theta(**over):
+    missing = [p for p in box.PARAMS if p not in _FID]
+    assert not missing, f"_FID has no fiducial for {missing}; add one."
+    return np.array([(_FID | over)[p] for p in box.PARAMS])
+
+
 @pytest.fixture
 def fake_solve(monkeypatch):
     """CLASS, replaced by something instant, deterministic and identifiable.
@@ -230,7 +244,8 @@ class TestTheTrainingSetLoaderAcceptsBothLayouts:
         branch, so a refactor of the parts path could silently remove it.
         """
         n, nk = 7, 5
-        X = np.arange(n * 9, dtype=np.float32).reshape(n, 9)
+        nc = len(box.PARAMS) + 1                    # the box, plus z
+        X = np.arange(n * nc, dtype=np.float32).reshape(n, nc)
         Y = np.arange(n * nk, dtype=np.float32).reshape(n, nk)
         lnk = np.linspace(-9.0, 5.0, nk)
         np.savez(tmp_path / "one.npz", X=X, ln_pm=Y, ln_pcb=Y * 0.9, lnk=lnk)
@@ -284,6 +299,7 @@ class TestAMissingFileSaysWhichAndWhatToDo:
         assert "emu_pk.ratio`" not in str(e.value)
 
 
+@pytest.mark.usefixtures("_needs_current_shipped_weights")
 class TestTheTrainedRedshiftRangeIsEnforced:
     """The box check covers the eight parameters; `z` is a ninth input and is
     not in `box.BOX`, so it is checked separately or not at all.
@@ -301,7 +317,7 @@ class TestTheTrainedRedshiftRangeIsEnforced:
     def test_outside_the_range_raises(self, z):
         emu = self._emu()
         k = np.logspace(-3, 0, 8)
-        theta = np.array([0.02237, 0.12, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0])
+        theta = _theta()
         with pytest.raises(ValueError, match="outside the trained range"):
             emu.pk(k, z, theta)
 
@@ -311,15 +327,23 @@ class TestTheTrainedRedshiftRangeIsEnforced:
         bounds, and rejecting them would reject sigma_8's own redshift."""
         emu = self._emu()
         k = np.logspace(-3, 0, 8)
-        theta = np.array([0.02237, 0.12, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0])
+        theta = _theta()
         assert np.all(np.isfinite(np.asarray(emu.pk(k, z, theta))))
 
 
 # ==========================================================================
 # train: the guard that a dataset means what the trainer assumes
 # ==========================================================================
-def _dataset(tmp_path, n=24, nz=3, nk=10, ncol=9, seed=3):
-    """A parts-layout training set with a controllable design width."""
+def _dataset(tmp_path, n=24, nz=3, nk=10, ncol=None, seed=3):
+    """A parts-layout training set with a controllable design width.
+
+    ``ncol`` defaults to what *this* box implies rather than to a number, so a
+    fixture that is meant to be well-formed stays well-formed when the box
+    grows.  The tests that deliberately build a mismatched dataset pass it
+    explicitly, which is what makes their intent visible.
+    """
+    if ncol is None:
+        ncol = len(box.PARAMS) + 1                 # the box, plus z
     rng = np.random.default_rng(seed)
     X = rng.random((n * nz, ncol)).astype(np.float32)
     Y = rng.random((n * nz, nk)).astype(np.float32)
@@ -567,6 +591,30 @@ class TestValidateSolvesTheCosmologyItWasAskedFor:
     comparison would still be spectra.
     """
 
+    def test_every_box_parameter_is_a_class_params_keyword(self):
+        """What makes `generate.class_params_for` able to be generic at all.
+
+        It calls `cosmo.class_params(**{p: ... for p in box.PARAMS})`, so the
+        two name lists have to agree exactly.  Adding a parameter to the box
+        and forgetting the solver keyword would fail there with a `TypeError`
+        at the first CLASS solve of a production run -- hours in, on a cluster.
+        Here it fails in milliseconds.
+        """
+        import inspect
+        kw = set(inspect.signature(cosmo.class_params).parameters)
+        assert set(box.PARAMS) <= kw, \
+            f"class_params has no keyword for {set(box.PARAMS) - kw}"
+
+    def test_the_hand_written_expectation_covers_the_whole_box(self):
+        """The test below spells the mapping out by hand, which is the point --
+        but a hand-written list is exactly the thing that falls one behind.
+        """
+        import inspect
+        src = inspect.getsource(
+            self.test_the_parameter_vector_reaches_class_unpermuted)
+        for p in box.PARAMS:
+            assert f'd["{p}"]' in src, f"{p} is missing from `expected`"
+
     def test_the_parameter_vector_reaches_class_unpermuted(self, monkeypatch):
         from emu_pk import validate as V
 
@@ -583,11 +631,19 @@ class TestValidateSolvesTheCosmologyItWasAskedFor:
         k = np.logspace(-3, 0, 6)
         pm, pcb = V._class_pk(theta, [0.0, 1.0], k)
 
+        # **Spelled out by hand, deliberately.**  `_class_pk` now goes through
+        # `generate.class_params_for`, which maps the columns generically -- so
+        # building `expected` the same way would compare a function against
+        # itself and assert nothing.  This list is the independent statement of
+        # what each column means, and it is the only thing standing between a
+        # permuted design and a validation suite that scores the wrong
+        # cosmology self-consistently.
         d = dict(zip(box.PARAMS, theta))
         expected = cosmo.class_params(
             h=d["h"], omega_b=d["omega_b"], omega_cdm=d["omega_cdm"],
             n_s=d["n_s"], ln10A_s=d["ln10A_s"], sum_mnu=d["sum_mnu"],
-            w0=d["w0"], wa=d["wa"], k_max_h=grid.K_MAX, z_max=grid.Z_MAX)
+            w0=d["w0"], wa=d["wa"], Omega_k=d["Omega_k"],
+            k_max_h=grid.K_MAX, z_max=grid.Z_MAX)
         assert seen["params"] == expected
         # And both spectra come back from the one solve, at every z asked for.
         assert pm.shape == (2, len(k)) and pcb.shape == (2, len(k))

@@ -7,7 +7,7 @@ runs on the cluster.  Two products, from the same driver:
     the Phase-1 correction grid: the fiducial cosmology, swept over
     ``(sum_mnu, w0, wa)``, every redshift in one solve.
 ``--mode emu``
-    the Phase-2 training set: a Latin-hypercube slice of the eight-parameter
+    the Phase-2 training set: a Latin-hypercube slice of the nine-parameter
     box, every redshift in one solve.
 
 **Shards skip if their output exists.**  That single property is what makes a
@@ -27,7 +27,32 @@ import numpy as np
 
 from . import box, cosmo, grid
 
-__all__ = ["solve", "ratio_shard", "emu_shard", "main"]
+__all__ = ["class_params_for", "solve", "ratio_shard", "emu_shard", "main"]
+
+
+def class_params_for(theta, **kw):
+    """The CLASS dict for one design row.  ``theta`` in :data:`emu_pk.box.PARAMS`
+    order, or a mapping.
+
+    The only place the design's column order becomes keyword arguments.  Three
+    call sites used to spell the parameters out -- here, the timing gate, and
+    ``validate._class_pk`` -- so adding one to the box meant editing three
+    lists, and missing one meant training on a column CLASS never saw.  Nothing
+    here names a parameter, so nothing here can be left behind naming eight of
+    nine.
+
+    It works because :func:`emu_pk.cosmo.class_params`'s keyword names *are*
+    ``box.PARAMS``, exactly.  ``tests/test_entry_points.py`` asserts that
+    against the signature rather than assuming it.
+    """
+    d = (theta if hasattr(theta, "keys")
+         else dict(zip(box.PARAMS, np.asarray(theta, dtype=float))))
+    missing = [p for p in box.PARAMS if p not in d]
+    if missing:
+        raise ValueError(
+            f"no value for {missing} in a design row of {len(d)} entries; "
+            f"this box has {len(box.PARAMS)}.")
+    return cosmo.class_params(**{p: float(d[p]) for p in box.PARAMS}, **kw)
 
 
 def solve(params: dict, z_nodes, k_h) -> tuple:
@@ -145,16 +170,21 @@ SLOW_SOLVE_S = 20.0
 
 
 def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
-              seed: int = 20260827, chunk: int = CHUNK) -> list:
+              seed: int = 20260827, chunk: int = CHUNK,
+              pin: dict | None = None) -> list:
     """Solve design points ``[index*n : (index+1)*n)``, writing one file per chunk.
 
     The design is regenerated from the seed rather than read from a file, so a
     chunk is reproducible from its indices alone and two workers can never
     disagree about which cosmology index *i* names.
+
+    ``pin`` is forwarded to :func:`emu_pk.box.sample` and must be identical
+    across every shard of one design, for the same reason ``seed`` must be:
+    it is part of what the index *means*.
     """
     out_dir = pathlib.Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    design = box.sample(n_total, seed=seed)
+    design = box.sample(n_total, seed=seed, pin=pin)
     lo = index * n_per_shard
     hi = min(lo + n_per_shard, n_total)
     if lo >= n_total:
@@ -173,14 +203,10 @@ def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
         keep, pm_all, pcb_all, failed = [], [], [], []
         t_chunk = time.time()
         for n in range(c0, c1):
-            d = dict(zip(box.PARAMS, design[n]))
             t_solve = time.time()
             try:
-                pm, pcb = solve(cosmo.class_params(
-                    h=d["h"], omega_b=d["omega_b"], omega_cdm=d["omega_cdm"],
-                    n_s=d["n_s"], ln10A_s=d["ln10A_s"], sum_mnu=d["sum_mnu"],
-                    w0=d["w0"], wa=d["wa"], k_max_h=grid.K_MAX,
-                    z_max=grid.Z_MAX), z, k)
+                pm, pcb = solve(class_params_for(
+                    design[n], k_max_h=grid.K_MAX, z_max=grid.Z_MAX), z, k)
             except Exception as e:
                 # A failure is data, not a reason to abort: CLASS refuses some
                 # corners of any wide box, and a run that dies on the first one
@@ -205,6 +231,13 @@ def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
         np.savez_compressed(
             tmp,
             idx=np.array(keep, dtype=np.int64),
+            # **Which box these columns are.**  The filename carries the shard
+            # index and the design offset but not the parameters, and
+            # `emu_shard` skips on filename -- so a directory reused across a
+            # box change holds shards of two different widths and `assemble`
+            # would concatenate them.  Stamping the names catches that, and
+            # catches a *permuted* column too, which a width check cannot.
+            params=np.array(box.PARAMS, dtype="U16"),
             theta=(design[keep] if keep
                    else np.zeros((0, len(box.PARAMS)), dtype=float)),
             z=z, lnk=np.log(k),
@@ -231,13 +264,23 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=20260827)
     ap.add_argument("--chunk", type=int, default=CHUNK,
                     help="solves per output file; caps what a besteffort kill loses")
+    ap.add_argument("--pin", action="append", default=None, metavar="NAME=VALUE",
+                    help="hold a design column fixed, e.g. --pin Omega_k=0.  "
+                         "Part of what the design is, so it must match across "
+                         "every shard of one run.  Used to build the flat "
+                         "control the curved design is compared against.")
     a = ap.parse_args(argv)
 
     if a.mode == "ratio":
         print(f"ratio grid: {len(_ratio_design())} nodes, shard {a.shard}")
         ratio_shard(a.shard, a.n_per_shard, a.out)
     elif a.mode == "emu":
-        emu_shard(a.shard, a.n_per_shard, a.out, a.n_total, a.seed, a.chunk)
+        pin = dict(kv.split("=", 1) for kv in (a.pin or []))
+        pin = {k: float(v) for k, v in pin.items()}
+        if pin:
+            print(f"pinned: {pin}")
+        emu_shard(a.shard, a.n_per_shard, a.out, a.n_total, a.seed, a.chunk,
+                  pin=pin or None)
     else:
         _time_calibration(a.n_per_shard, a.seed)
 
@@ -257,11 +300,8 @@ def _time_calibration(n: int = 8, seed: int = 20260827):
         d = dict(zip(box.PARAMS, theta))
         t0 = time.time()
         try:
-            solve(cosmo.class_params(
-                h=d["h"], omega_b=d["omega_b"], omega_cdm=d["omega_cdm"],
-                n_s=d["n_s"], ln10A_s=d["ln10A_s"], sum_mnu=d["sum_mnu"],
-                w0=d["w0"], wa=d["wa"], k_max_h=grid.K_MAX, z_max=grid.Z_MAX),
-                z, k)
+            solve(class_params_for(theta, k_max_h=grid.K_MAX,
+                                   z_max=grid.Z_MAX), z, k)
         except Exception as e:
             fails += 1
             print(f"  [{i}] FAILED {type(e).__name__}: {e}"[:160], flush=True)

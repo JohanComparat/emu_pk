@@ -36,16 +36,23 @@ def test_fiducial_matches_planck18():
     assert cosmo.PLANCK18["ln10A_s"] == pytest.approx(float(p.ln10A_s))
 
 
-def test_class_params_sets_flatness_and_linearity_explicitly():
-    """Both are assumptions ggah_mod makes; stated here rather than defaulted.
+def test_class_params_states_curvature_and_linearity_explicitly():
+    """Stated rather than defaulted -- and curvature is now a parameter.
 
-    ggah_mod configures CAMB with `omk=0.0` but left CLASS on its default --
-    the same assumption, written down in one place and implied in the other.
+    It used to be that `ggah_mod` was flat throughout and this package agreed
+    by hard-coding zero.  `ggah_mod` has carried `Omega_k` for a while
+    (`Cosmology.Omega_k`, and a closure that subtracts it), so the assumption
+    was only ever true on this side.  Now neither side assumes it, and the
+    convention that has to agree is the *sign*: positive is open, in CLASS, in
+    `ggah_mod`, and here.
     """
     p = cosmo.class_params(h=0.6736, omega_b=0.0224, omega_cdm=0.12,
                            n_s=0.9649, ln10A_s=3.044)
     assert p["Omega_k"] == 0.0
     assert p["non linear"] == "none"
+    assert cosmo.class_params(h=0.6736, omega_b=0.0224, omega_cdm=0.12,
+                              n_s=0.9649, ln10A_s=3.044,
+                              Omega_k=0.1)["Omega_k"] == pytest.approx(0.1)
 
 
 def test_cpl_uses_ppf():

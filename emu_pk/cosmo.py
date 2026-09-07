@@ -62,7 +62,8 @@ def f_nu(sum_mnu: float, h: float, Omega_m: float) -> float:
 
 
 def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
-                 w0=-1.0, wa=0.0, k_max_h=200.0, z_max=5.0, T_cmb=T_CMB):
+                 w0=-1.0, wa=0.0, Omega_k=0.0, k_max_h=200.0, z_max=5.0,
+                 T_cmb=T_CMB):
     """The CLASS input dict, mirroring ``ggah_mod.cosmology.power.ClassPk``.
 
     Physical densities in, so nothing here has to decide what ``Omega_m``
@@ -71,9 +72,18 @@ def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
     Four settings are explicit rather than left to CLASS's defaults, and each
     is a statement:
 
-    * ``Omega_k = 0``.  ``ggah_mod`` is flat throughout and configures CAMB with
-      ``omk=0.0``, but left CLASS on its default -- the same assumption, stated
-      in one place and implied in the other.  Stated in both here.
+    * ``Omega_k``.  A *sampled* parameter, passed through rather than assumed.
+      It is stated rather than left to CLASS's default for the same reason it
+      always was: a default here is a cosmology nobody wrote down.  Positive is
+      open, CLASS's convention and ``ggah_mod``'s.
+
+      What follows from it is the thing to know.  CLASS closes the budget with
+      whichever dark-energy component is left free -- ``Omega_Lambda`` in the
+      LambdaCDM branch, ``Omega_fld`` once ``w0``/``wa`` engage the fluid below
+      -- so ``Omega_de = 1 - Omega_k - Omega_m - Omega_r``, and over this box
+      that goes **negative** in about 0.8 % of the design.  CLASS solves those
+      without complaint; a negative dark-energy density is exotic, not
+      ill-posed.  See :func:`emu_pk.box.sample` for why they are kept.
     * ``non linear = none``.  The non-linear spectrum in ``ggah_mod`` is
       assembled by the halo model, not fitted; a halofit correction leaking into
       the training set would be silently absorbed into the network.
@@ -88,7 +98,7 @@ def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
         "non linear": "none",
         "P_k_max_h/Mpc": k_max_h * 1.05,
         "z_max_pk": float(max(z_max, 1.0)),
-        "Omega_k": 0.0,
+        "Omega_k": float(Omega_k),
         "h": float(h),
         "omega_b": float(omega_b),
         "omega_cdm": float(omega_cdm),

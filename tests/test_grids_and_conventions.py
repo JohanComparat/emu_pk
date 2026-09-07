@@ -111,11 +111,35 @@ class TestTheDensityConventions:
                                n_s=0.96, ln10A_s=3.0)
         assert p["k_pivot"] == pytest.approx(cosmo.K_PIVOT)
 
-    def test_flatness_and_linearity_are_explicit(self):
+    def test_curvature_and_linearity_are_explicit(self):
+        """`Omega_k` is stated rather than defaulted -- and now it is *sampled*.
+
+        It used to be stated because flatness was an assumption worth writing
+        down.  It is stated for the same reason now that it is a parameter: a
+        default here is a cosmology nobody chose.  What changed is that the
+        default is only the default; the value has to travel.
+        """
         p = cosmo.class_params(h=0.7, omega_b=0.022, omega_cdm=0.12,
                                n_s=0.96, ln10A_s=3.0)
         assert p["Omega_k"] == 0.0
         assert p["non linear"] == "none"
+
+    @pytest.mark.parametrize("ok", [-0.15, -0.02, 0.02, 0.15])
+    def test_curvature_reaches_class(self, ok):
+        """The half that matters.  Stating a constant zero and passing the
+        parameter through look identical from the flat call alone."""
+        p = cosmo.class_params(h=0.7, omega_b=0.022, omega_cdm=0.12,
+                               n_s=0.96, ln10A_s=3.0, Omega_k=ok)
+        assert p["Omega_k"] == pytest.approx(ok)
+
+    def test_the_box_bounds_are_the_ones_class_survives(self):
+        """Measured, not chosen.  CLASS solves the whole box at |Omega_k| <=
+        0.15; on the closed side it starts refusing near -0.275 at the
+        low-density corner.  If the bound ever widens, that measurement is
+        what has to be redone."""
+        lo, hi = box.BOX["Omega_k"]
+        assert (lo, hi) == (-0.15, 0.15)
+        assert lo < 0.0 < hi, "flat has to stay inside the box"
 
     def test_cpl_switches_on_ppf(self):
         """The box contains w(a) crossing -1, where the fluid

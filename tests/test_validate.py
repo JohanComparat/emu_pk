@@ -24,8 +24,16 @@ from emu_pk import box  # noqa: E402
 from emu_pk import validate as V  # noqa: E402
 
 # Coefficients of the synthetic spectrum, one per box parameter.  Chosen
-# non-zero and of different magnitudes so a permuted column would show.
-COEF = np.array([3.0, -2.0, 1.5, 0.7, 1.0, -4.0, 0.5, -0.25])
+# non-zero and of different magnitudes so a permuted column would show, and
+# sized from the box so that adding a parameter does not silently leave this
+# array one short -- which reads as "CLASS refused every point", not as a
+# shape mismatch.
+_COEF_BY_NAME = {"omega_b": 3.0, "omega_cdm": -2.0, "h": 1.5, "n_s": 0.7,
+                 "ln10A_s": 1.0, "sum_mnu": -4.0, "w0": 0.5, "wa": -0.25,
+                 "Omega_k": 2.25}
+assert set(box.PARAMS) <= set(_COEF_BY_NAME), \
+    f"no synthetic coefficient for {set(box.PARAMS) - set(_COEF_BY_NAME)}"
+COEF = np.array([_COEF_BY_NAME[p] for p in box.PARAMS])
 AMPL, TILT = 10.0, -1.5
 
 

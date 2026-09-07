@@ -27,7 +27,13 @@ from emu_pk.model import PkEmulator
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "_static" / "figures"
-PLANCK = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0])
+#: The fiducial, built from the box by name.  A literal array here would be
+#: silently one short the next time `box.PARAMS` grows, and a short theta used
+#: to return a spectrum rather than raise.
+_PLANCK_BY_NAME = {"omega_b": 0.02237, "omega_cdm": 0.1200, "h": 0.6736,
+                   "n_s": 0.9649, "ln10A_s": 3.044, "sum_mnu": 0.06,
+                   "w0": -1.0, "wa": 0.0, "Omega_k": 0.0}
+PLANCK = np.array([_PLANCK_BY_NAME[p] for p in box.PARAMS])
 
 
 def _style():
@@ -108,8 +114,19 @@ def fig_derivatives(plt, emu):
              "n_s": np.log(k * PLANCK[2] / cosmo.K_PIVOT)}
     eps32 = np.finfo(np.float32).eps
 
-    fig, axes = plt.subplots(2, 4, figsize=(11.5, 5.4), sharex=True)
-    for i, (p, ax) in enumerate(zip(box.PARAMS, axes.ravel())):
+    # **Sized from the box, not written down.**  `zip` stops at the shorter of
+    # its arguments, so a grid with fewer panels than there are parameters drops
+    # the last ones silently -- the figure would simply not show the newest axis
+    # and nothing would raise.  A 2x4 grid did exactly that when the box grew to
+    # nine.
+    ncol = int(np.ceil(np.sqrt(len(box.PARAMS))))
+    nrow = int(np.ceil(len(box.PARAMS) / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(2.9 * ncol, 2.7 * nrow),
+                             sharex=True)
+    axes = np.atleast_1d(axes).ravel()
+    for ax in axes[len(box.PARAMS):]:
+        ax.set_visible(False)
+    for i, (p, ax) in enumerate(zip(box.PARAMS, axes)):
         if p in exact:
             resid = np.abs(jac[:, i] - exact[p])
             ax.loglog(k, np.maximum(resid, 1e-12), lw=1.3, color="C2")
@@ -121,7 +138,7 @@ def fig_derivatives(plt, emu):
         else:
             ax.semilogx(k, jac[:, i], lw=1.4)
             ax.set_title(f"$\\partial\\ln P/\\partial$ `{p}`", fontsize=9)
-    for ax in axes[1]:
+    for ax in axes[:len(box.PARAMS)]:
         ax.set_xlabel(r"$k\ [h\,\mathrm{Mpc}^{-1}]$")
     fig.suptitle("Automatic differentiation at $z=0$.  `ln10A_s` and `n_s` are "
                  "not fitted: they are added back in closed form, so their "

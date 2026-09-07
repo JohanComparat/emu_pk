@@ -17,12 +17,18 @@ the emulator this one replaces::
     sum_mnu       --                0.0000 0.6000
     w0            --               -1.5000 -0.5000
     wa            --               -1.0000  0.6000
+    Omega_k       --               -0.1500  0.1500
 
-Two of those matter more than the rest.  CosmoPower's floor on ``h`` is 0.64,
+Three of those matter more than the rest.  CosmoPower's floor on ``h`` is 0.64,
 which sits 0.03 below the Planck fiducial -- close enough that a sampler with a
 wide ``h`` prior leaves the box in ordinary use.  And ``w0``/``wa`` are absent
 from it entirely, which is why the differentiable path in ``ggah_mod`` returns
 ``dP/dw0 = 0`` today: not a small response, an absent one.
+
+And ``Omega_k`` is absent from *every* differentiable predictor, not only from
+CosmoPower -- which is why ``ggah_mod`` refused a curved cosmology on this path
+rather than approximating one, and sent it to a Boltzmann solver instead.  The
+bound is measured rather than chosen: see :func:`sample`.
 """
 
 from __future__ import annotations
@@ -35,7 +41,14 @@ __all__ = ["PARAMS", "BOX", "sample", "inside", "check"]
 #: the training design matrix, the predictor's argument packing -- reads this
 #: tuple rather than repeating the order, because a silently permuted column is
 #: the kind of error that trains perfectly well and predicts nonsense.
-PARAMS = ("omega_b", "omega_cdm", "h", "n_s", "ln10A_s", "sum_mnu", "w0", "wa")
+#: ``Omega_k`` is appended rather than inserted, deliberately: every existing
+#: ``PARAMS.index(...)`` keeps its value, so a checkpoint's ``_in_idx`` and a
+#: shard's column order stay comparable across the change.  The capital ``O``
+#: breaks the lowercase habit of the other eight and is kept anyway, because it
+#: is CLASS's own key *and* ``ggah_mod.cosmology.Cosmology``'s field name -- and
+#: that agreement is what lets one mapping serve all three.
+PARAMS = ("omega_b", "omega_cdm", "h", "n_s", "ln10A_s", "sum_mnu", "w0", "wa",
+          "Omega_k")
 
 #: Closed bounds, inclusive.  ``z`` is not here: it is a network input but not a
 #: sampled axis -- one CLASS solve yields every redshift in
@@ -49,6 +62,7 @@ BOX = {
     "sum_mnu":  (0.0000, 0.6000),
     "w0":       (-1.5000, -0.5000),
     "wa":       (-1.0000, 0.6000),
+    "Omega_k":  (-0.1500, 0.1500),
 }
 
 
@@ -68,7 +82,7 @@ def _lhs(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
     return pts
 
 
-def sample(n: int, seed: int = 20260827) -> np.ndarray:
+def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     """``(n, len(PARAMS))`` Latin-hypercube design, columns in :data:`PARAMS` order.
 
     Deterministic in ``seed``: the design is reproducible from the seed alone,
@@ -81,6 +95,32 @@ def sample(n: int, seed: int = 20260827) -> np.ndarray:
     without bound towards early times, dark energy dominates before
     recombination, and CLASS either refuses or returns a spectrum that is not a
     cosmology anyone means to train on.
+
+    **Curvature is not rejected anywhere, and the bound is why.**  ``Omega_k``
+    spans ``[-0.15, 0.15]`` because that is the widest interval over which CLASS
+    solves the *whole* box.  Measured: on the closed side, at the low-density
+    corner (``omega_cdm = 0.05``, ``h = 0.85``, ``Omega_m = 0.108``) CLASS fails
+    from ``Omega_k = -0.275`` onward, and at ``Omega_m = 0.261`` it survives to
+    ``-0.40``.  On the open side it never refuses at all.
+
+    That asymmetry is the trap.  Positive ``Omega_k`` drives the closure
+    ``Omega_de = 1 - Omega_m - Omega_r - Omega_k`` negative, and CLASS solves
+    those without a word -- a negative dark-energy density is exotic, not
+    ill-posed.  **It is deliberately not rejected.**  0.34 % of the *flat* box
+    already sits there and the shipped 1.0.0 weights were trained through it
+    (``omega_cdm = 0.30``, ``h = 0.55`` gives ``Omega_m = 1.084``); curvature
+    takes that to 0.78 %.  Carving it out now would silently narrow the flat box
+    in the same release that widens it, and would break the one comparison that
+    says what the ninth parameter cost the other eight.  ``validate`` reports
+    the region as its own stratum instead, the way it does the quintessence
+    corner.
+
+    ``pin`` holds named columns at fixed values *after* the draw --
+    ``sample(n, pin={"Omega_k": 0.0})`` is the flat control the curved design is
+    compared against.  The design stays reproducible from the seed because the
+    pin is part of the call.  Note that a pinned column has zero variance, so a
+    network trained on it standardises that input to a constant and cannot be
+    evaluated anywhere else along that axis.
     """
     rng = np.random.default_rng(seed)
     lo = np.array([BOX[p][0] for p in PARAMS])
@@ -95,7 +135,13 @@ def sample(n: int, seed: int = 20260827) -> np.ndarray:
         pts = lo + _lhs(want, len(PARAMS), rng) * (hi - lo)
         ok = pts[:, i_w0] + pts[:, i_wa] < 0.0
         kept = np.vstack([kept, pts[ok]])
-    return kept[:n]
+    kept = kept[:n]
+    for name, value in (pin or {}).items():
+        if name not in PARAMS:
+            raise ValueError(
+                f"cannot pin {name!r}: this box samples {list(PARAMS)}.")
+        kept[:, PARAMS.index(name)] = float(value)
+    return kept
 
 
 def inside(theta) -> dict:
