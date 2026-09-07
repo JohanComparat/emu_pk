@@ -6,9 +6,10 @@
 [![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=stable)](https://emu-pk.readthedocs.io/en/stable/)
 [![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
 
-Differentiable emulation of the **linear matter power spectrum**, over an
-eight-parameter cosmology that includes the summed neutrino mass and CPL dark
-energy, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
+Differentiable emulation of the **linear matter power spectrum**, over a
+nine-parameter cosmology that includes the summed neutrino mass, CPL dark
+energy and **spatial curvature**, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and
+$z = 5$.
 
 It is written in JAX, so derivatives with respect to cosmological parameters
 come from automatic differentiation rather than finite differences — and two of
@@ -21,8 +22,8 @@ from emu_pk import PkEmulator
 
 emu = PkEmulator()
 k = np.logspace(-3, 1, 200)                      # h/Mpc
-#                 omega_b  omega_cdm    h      n_s  ln10A_s  sum_mnu   w0   wa
-theta = np.array([0.02237,    0.1200, 0.6736, 0.9649,  3.044,    0.06, -1.0, 0.0])
+#            omega_b  omega_cdm    h      n_s  ln10A_s  sum_mnu   w0   wa  Omega_k
+theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0,    0.0])
 
 pk = emu.pk(k, z=0.5, params=theta)              # P_m(k, z) in (Mpc/h)^3
 pk_cb = emu.pk_cb(k, z=0.5, params=theta)        # cdm + baryons, without neutrinos
@@ -95,12 +96,34 @@ does not have. Outside these bounds the network does not fail, it
 | `sum_mnu` [eV] | — | 0.0000 – 0.6000 |
 | `w0` | — | −1.5000 – −0.5000 |
 | `wa` | — | −1.0000 – 0.6000 |
+| `Omega_k` | — | −0.1500 – 0.1500 |
 | $k_{\max}$ [h/Mpc] | 14.56 | **200** |
 | $z$ | 0 – 5 | 0 – 5 |
 
 Points with `w0 + wa >= 0` are excluded: CPL dark energy then grows without
 bound towards early times and dominates before recombination, which is not a
 cosmology anyone means to train on.
+
+The curvature bound is measured rather than chosen. CLASS solves the *whole*
+box at $|\Omega_k| \le 0.15$; wider, it starts refusing on the closed side
+where the density is lowest — at `omega_cdm = 0.05`, `h = 0.85` it fails from
+$\Omega_k = -0.275$. The open side never refuses, not even where the closure
+$\Omega_{\rm de} = 1 - \Omega_k - \Omega_m - \Omega_r$ goes negative, so that
+side needed a stated bound rather than a solver error to find it.
+
+Negative $\Omega_{\rm de}$ is **not** excluded. 0.4 % of the flat box already
+sits there and the 1.0.0 weights were trained through it; curvature takes that
+to 0.9 %. It is exotic, not ill-posed — CLASS solves it and the spectrum is
+smooth in the parameters — so `validate` reports it as its own stratum instead
+of the design cutting it out.
+
+Curvature is the cheapest axis in the box. Above $k \approx 10^{-2}$ its effect
+is a $k$-independent growth rescaling, flat in $k$ to better than 0.5 %, so it
+costs the fit almost nothing there. The exception is the lowest decade: the
+curvature scale $\sqrt{|\Omega_k|}H_0/c$ is
+$1.3\times10^{-4}\ h\,\mathrm{Mpc}^{-1}$ at the edge of the box, inside the
+$k$ grid, and that decade is scored separately — see
+[`docs/design_notes.md`](docs/design_notes.md).
 
 ## Install
 

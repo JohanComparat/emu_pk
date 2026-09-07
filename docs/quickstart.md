@@ -18,6 +18,7 @@ theta = np.array([
     0.06,      # sum_mnu  [eV]
     -1.0,      # w0
     0.0,       # wa
+    0.0,       # Omega_k   (positive is open)
 ])
 
 pk_m = emu.pk(k, z=0.0, params=theta)            # P_m(k) in (Mpc/h)^3

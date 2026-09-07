@@ -95,6 +95,94 @@ no test on either side can see, because each is self-consistent.
 The 93.14 eV denominator is itself a *convention*, 0.53 % from the exact
 Fermi-Dirac integral, and is committed to everywhere for exactly that reason.
 
+## The curvature scale sits inside the k grid
+
+`K_MIN` is $10^{-4}\ h\,\mathrm{Mpc}^{-1}$ and the curvature scale is
+$k_{\rm curv} = \sqrt{|\Omega_k|}\,H_0/c$, which at the edge of the box
+($|\Omega_k| = 0.15$) is $1.29\times10^{-4}$. The grid reaches below it.
+
+That matters because curvature is otherwise the cheapest axis in the box.
+Measured against CLASS, above $k \approx 10^{-2}$ the response is a
+*k-independent growth rescaling*: $\partial\ln P/\partial\Omega_k = -1.81$
+across the box, flat in $k$ to better than 0.5 % over four decades. The
+transfer function is fixed long before curvature matters, so $\Omega_k$ moves
+only the growth — and the network already spans that direction. Solving 40
+held-out cosmologies twice, once flat and once curved, the extra spread the
+ninth parameter adds to the training target is:
+
+| band [h/Mpc] | extra variance at z=0 | z=1 | z=3 |
+|---|---|---|---|
+| $10^{-4}$–$10^{-3}$ | **+91 %** | +69 % | +67 % |
+| $10^{-3}$–$10^{-2}$ | +20 % | +12 % | +5 % |
+| $10^{-2}$–$1$ | +3.2 % | +1.8 % | −0.7 % |
+| $1$–$200$ | −3.7 % | −4.2 % | −2.9 % |
+
+The negatives are sampling noise on 40 points, and they are the finding: over
+almost all of the scored range, adding curvature does not widen the target at
+all. The whole cost is in the lowest decade, where the response turns over,
+crosses zero near $k \approx 6\times10^{-4}$, reaches $2.5$ in $\ln P$ at
+$\Omega_k = +0.15$, and is **not monotonic in $\Omega_k$** — at $k = 10^{-4}$,
+$\Omega_k = -0.05$ gives $-0.843$ and $-0.15$ gives $-0.635$. A smooth MLP has
+to represent a saturating, sign-changing ridge there.
+
+**`K_MIN` stays at $10^{-4}$ anyway**, for a reason that is not about this
+package. `ggah_mod`'s `DIFFERENTIABLE` and `FAST` backends both quadrature
+$\sigma(M)$ from $k_{\min} = 10^{-4}$, and `_interp_lnk` continues *below* the
+grid as a power law with the slope of the bottom two nodes. For a flat
+cosmology that continuation is roughly $k^{n_s}$ and is a safety net; for a
+curved one it is wrong by construction, because the true slope there is steep,
+sign-changing and $\Omega_k$-dependent. Raising `K_MIN` would not remove the
+feature, it would move it into an extrapolation the consumer integrates over
+and no test can see — the same shape of defect as the `jnp.interp` clamp this
+package already carries a test for.
+
+So the band is **scored instead**. `validate.K_LOWK` reports
+$k \in [10^{-4}, 10^{-3}]$ separately from `K_TRUSTED`, and the headline
+numbers keep their existing definition. Sixteen per cent of the network's
+outputs live in that band; before this they were generated and never scored,
+which is a claim nobody had checked rather than a limitation anybody had
+stated.
+
+There is deliberately **no per-band weight in the trainer**. From the shipped
+`feat_std_m`, the band is 64 of 400 modes carrying 16.9 % of
+$\sum\mathrm{feat\_std}^2$; the curvature response takes that to about 19 %.
+Per-wavenumber standardisation absorbs it, so a weight would be a knob with no
+measured justification, and it would stop `val_loss` being the mean squared
+error in $\ln P$ — which is the property that makes $\sqrt{\mathrm{val\_loss}}$
+readable as an RMS fractional error at all.
+
+## A checkpoint must feed every sampled parameter, not merely name known ones
+
+`__init__` refuses a checkpoint naming an input this package does not know.
+That is the easy direction and it was the only one checked. The dangerous
+direction is the other: a checkpoint written against a *narrower* box names
+nothing unknown, so it loads, `_in_idx` comes out bit-identical, and it
+predicts a spectrum that silently ignores whatever axis has been added since.
+
+Growing the box from eight parameters to nine is exactly when that fires, and
+it fires on the file the package itself ships. So the absent case is refused
+too, with `ANALYTIC` — `ln10A_s` and `n_s`, which the reduced target restores
+in closed form — as the one legitimate exemption. `ANALYTIC` therefore lives in
+`model`, where the inference path can see it, and `train` re-exports it: the
+trainer must drop exactly the inputs the predictor is willing to find missing.
+
+## JAX clamps an out-of-range gather, so a short `theta` returned a spectrum
+
+`_forward` reads its inputs with `p[self._in_idx]`. JAX does not raise on an
+out-of-range index — it clamps — and `_validate` could not catch it either,
+because it zips `box.PARAMS` against `params` and `zip` stops at the shorter.
+A `theta` one element short therefore gave the missing parameter some other
+parameter's value and returned a finite, smooth, wrong spectrum. Measured
+against the shipped weights: a seven-long vector where eight were wanted moved
+$P(0.05)$ by 10.3 %.
+
+Nothing passed seven, so it was unreachable — until the box grew, at which
+point every caller written against the old length becomes a short vector and
+`Omega_k` takes `wa`'s value. Since `wa = 0` is the common case, it would have
+looked right most of the time. The length is now checked explicitly; `.shape`
+is static under `jit`, so the check costs no tracing and does not touch the
+gradient.
+
 ## The network's redshift input is `log10(1+z)`
 
 $\mathrm{d}\ln P/\mathrm{d}\log_{10}(1+z) = -2\ln(10)\,f(z)$ with the growth

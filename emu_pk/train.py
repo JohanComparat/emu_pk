@@ -21,7 +21,7 @@ learned :math:`(\gamma + (1-\gamma)\sigma(\beta x))x` -- which is what makes the
 comparison one of training sets and objectives rather than of two different
 ideas.
 
-What is different here is the box (:mod:`emu_pk.box`: eight parameters against
+What is different here is the box (:mod:`emu_pk.box`: nine parameters against
 five, and ``w0``/``wa`` present at all) and the wavenumber reach (200 h/Mpc
 against 14.6), which is the whole point.
 
@@ -49,7 +49,7 @@ from .model import activation, primordial_ln_pk
 __all__ = ["COLS", "fit_pca", "reduce_target", "train", "main"]
 
 #: Columns of the assembled design matrix, in order.  ``assemble`` writes the
-#: eight sampled parameters and then ``z``; this is that layout named once so
+#: sampled parameters and then ``z``; this is that layout named once so
 #: the trainer selects columns by name rather than by a number that is right
 #: until the box changes.
 COLS = list(box.PARAMS) + ["z"]

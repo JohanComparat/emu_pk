@@ -91,7 +91,7 @@ def primordial_ln_pk(lnk, h, n_s, ln10A_s, k_pivot=cosmo.K_PIVOT):
     * :math:`\partial\ln P/\partial \ln10A_s = 1` and
       :math:`\partial\ln P/\partial n_s = \ln(kh/k_*)` become *exact*, where
       a network that learned them scored 0.31 % and 1.02 %.  A Fisher matrix
-      built on this one is exactly right in two of its eight directions.
+      built on this one is exactly right in two of its nine directions.
     * Amplitude and tilt are the two largest variance directions in the target
       over this box -- a factor ~11 in amplitude and ~44 in tilt across a
       wavenumber range of 14.5 e-folds.  Removing them analytically is capacity

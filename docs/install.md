@@ -62,7 +62,7 @@ Python 3.11 and newer. `emu_pk` ships inline type information (`py.typed`).
 
 ```bash
 python -c "from emu_pk import PkEmulator; print(PkEmulator().pk([0.1], 0.0, \
-    [0.02237, 0.12, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0]))"
+    [0.02237, 0.12, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0]))"
 ```
 
 The trained weights and the correction table ship inside the package — about

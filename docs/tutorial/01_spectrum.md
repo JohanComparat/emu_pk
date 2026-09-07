@@ -12,7 +12,7 @@ print(box.PARAMS)
 
 emu = PkEmulator()
 k = np.logspace(-4, 2, 400)                      # h/Mpc
-theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0])
+theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0])
 
 pk = emu.pk(k, z=0.0, params=theta)
 ```

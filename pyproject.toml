@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "emu_pk"
-version = "1.0.0"
-description = "Differentiable linear-P(k) emulation and the CLASS-distilled correction that carries massive neutrinos and CPL dark energy"
+version = "2.0.0"
+description = "Differentiable linear-P(k) emulation over a nine-parameter cosmology with massive neutrinos, CPL dark energy and spatial curvature"
 authors = [{name = "Johan Comparat", email = "jcomparat@lpsc.in2p3.fr"}]
 readme = "README.md"
 license = "BSD-3-Clause"

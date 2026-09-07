@@ -25,7 +25,7 @@ sweep costs nothing but the loop.
 
 **The redshift derivative itself.**  :math:`f = -\,\mathrm{d}\ln D/\mathrm{d}\ln
 (1+z)`, so :math:`\partial\ln P/\partial z` is the thing :math:`f\sigma_8` is
-built from.  It is scored here the same way the eight parameters are.
+built from.  It is scored here the same way the nine parameters are.
 
 **The metric's own noise floor.**  The reference is a central difference of
 CLASS, which is not exact: it carries a truncation error going as the square of
@@ -41,7 +41,7 @@ summary, and the comparison with nothing removed is reported as ``total``.
 The three together say what the emulator does to :math:`P(k)`: an amplitude, a
 shape, and the whole thing.
 
-**Where in the box.**  An eight-dimensional Latin hypercube essentially never
+**Where in the box.**  A nine-dimensional Latin hypercube essentially never
 samples a corner, so a median over the design says nothing about the walls --
 and the walls are where a sampler with a wide prior spends its time.  Points
 within ``EDGE_FRAC`` of any bound are reported separately, and so is the

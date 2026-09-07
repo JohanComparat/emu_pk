@@ -42,7 +42,7 @@ box.BOX         # {name: (low, high)}, closed and inclusive
 import numpy as np
 from emu_pk import box
 
-theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -0.2, 0.0])
+theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -0.2, 0.0, 0.0])
 
 box.inside(theta)
 # {'w0': (-0.2, (-1.5, -0.5))}      empty when the point is inside
@@ -76,7 +76,7 @@ train on.
 
 Two places, and both are reported separately by `emu_pk.validate`:
 
-**The walls.** An eight-dimensional Latin hypercube essentially never samples a
+**The walls.** A nine-dimensional Latin hypercube essentially never samples a
 corner. The design's points are stratified, so they cover each axis evenly, but
 a point near the wall *in every axis at once* does not occur. A sampler with
 wide priors will visit places the training set did not.

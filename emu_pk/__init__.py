@@ -21,7 +21,7 @@ The **core install is numpy and jax only**.  Generating training data needs
 
 from __future__ import annotations
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 from . import box, cosmo, grid, interp, model, ratio
 from .model import PkEmulator, primordial_ln_pk
