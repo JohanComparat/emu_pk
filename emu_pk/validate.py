@@ -64,13 +64,35 @@ from . import box, cosmo, generate, grid
 from .model import PkEmulator
 
 __all__ = ["shape_error", "derivative_error", "redshift_derivative_error",
-           "main"]
+           "flat_slice_error", "main"]
 
 #: The range the comparison is scored over, which is not the full grid.  The
 #: emulator is trained to 200 h/Mpc but a linear spectrum there is far inside
 #: the regime the halo model replaces, and scoring it would report a number
 #: nobody uses.
 K_TRUSTED = (1e-3, 10.0)
+
+#: The decade *below* :data:`K_TRUSTED`, scored separately rather than not at
+#: all.
+#:
+#: The curvature scale is :math:`k_{\rm curv} = \sqrt{|\Omega_k|}\,H_0/c`, which
+#: at :math:`|\Omega_k| = 0.15` is :math:`1.29\times10^{-4}\ h\,{\rm Mpc}^{-1}`
+#: -- inside the grid, and above :data:`emu_pk.grid.K_MIN`.  Measured against
+#: CLASS: above :math:`k \sim 10^{-2}` the curvature response is a
+#: k-independent growth rescaling, flat in k to better than 0.5 %; below
+#: :math:`k \sim 6\times10^{-4}` it turns over, reaches 2.5 in ``ln P`` at
+#: :math:`\Omega_k = +0.15`, and is *not monotonic* in :math:`\Omega_k`.
+#:
+#: ``K_TRUSTED`` sees none of that.  Sixteen per cent of the network's outputs
+#: live in this band and until now they were generated and never scored, which
+#: is a claim nobody had checked rather than a limitation anybody had stated.
+#: Reported separately: the headline numbers stay defined exactly as they were,
+#: and the cost of the grid reaching to 1e-4 becomes visible instead of hidden.
+#:
+#: Note that :data:`K_NORM` lies *outside* this band, so the number to read here
+#: is ``total`` -- renormalising inside it would divide out the feature being
+#: scored.
+K_LOWK = (1e-4, 1e-3)
 
 #: Where the shape comparison is renormalised, in h/Mpc.  Distinct from
 #: :data:`emu_pk.cosmo.K_PIVOT`, which is the *primordial* pivot in 1/Mpc and a
@@ -85,6 +107,18 @@ Z_NODES = (0.0, 0.5, 1.0, 2.0, 3.0, 5.0)
 #: A point is "on the edge" if some parameter sits within this fraction of its
 #: range from a bound.
 EDGE_FRAC = 0.10
+
+#: Below this, the closure :math:`\Omega_{de} = 1 - \Omega_k - \Omega_m -
+#: \Omega_r` has gone negative and the cosmology has a negative dark-energy
+#: density.
+#:
+#: Not rejected by the design, and reported for the same reason the
+#: quintessence corner is: it is a region the box deliberately contains and a
+#: median over a Latin hypercube says nothing about.  0.34 % of the *flat* box
+#: already sits here -- the shipped 1.0.0 weights were trained through it -- and
+#: curvature takes that to 0.78 %, almost all of it on the open side, where
+#: CLASS solves without complaining.  See :func:`emu_pk.box.sample`.
+NEGATIVE_DE = 0.0
 
 #: `w0 + wa` above this is the corner where CPL dark energy behaves like matter
 #: before recombination, where CLASS refused during generation, and where the
@@ -118,9 +152,16 @@ def where_in_box(theta) -> dict:
     lo = np.array([box.BOX[p][0] for p in box.PARAMS])
     hi = np.array([box.BOX[p][1] for p in box.PARAMS])
     u = (np.asarray(theta) - lo) / (hi - lo)
-    w0, wa = theta[box.PARAMS.index("w0")], theta[box.PARAMS.index("wa")]
+    d = dict(zip(box.PARAMS, np.asarray(theta, dtype=float)))
+    # The closure CLASS applies, recomputed here so the stratum can be read off
+    # the design without a solve.  Radiation is ~1e-4 and is left out: it is far
+    # below the width of the region this is used to select.
+    om = ((d["omega_b"] + d["omega_cdm"]) / d["h"] ** 2
+          + cosmo.omega_nu(d["sum_mnu"], d["h"]))
     return {"edge": float(np.min(np.minimum(u, 1.0 - u))),
-            "w0_plus_wa": float(w0 + wa)}
+            "w0_plus_wa": float(d["w0"] + d["wa"]),
+            "omega_k": float(d["Omega_k"]),
+            "omega_de": float(1.0 - d["Omega_k"] - om)}
 
 
 def _summary(errs, where, n_requested):
@@ -138,11 +179,18 @@ def _summary(errs, where, n_requested):
 
     edge = np.array([w["edge"] < EDGE_FRAC for w in where])
     corner = np.array([w["w0_plus_wa"] > QUINTESSENCE_CORNER for w in where])
+    # Two curvature strata, for two different questions.  `negative_de` is the
+    # region the design deliberately keeps and nothing else can see; `curved`
+    # is simply "away from flat", which is what says whether the ninth
+    # parameter is being paid for by the cosmologies that use it.
+    neg_de = np.array([w.get("omega_de", 1.0) < NEGATIVE_DE for w in where])
+    curved = np.array([abs(w.get("omega_k", 0.0)) > 0.10 for w in where])
     out = stats(np.ones(errs.size, bool))
     out.pop("n")
     out.update(n_scored=int(errs.size), n_requested=int(n_requested),
                edge=stats(edge), interior=stats(~edge),
-               quintessence_corner=stats(corner))
+               quintessence_corner=stats(corner),
+               negative_de=stats(neg_de), curved=stats(curved))
     return out
 
 
@@ -150,7 +198,8 @@ def _summary(errs, where, n_requested):
 # Shape
 # ==========================================================================
 def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
-                which=("m", "cb"), verbose=True):
+                which=("m", "cb"), verbose=True, band=K_TRUSTED, design=None,
+                label="shape error"):
     """Max ``|shape/CLASS - 1|`` over held-out cosmologies, at every redshift.
 
     Held out by construction: the design is drawn from a *different* seed from
@@ -161,11 +210,16 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
     double the only expensive part of this for no new information.  Returns
     ``{which: {z: summary}}``.
     """
-    k = np.logspace(np.log10(K_TRUSTED[0]), np.log10(K_TRUSTED[1]), 300)
+    k = np.logspace(np.log10(band[0]), np.log10(band[1]), 300)
     i0 = int(np.argmin(abs(k - K_NORM)))
     z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
     which = (which,) if isinstance(which, str) else tuple(which)
-    design = box.sample(n, seed=seed)
+    # An explicit design is what makes two arms comparable: `box.sample` under a
+    # nine-parameter box draws different eight-parameter values than it did
+    # under eight, so scoring two networks on "seed 991" alone compares them on
+    # different cosmologies.  At n = 32 the median scatters enough to matter.
+    design = box.sample(n, seed=seed) if design is None else np.asarray(design)
+    n = len(design)
 
     errs = {w: {float(zz): [] for zz in z_nodes} for w in which}
     # What the shape metric divides out, kept rather than discarded: the
@@ -205,7 +259,9 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                 s["total"] = _summary(tots[w][float(zz)], where, n)
     if verbose:
         for w in which:
-            print(f"shape error vs CLASS, P_{w}, {len(where)}/{n} held-out points:")
+            print(f"{label} vs CLASS, P_{w}, k in "
+                  f"[{band[0]:g}, {band[1]:g}], {len(where)}/{n} held-out "
+                  f"points:")
             print(f"  {'z':>5}  {'median':>9} {'90th':>9} {'max':>9}   "
                   f"{'edge p90':>9} {'corner max':>10}   {'amp med':>9}"
                   f" {'total med':>10}")
@@ -223,6 +279,30 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                       f"{'--' if am is None else format(am, '8.4%')}"
                       f" {format(s['total']['median'], '9.4%')}")
     return out
+
+
+def flat_slice_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
+                     which=("m", "cb"), verbose=True, band=K_TRUSTED):
+    r"""The same score, on the flat slice: :math:`\Omega_k` pinned to zero.
+
+    **The number that says what the ninth parameter cost the other eight.**
+
+    1.0.0 scored 0.111 % on a box with no curvature axis in it at all.  Adding
+    one widens the space the same network capacity has to cover, and a user who
+    never leaves :math:`\Omega_k = 0` should not pay much for that.  Scoring the
+    full nine-dimensional design cannot answer it -- the curved points are a
+    different question -- so this pins the column and scores the flat
+    cosmologies alone.
+
+    Held out exactly as :func:`shape_error` is: the design comes from a
+    different seed from the training set's.  Pinning is applied after the draw,
+    so the other eight columns are the ones the seed names, and a flat control
+    trained on ``box.sample(pin={"Omega_k": 0})`` is scored here on cosmologies
+    drawn the same way.
+    """
+    design = box.sample(n, seed=seed, pin={"Omega_k": 0.0})
+    return shape_error(emu, n, z_nodes, seed, which, verbose, band, design,
+                       label="flat-slice shape error")
 
 
 # ==========================================================================
@@ -411,6 +491,15 @@ def main(argv=None):
     ap.add_argument("--n-deriv", type=int, default=16)
     ap.add_argument("--z", type=float, nargs="+", default=list(Z_NODES),
                     help="redshifts to score at; one CLASS solve covers all")
+    ap.add_argument("--allow-narrow-box", action="store_true",
+                    help="score a checkpoint that has no input for some "
+                         "parameter this box samples.  For a pilot arm fitted "
+                         "without an axis; never for weights that ship.")
+    ap.add_argument("--no-lowk", action="store_true",
+                    help="skip the k < 1e-3 diagnostic band, which costs one "
+                         "more CLASS pass over the same design")
+    ap.add_argument("--no-flat-slice", action="store_true",
+                    help="skip the Omega_k = 0 score")
     ap.add_argument("--no-convergence", action="store_true",
                     help="skip the step-size check that measures the metric's "
                          "own noise floor; halves the CLASS solves")
@@ -420,10 +509,17 @@ def main(argv=None):
                          "figure retyped by hand is a validation figure that "
                          "can silently outlive the weights it describes.")
     a = ap.parse_args(argv)
-    emu = PkEmulator(a.weights, check_box=False)
+    emu = PkEmulator(a.weights, check_box=False,
+                     allow_narrow_box=a.allow_narrow_box)
     z_nodes = tuple(a.z)
     out = {"z_nodes": list(z_nodes), "n_shape": a.n_shape, "n_deriv": a.n_deriv,
-           "k_trusted": list(K_TRUSTED), "k_norm": K_NORM,
+           "k_trusted": list(K_TRUSTED), "k_lowk": list(K_LOWK),
+           "k_norm": K_NORM, "negative_de": NEGATIVE_DE,
+           "params": list(box.PARAMS),
+           # What the network was *not* fed, for a pilot arm scored with
+           # --allow-narrow-box.  Empty for anything that ships, and the
+           # difference between "this arm is flat" and "this arm is bad".
+           "narrow": list(getattr(emu, "_narrow", ())),
            "edge_frac": EDGE_FRAC,
            # Everything that changes what the network *is*.  A validation file
            # that does not say which network it scored is a number without a
@@ -436,6 +532,11 @@ def main(argv=None):
            "epoch": int(emu.w.get("epoch", -1)),
            "weights": str(a.weights or "shipped")}
     out["shape"] = shape_error(emu, a.n_shape, z_nodes)
+    if not a.no_flat_slice:
+        out["shape_flat"] = flat_slice_error(emu, a.n_shape, z_nodes)
+    if not a.no_lowk:
+        out["shape_lowk"] = shape_error(emu, a.n_shape, z_nodes, band=K_LOWK,
+                                        label="low-k band")
     out["derivative"] = derivative_error(
         emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
     out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)

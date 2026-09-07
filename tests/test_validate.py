@@ -368,3 +368,119 @@ class TestTheTotalIsReportedToo:
             s = V.shape_error(emu, n=3, z_nodes=(0.0,), which=("m",),
                               verbose=False)["m"]["0"]
             assert s["total"]["max"] >= s["amplitude"]["max"] - 1e-12
+
+
+class TestTheLowKBandIsScoredSeparately:
+    r"""The decade below ``K_TRUSTED``, which used to be generated and never
+    scored.
+
+    The curvature scale :math:`\sqrt{|\Omega_k|}H_0/c` is
+    :math:`1.3\times10^{-4}\ h\,{\rm Mpc}^{-1}` at the edge of the box, so the
+    feature curvature adds lives here and nowhere else -- above
+    :math:`k \sim 10^{-2}` the response is a flat growth rescaling.  Scoring
+    only ``K_TRUSTED`` would report a number that says nothing about the axis
+    the release exists to add.
+    """
+
+    def test_the_band_sits_below_the_trusted_range(self):
+        assert V.K_LOWK[1] <= V.K_TRUSTED[0]
+        assert V.K_LOWK[0] == pytest.approx(1e-4)
+
+    def test_k_norm_is_outside_it(self):
+        """So the number to read there is `total`: renormalising inside the
+        band would divide out the very feature being scored."""
+        assert not V.K_LOWK[0] <= V.K_NORM <= V.K_LOWK[1]
+
+    def test_the_band_changes_which_wavenumbers_are_compared(self, fake_class,
+                                                             monkeypatch):
+        seen = []
+        real = V._class_pk
+        monkeypatch.setattr(V, "_class_pk",
+                            lambda th, z, k: (seen.append(np.asarray(k)),
+                                              real(th, z, k))[1])
+        V.shape_error(FakeEmulator(), n=1, z_nodes=(0.0,), which="m",
+                      verbose=False, band=V.K_LOWK)
+        assert seen[0].min() == pytest.approx(V.K_LOWK[0])
+        assert seen[0].max() == pytest.approx(V.K_LOWK[1])
+
+    def test_a_perfect_emulator_scores_zero_there_too(self, fake_class):
+        out = V.shape_error(FakeEmulator(), n=3, z_nodes=(0.0,), which="m",
+                            verbose=False, band=V.K_LOWK)
+        assert out["m"]["0"]["median"] < 1e-10
+
+
+class TestTheFlatSliceIsScoredOnItsOwn:
+    """What the ninth parameter cost the eight that were already there.
+
+    1.0.0 scored 0.111 % on a box with no curvature in it.  Scoring the full
+    nine-dimensional design cannot say whether a flat user lost anything,
+    because the curved points are a different question.
+    """
+
+    def test_every_scored_point_is_flat(self, fake_class, monkeypatch):
+        seen = []
+        real = V._class_pk
+        monkeypatch.setattr(V, "_class_pk",
+                            lambda th, z, k: (seen.append(np.asarray(th)),
+                                              real(th, z, k))[1])
+        V.flat_slice_error(FakeEmulator(), n=5, z_nodes=(0.0,), which="m",
+                           verbose=False)
+        j = box.PARAMS.index("Omega_k")
+        assert all(t[j] == 0.0 for t in seen)
+
+    def test_the_other_columns_still_vary(self, fake_class, monkeypatch):
+        """Pinned, not collapsed: this is a slice through the box, not one
+        cosmology repeated."""
+        seen = []
+        real = V._class_pk
+        monkeypatch.setattr(V, "_class_pk",
+                            lambda th, z, k: (seen.append(np.asarray(th)),
+                                              real(th, z, k))[1])
+        V.flat_slice_error(FakeEmulator(), n=5, z_nodes=(0.0,), which="m",
+                           verbose=False)
+        assert np.ptp(np.array(seen)[:, box.PARAMS.index("h")]) > 0
+
+    def test_an_explicit_design_is_used_as_given(self, fake_class):
+        d = box.sample(4, seed=17, pin={"Omega_k": 0.05})
+        out = V.shape_error(FakeEmulator(), n=999, z_nodes=(0.0,), which="m",
+                            verbose=False, design=d)
+        assert out["m"]["0"]["n_scored"] == 4
+        assert out["m"]["0"]["n_requested"] == 4
+
+
+class TestTheCurvatureStrataAreReported:
+    r"""A Latin hypercube essentially never samples a corner, so a median says
+    nothing about the regions the box deliberately keeps.
+
+    ``negative_de`` is the one that matters: the closure
+    :math:`\Omega_{de} = 1 - \Omega_k - \Omega_m - \Omega_r` goes negative in
+    about 0.8 % of the design, CLASS solves it without complaining, and nothing
+    else in the suite can see it.
+    """
+
+    def test_where_in_box_computes_the_closure(self):
+        th = dict(zip(box.PARAMS, box.sample(1, seed=2)[0]))
+        th["omega_b"], th["omega_cdm"], th["h"] = 0.028, 0.30, 0.55
+        th["sum_mnu"], th["Omega_k"] = 0.0, 0.10
+        w = V.where_in_box(np.array([th[p] for p in box.PARAMS]))
+        # Omega_m = (0.028 + 0.30)/0.55^2 = 1.084, so Omega_de = -0.184
+        assert w["omega_de"] == pytest.approx(1.0 - 0.10 - 1.0843, abs=1e-3)
+        assert w["omega_k"] == pytest.approx(0.10)
+
+    def test_curvature_raises_the_negative_de_fraction(self):
+        """Measured, and the reason the region is reported rather than cut: it
+        is not new, curvature only makes it commoner."""
+        j = box.PARAMS.index("Omega_k")
+        curved = box.sample(2000, seed=3)
+        flat = box.sample(2000, seed=3, pin={"Omega_k": 0.0})
+        f = [np.mean([V.where_in_box(t)["omega_de"] < 0 for t in d])
+             for d in (flat, curved)]
+        assert 0.0 < f[0] < 0.01, "the flat box already contains it"
+        assert f[1] > f[0], "curvature makes it commoner"
+
+    def test_the_summary_carries_both_strata(self, fake_class):
+        out = V.shape_error(FakeEmulator(), n=4, z_nodes=(0.0,), which="m",
+                            verbose=False)
+        s = out["m"]["0"]
+        assert "negative_de" in s and "curved" in s
+        assert "quintessence_corner" in s, "the existing stratum is untouched"
