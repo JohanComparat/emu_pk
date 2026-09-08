@@ -21,7 +21,7 @@ from emu_pk.model import PkEmulator
 #: short theta used to return a spectrum rather than raise.
 _FID = {"omega_b": 0.02237, "omega_cdm": 0.12, "h": 0.6736, "n_s": 0.9649,
         "ln10A_s": 3.044, "sum_mnu": 0.06, "w0": -1.0, "wa": 0.0,
-        "Omega_k": 0.0}
+        "Omega_k": 0.0, "nu_r1": 1.0 / 3.0, "nu_r2": 1.0 / 3.0}
 
 
 def _theta(**over):
@@ -643,6 +643,7 @@ class TestValidateSolvesTheCosmologyItWasAskedFor:
             h=d["h"], omega_b=d["omega_b"], omega_cdm=d["omega_cdm"],
             n_s=d["n_s"], ln10A_s=d["ln10A_s"], sum_mnu=d["sum_mnu"],
             w0=d["w0"], wa=d["wa"], Omega_k=d["Omega_k"],
+            nu_r1=d["nu_r1"], nu_r2=d["nu_r2"],
             k_max_h=grid.K_MAX, z_max=grid.Z_MAX)
         assert seen["params"] == expected
         # And both spectra come back from the one solve, at every z asked for.

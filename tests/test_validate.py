@@ -30,7 +30,7 @@ from emu_pk import validate as V  # noqa: E402
 # shape mismatch.
 _COEF_BY_NAME = {"omega_b": 3.0, "omega_cdm": -2.0, "h": 1.5, "n_s": 0.7,
                  "ln10A_s": 1.0, "sum_mnu": -4.0, "w0": 0.5, "wa": -0.25,
-                 "Omega_k": 2.25}
+                 "Omega_k": 2.25, "nu_r1": 1.75, "nu_r2": -3.25}
 assert set(box.PARAMS) <= set(_COEF_BY_NAME), \
     f"no synthetic coefficient for {set(box.PARAMS) - set(_COEF_BY_NAME)}"
 COEF = np.array([_COEF_BY_NAME[p] for p in box.PARAMS])

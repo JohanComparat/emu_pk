@@ -89,14 +89,51 @@ class TestTheDensityConventions:
 
     def test_the_neutrino_split_matches_class_to_camb(self):
         """`N_ur = N_eff - 3 * 1.0132` is the split that lines CLASS up with
-        CAMB; giving the single non-cold species the full degeneracy roughly
-        doubles their disagreement."""
+        CAMB.  It removes what three species would have contributed had they
+        stayed relativistic, and there are still three of them whatever their
+        masses -- so this number does not move when the masses stop being
+        equal."""
         p = cosmo.class_params(h=0.6736, omega_b=0.02237, omega_cdm=0.12,
                                n_s=0.9649, ln10A_s=3.044, sum_mnu=0.06)
-        assert p["N_ncdm"] == 1
-        assert p["deg_ncdm"] == pytest.approx(3.0)
-        assert p["m_ncdm"] == pytest.approx(0.02)
+        assert p["N_ncdm"] == 3
         assert p["N_ur"] == pytest.approx(cosmo.N_EFF - 3 * 1.0132)
+        # Three *separate* species now, not one carrying a degeneracy of three.
+        assert "deg_ncdm" not in p
+        assert [float(x) for x in p["m_ncdm"].split(",")] == pytest.approx(
+            [0.02, 0.02, 0.02])
+
+    def test_n_ncdm_is_an_int_so_the_p_cb_guard_still_works(self):
+        """`generate.solve` decides whether to ask CLASS for `pk_cb_lin` by the
+        truthiness of `N_ncdm`, and the string "0" is truthy.  An int here is
+        what keeps the massless branch reachable."""
+        p = cosmo.class_params(h=0.6736, omega_b=0.02237, omega_cdm=0.12,
+                               n_s=0.9649, ln10A_s=3.044, sum_mnu=0.06)
+        assert isinstance(p["N_ncdm"], int)
+
+    def test_the_default_ratios_are_the_degenerate_convention(self):
+        """A caller that names no ratios gets the physics 1.0.0 had, so the
+        general path is the only path and the old one cannot rot."""
+        base = dict(h=0.6736, omega_b=0.02237, omega_cdm=0.12,
+                    n_s=0.9649, ln10A_s=3.044, sum_mnu=0.12)
+        m = [float(x) for x in cosmo.class_params(**base)["m_ncdm"].split(",")]
+        assert m == pytest.approx([0.04, 0.04, 0.04])
+
+    @pytest.mark.parametrize("r1,r2,want", [
+        (0.2196, 0.2357, "normal"),      # the NH locus at sum = 0.101 eV
+        (0.0149, 0.4888, "inverted"),    # the IH locus at the same sum
+    ])
+    def test_the_ratios_reach_class_and_sum_to_the_mass(self, r1, r2, want):
+        """The masses are the ratios times the sum, in CLASS's own comma form,
+        and they add back up to what the caller asked for."""
+        S = 0.101
+        p = cosmo.class_params(h=0.6736, omega_b=0.02237, omega_cdm=0.12,
+                               n_s=0.9649, ln10A_s=3.044, sum_mnu=S,
+                               nu_r1=r1, nu_r2=r2)
+        m = [float(x) for x in p["m_ncdm"].split(",")]
+        assert len(m) == 3
+        assert sum(m) == pytest.approx(S)
+        assert m[0] == pytest.approx(r1 * S)
+        assert m[1] == pytest.approx(r2 * S)
 
     def test_massless_uses_the_full_effective_number(self):
         p = cosmo.class_params(h=0.6736, omega_b=0.02237, omega_cdm=0.12,

@@ -51,12 +51,19 @@ class TestTheBoxCarriesCurvature:
     needs a stated bound rather than a solver error to find it.
     """
 
-    def test_it_is_the_last_axis(self):
-        """Appended, not inserted.  Every other `PARAMS.index` keeps its value,
-        so a checkpoint's `_in_idx` and a shard's columns stay comparable."""
-        assert box.PARAMS[-1] == "Omega_k"
+    def test_it_was_appended_not_inserted(self):
+        """Every other `PARAMS.index` keeps its value, so a checkpoint's
+        `_in_idx` and a shard's columns stay comparable across the change.
+
+        `Omega_k` is no longer *last* -- the neutrino ratios were appended after
+        it, by the same rule -- but it is still after the original eight, which
+        is what the rule actually says."""
         assert box.PARAMS[:8] == ("omega_b", "omega_cdm", "h", "n_s",
                                   "ln10A_s", "sum_mnu", "w0", "wa")
+        assert box.PARAMS[8] == "Omega_k"
+        assert box.PARAMS.index("sum_mnu") == 5, (
+            "sum_mnu still means the sum and still lives at index 5; the "
+            "ratios say how it is divided, they do not replace it")
 
     def test_the_bounds_bracket_flat(self):
         lo, hi = box.BOX["Omega_k"]

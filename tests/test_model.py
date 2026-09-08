@@ -52,7 +52,7 @@ def toy(tmp_path):
 #: that is silently one short.  A short `theta` used to return a spectrum.
 _FID = {"omega_b": 0.0224, "omega_cdm": 0.12, "h": 0.6736, "n_s": 0.9649,
         "ln10A_s": 3.044, "sum_mnu": 0.06, "w0": -1.0, "wa": 0.0,
-        "Omega_k": 0.0}
+        "Omega_k": 0.0, "nu_r1": 1.0 / 3.0, "nu_r2": 1.0 / 3.0}
 
 
 def _theta(**over):

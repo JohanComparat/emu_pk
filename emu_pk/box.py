@@ -18,6 +18,8 @@ the emulator this one replaces::
     w0            --               -1.5000 -0.5000
     wa            --               -1.0000  0.6000
     Omega_k       --               -0.1500  0.1500
+    nu_r1         --                0.0000  0.3333
+    nu_r2         --                0.0000  0.5000
 
 Three of those matter more than the rest.  CosmoPower's floor on ``h`` is 0.64,
 which sits 0.03 below the Planck fiducial -- close enough that a sampler with a
@@ -47,8 +49,15 @@ __all__ = ["PARAMS", "BOX", "sample", "inside", "check"]
 #: breaks the lowercase habit of the other eight and is kept anyway, because it
 #: is CLASS's own key *and* ``ggah_mod.cosmology.Cosmology``'s field name -- and
 #: that agreement is what lets one mapping serve all three.
+#: ``nu_r1``/``nu_r2`` are appended for the same reason and split the neutrino
+#: mass over three species: :math:`m_i = r_i \Sigma m_\nu` with
+#: :math:`r_3 = 1 - r_1 - r_2`, ordered :math:`r_1 \le r_2 \le r_3`.  ``sum_mnu``
+#: keeps index 5 and keeps its meaning -- it is still the sum -- so every prior,
+#: every published result and every existing column stay where they were.  What
+#: is new is *how the sum is divided*, which the degenerate convention fixed at
+#: (1/3, 1/3, 1/3) and oscillation experiments say is not what the world does.
 PARAMS = ("omega_b", "omega_cdm", "h", "n_s", "ln10A_s", "sum_mnu", "w0", "wa",
-          "Omega_k")
+          "Omega_k", "nu_r1", "nu_r2")
 
 #: Closed bounds, inclusive.  ``z`` is not here: it is a network input but not a
 #: sampled axis -- one CLASS solve yields every redshift in
@@ -63,6 +72,11 @@ BOX = {
     "w0":       (-1.5000, -0.5000),
     "wa":       (-1.0000, 0.6000),
     "Omega_k":  (-0.1500, 0.1500),
+    # The ordered simplex, not a rectangle: `sample` rejects the corner where
+    # r2 < r1 or r2 > (1 - r1)/2.  r1 cannot exceed 1/3 under that constraint,
+    # so its bound is the constraint rather than a choice.
+    "nu_r1":    (0.0000, 1.0 / 3.0),
+    "nu_r2":    (0.0000, 0.5000),
 }
 
 
@@ -83,7 +97,7 @@ def _lhs(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
 
 
 def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
-    """``(n, len(PARAMS))`` Latin-hypercube design, columns in :data:`PARAMS` order.
+    r"""``(n, len(PARAMS))`` Latin-hypercube design, columns in :data:`PARAMS` order.
 
     Deterministic in ``seed``: the design is reproducible from the seed alone,
     so a shard can be regenerated years later without shipping the design
@@ -115,6 +129,29 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     the region as its own stratum instead, the way it does the quintessence
     corner.
 
+    **The neutrino masses.**  ``sum_mnu`` is still the sum; ``nu_r1`` and
+    ``nu_r2`` say how it is divided, with :math:`m_i = r_i \Sigma m_\nu` and
+    :math:`r_3 = 1 - r_1 - r_2`.  Points outside the *ordered* simplex
+    :math:`0 \le r_1 \le r_2 \le (1-r_1)/2` are rejected and redrawn.  The
+    ordering is not a taste constraint either: CLASS sums the species'
+    contributions and cannot tell them apart, so the six permutations of one
+    mass vector are the same cosmology, and sampling all six would spend
+    network capacity learning an exact symmetry rather than the physics.
+    ``r_1 \le 1/3`` follows from the constraint rather than being imposed.
+
+    Both orderings and the degenerate limit live inside it.  Measured against
+    the Esteban et al. (2024) splittings, in :math:`r` coordinates: normal at
+    :math:`\Sigma = 0.059` eV is (0.000, 0.147), inverted at 0.101 eV is
+    (0.015, 0.489), and both tend to (1/3, 1/3) as the mass grows and the
+    splittings stop mattering.
+
+    **The degenerate point is a vertex of that simplex**, not an interior
+    point -- it is where ``r_1`` meets its bound and the constraint is tight at
+    once -- and it cannot be made interior, because a spread is non-negative.
+    That is the same situation as ``sum_mnu = 0`` and ``z = 0``, and it matters
+    more than either because (1/3, 1/3) is where every published result and the
+    whole of 1.0.0 sit.  ``validate`` scores it as its own stratum.
+
     ``pin`` holds named columns at fixed values *after* the draw --
     ``sample(n, pin={"Omega_k": 0.0})`` is the flat control the curved design is
     compared against.  The design stays reproducible from the seed because the
@@ -126,14 +163,24 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     lo = np.array([BOX[p][0] for p in PARAMS])
     hi = np.array([BOX[p][1] for p in PARAMS])
     i_w0, i_wa = PARAMS.index("w0"), PARAMS.index("wa")
+    i_r1, i_r2 = PARAMS.index("nu_r1"), PARAMS.index("nu_r2")
 
     kept = np.empty((0, len(PARAMS)))
-    # Draw generously and filter; the accepted fraction is ~0.8, so two rounds
-    # are almost always enough and the loop is a guarantee rather than a plan.
+    # Draw generously and filter.  Two cuts now, and together they accept ~0.40
+    # -- 0.80 for the CPL one and 0.50 for the simplex -- so the oversample is
+    # 3.0 rather than 1.6 and two rounds are still almost always enough.  The
+    # loop remains the guarantee.
     while len(kept) < n:
-        want = int((n - len(kept)) * 1.6) + 16
+        want = int((n - len(kept)) * 3.0) + 16
         pts = lo + _lhs(want, len(PARAMS), rng) * (hi - lo)
         ok = pts[:, i_w0] + pts[:, i_wa] < 0.0
+        # The neutrino masses are *interchangeable* -- CLASS sums their
+        # contributions and knows nothing of which is which -- so the six
+        # permutations of one mass vector are the same cosmology.  Ordering
+        # them is what stops the network spending capacity learning an exact
+        # symmetry instead of the physics.
+        ok &= pts[:, i_r1] <= pts[:, i_r2]
+        ok &= pts[:, i_r2] <= (1.0 - pts[:, i_r1]) / 2.0
         kept = np.vstack([kept, pts[ok]])
     kept = kept[:n]
     for name, value in (pin or {}).items():
