@@ -141,13 +141,19 @@ case "${FAMILY}" in
       # killed element re-runs and costs only what it had not finished.  That
       # is the property that makes the cheap queue the right queue here.
       # shellcheck disable=SC2046
-      # 12 h, not 6.  Measured on a production node: 12.2 s/solve for the
-      # nine-parameter box and 1.34x that for three separate neutrino species,
-      # so 1600 solves is ~7.2 h.  The 1.0.0 campaign was sized at ~6.5 s/solve
-      # where 1600 fitted into 6 h with room; it no longer does, and a walltime
-      # kill lands on the last chunk of every element.
+      # 24 h, not 6.  The nodes are heterogeneous by a factor approaching two
+      # and OAR says so on every submission, so this is sized on the *slow*
+      # one.  Measured the same day on the eleven-parameter box: 14.0 s/solve
+      # where `calibrate` landed, and 26.0 s/solve on dahu115 in the devel
+      # smoke -- 6.2 h and 11.6 h respectively for an element of 1600.
+      #
+      # A besteffort kill is cheap: chunks skip, so a restart costs only the
+      # partial chunk.  A *walltime* kill is not, because it lands on the last
+      # chunk of every one of 94 elements at once.  The asymmetry is why this
+      # is sized with a factor of two rather than a margin.  Dahu's ceiling is
+      # 48 h.
       oarsub --project "${PROJECT}" \
-        -l "/nodes=1/core=2,walltime=12:00:00" \
+        -l "/nodes=1/core=2,walltime=24:00:00" \
         -t besteffort -t idempotent \
         --array "${N_EMU_SHARDS}" \
         $(log_flags emu) -S "./oarsub/run_generate.sh emu ${ARM} ${EMU_N_TOTAL} ${EMU_PER_SHARD}"

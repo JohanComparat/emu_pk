@@ -108,21 +108,28 @@ of solves against a 6 h walltime, so raise the walltime too.
 
 Measured on Dahu, same code, same design, same day:
 
-| node | s/solve | how |
-|---|---|---|
-| `dahu-fat4` | **7.44** | `calibrate`, 8 solves of a 64-point design |
-| `dahu127` | **12.2** | `emu --devel`, 100 solves of the production design |
+| node | s/solve | box | how |
+|---|---|---|---|
+| `dahu-fat4` | **7.44** | 9 par | `calibrate`, 8 solves of a 64-point design |
+| `dahu127` | **12.2** | 9 par | `emu --devel`, 100 solves of the production design |
+| (calibrate) | **14.0** | 11 par | `calibrate`, 8 solves, three neutrino species |
+| `dahu115` | **26.0** | 11 par | `emu --devel`, 50 solves of the production design |
 
 A factor 1.6, and OAR says why on every submission — *"resources may be
 heterogeneous"*. `calibrate` does not pin `/cpumodel=1/`, so its number is
 whichever node it got. **Size on the slow figure**, or the array dies on
 walltime at 90 %:
 
-| design | per element | at 12.2 s/solve | walltime | |
+| design | per element | at 26 s/solve | walltime | |
 |---|---|---|---|---|
-| 16 000 | 1 000 | 3.4 h | 6 h | fine |
-| 150 000 | 1 600 | **5.4 h** | 6 h | **tight** |
-| 150 000 | 3 200 | **10.8 h** | 12 h | **tight** |
+| 16 000 | 1 000 | 7.2 h | 24 h | fine |
+| 150 000 | 1 600 | **11.6 h** | 24 h | fine |
+| 150 000 | 1 600 | 11.6 h | *12 h* | *3 % margin — too tight* |
+
+The `emu` walltime is **24 h**, sized on the slow node with a factor of two
+rather than a margin. The asymmetry is the reason: a besteffort kill costs the
+partial chunk, because chunks skip; a walltime kill lands on the last chunk of
+every one of 94 elements at once.
 
 The shipped 1.0.0 campaign was sized at ~6.5 s/solve, which fits 1 600 solves
 into 6 h with room. At 12.2 it does not. Before submitting production, either
