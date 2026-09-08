@@ -105,7 +105,12 @@ class TestTheDesignArmSelectsItsOwnPaths:
         jobs.  The submitter used to hand that rejection to the scheduler,
         which reports it without saying which knob to turn."""
         src = (OARSUB / "submit_campaign.sh").read_text()
-        assert "N_EMU_SHARDS" in src and "-gt 94" in src
+        assert "N_EMU_SHARDS" in src
+        # The budget is jobs *already waiting* plus the new array, not the
+        # array alone -- a 94-element submission passed an array-only check and
+        # still bounced, because the queue was not empty.
+        assert "oarstat" in src and "Waiting" in src, (
+            "the guard must ask the queue how full it is, not assume it empty")
         assert "EMU_PER_SHARD to" in src, "the message must name the fix"
 
 

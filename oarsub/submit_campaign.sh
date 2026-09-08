@@ -81,11 +81,23 @@ N_EMU_SHARDS=$(( (EMU_N_TOTAL + EMU_PER_SHARD - 1) / EMU_PER_SHARD ))
 # without raising EMU_PER_SHARD produced a rejection from the scheduler with no
 # hint about which knob to turn.  Element *length* is not what a besteffort kill
 # costs -- chunk length is -- so the fix is always a longer element.
-if [ "${N_EMU_SHARDS}" -gt 94 ]; then
-  echo "!! ${N_EMU_SHARDS} array elements for ${EMU_N_TOTAL} cosmologies:" >&2
-  echo "   GRICAD refuses more than 100 waiting jobs." >&2
-  echo "   Raise EMU_PER_SHARD to $(( (EMU_N_TOTAL + 93) / 94 )) or more." >&2
-  exit 2
+# The cap is on jobs **already waiting** plus the ones being submitted, not on
+# the array alone -- which is how a 94-element array that passed this check
+# still bounced off `[MAX_JOBS] you cannot have more than 100 jobs waiting`,
+# because the queue was not empty.  So ask the queue rather than assume it is.
+_waiting=$(oarstat -u "${USER}" 2>/dev/null | grep -c Waiting || echo 0)
+_room=$(( 100 - _waiting ))
+if [ "${FAMILY}" = "emu" ] && [ -z "${DEVEL}" ]; then
+  if [ "${N_EMU_SHARDS}" -gt "${_room}" ]; then
+    echo "!! ${N_EMU_SHARDS} array elements, but only ${_room} of GRICAD's" >&2
+    echo "   100-waiting-job budget is free (${_waiting} already queued)." >&2
+    echo "   Either wait for the queue to drain, or raise EMU_PER_SHARD to" >&2
+    echo "   $(( (EMU_N_TOTAL + _room - 1) / _room )) so the array is ${_room} elements." >&2
+    echo "   Element *length* is not what a besteffort kill costs -- chunk" >&2
+    echo "   length is -- so a longer element trades nothing." >&2
+    exit 2
+  fi
+  echo "[submit] queue:  ${_waiting} waiting, ${_room} free of 100; this array is ${N_EMU_SHARDS}"
 fi
 
 log_flags () {
