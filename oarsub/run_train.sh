@@ -114,12 +114,13 @@ python -u -m emu_pk.train --dataset "${EMU_PK_DATASET}" \
 # by that and report numbers that mean nothing -- smoothly, and without
 # raising.  It exists to produce one number: the flat-slice error at this
 # design size, which is what arm C's flat slice is compared against.
-if [ "${EMU_PK_ARM}" = "f" ]; then
-    ARM_VAL_ARGS="--flat-only"
-    echo "-- flat control: scoring the flat slice only"
-else
-    ARM_VAL_ARGS=""
-fi
+case "${EMU_PK_ARM}" in
+  f) ARM_VAL_ARGS="--flat-only"
+     echo "-- flat control: scoring the Omega_k = 0 slice only" ;;
+  d) ARM_VAL_ARGS="--pin-score nu_r1=0.3333333333 --pin-score nu_r2=0.3333333333"
+     echo "-- degenerate control: scoring the equal-mass slice only" ;;
+  *) ARM_VAL_ARGS="" ;;
+esac
 if [ "${EPOCHS}" -lt 10 ]; then
     VAL_ARGS="--n-shape 4 --n-deriv 1 --z 0.0 1.0 --no-convergence"
     echo "-- ${EPOCHS} epochs is a smoke; scoring it with: ${VAL_ARGS}"

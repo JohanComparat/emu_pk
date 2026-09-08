@@ -91,18 +91,30 @@ export EMU_PK_SHARDS_RATIO="${WORK}/shards_ratio"
 # OAR does not propagate the submitting shell's environment to the node, so
 # `EMU_ARM=f oarsub -S ./run_generate.sh` would silently run the default arm
 # into the default arm's directory.  That is the same trap as `MODE`.
+# A campaign tag, because a *box* change needs fresh directories and the arm
+# letter alone does not carry one.  `shards_emu_c` holds the nine-parameter
+# pilot; the eleven-parameter run must not land on top of it -- `emu_shard`
+# skips on filename, so it would keep the old shards and mix two designs
+# silently.  `assemble`'s parameter stamp would catch it, but at the far end.
+EMU_CAMPAIGN="${EMU_CAMPAIGN:-v2}"
+
 campaign_arm () {
     local arm="${1:-c}"
     case "${arm}" in
         c) EMU_PIN="" ;;
         f) EMU_PIN="--pin Omega_k=0" ;;
-        *) echo "!! unknown arm '${arm}' (c = curved, f = flat control)" >&2
+        # The degenerate control: three neutrino masses held equal, which is
+        # the convention 1.0.0 and every published result use.  It is what says
+        # whether splitting the mass cost the user who never splits it.
+        d) EMU_PIN="--pin nu_r1=0.3333333333 --pin nu_r2=0.3333333333" ;;
+        *) echo "!! unknown arm '${arm}' (c = full box, f = flat control," >&2
+           echo "   d = degenerate-neutrino control)" >&2
            return 2 ;;
     esac
     export EMU_PK_ARM="${arm}" EMU_PIN
-    export EMU_PK_SHARDS_EMU="${WORK}/shards_emu_${arm}"
-    export EMU_PK_DATASET="${WORK}/training_set_${arm}.npz"
-    export EMU_PK_WEIGHTS="${WORK}/emu_pk_mlp_${arm}.npz"
+    export EMU_PK_SHARDS_EMU="${WORK}/shards_emu_${EMU_CAMPAIGN}_${arm}"
+    export EMU_PK_DATASET="${WORK}/training_set_${EMU_CAMPAIGN}_${arm}.npz"
+    export EMU_PK_WEIGHTS="${WORK}/emu_pk_mlp_${EMU_CAMPAIGN}_${arm}.npz"
 }
 
 # Default arm, for the audit and for anything sourced outside a job.
@@ -196,6 +208,13 @@ campaign_threads () {
 # --- the campaign design -----------------------------------------------------
 # One place, read by the submitter, the workers and the status audit.  A shard
 # count that disagrees between submission and audit reports phantom gaps.
+# 150 000, chosen from the pilot rather than inherited.  Arm F at 16 000 scored
+# 0.3445 % against the shipped model's 0.111 % at 150 000 on the same metric,
+# which is error ~ N^-0.506 -- the rate a smooth regressor shows, and twice the
+# 0.25 that separates data-limited from capacity-limited.  Extrapolating arm C
+# (the nine-parameter fit, 0.3412 %) along it puts 150 000 at 0.111 %: the
+# shipped number, on a box with a ninth parameter in it.  250 000 would buy
+# 0.086 % for two-thirds more allocation.
 EMU_N_TOTAL="${EMU_N_TOTAL:-150000}"     # cosmologies in the emu design
 # GRICAD refuses a submission that would leave more than 100 jobs waiting, and
 # an OAR array of N is N jobs.  So the design is cut into 94 elements rather

@@ -500,6 +500,15 @@ def main(argv=None):
                          "more CLASS pass over the same design")
     ap.add_argument("--no-flat-slice", action="store_true",
                     help="skip the Omega_k = 0 score")
+    ap.add_argument("--pin-score", action="append", default=None,
+                    metavar="NAME=VALUE",
+                    help="score only the slice with these columns pinned, e.g. "
+                         "--pin-score nu_r1=0.3333 --pin-score nu_r2=0.3333.  "
+                         "The general form of --flat-only, for any control arm "
+                         "trained with a column held fixed: that column has "
+                         "zero variance, so the checkpoint's x_std along it is "
+                         "~1e-30 and the network means anything only at the "
+                         "pinned value.")
     ap.add_argument("--flat-only", action="store_true",
                     help="score the flat slice and nothing else.  For a "
                          "control arm trained with the curvature column "
@@ -541,13 +550,24 @@ def main(argv=None):
            "weights": str(a.weights or "shipped")}
     # A control arm is one number, and asking it for any other is asking a
     # network about a direction it was never shown.
-    out["flat_only"] = bool(a.flat_only)
+    pin_score = dict(kv.split("=", 1) for kv in (a.pin_score or []))
+    pin_score = {k: float(v) for k, v in pin_score.items()}
     if a.flat_only:
-        out["shape_flat"] = flat_slice_error(emu, a.n_shape, z_nodes)
+        # `--flat-only` is `--pin-score Omega_k=0` under its old name, kept
+        # because it is what the curvature arm's job script already passes.
+        pin_score.setdefault("Omega_k", 0.0)
+    out["flat_only"] = bool(a.flat_only)
+    out["pinned_score"] = pin_score
+    if pin_score:
+        design = box.sample(a.n_shape, seed=991, pin=pin_score)
+        what = ", ".join(f"{k}={v:g}" for k, v in sorted(pin_score.items()))
+        out["shape_flat"] = shape_error(
+            emu, a.n_shape, z_nodes, design=design,
+            label=f"pinned-slice shape error ({what})")
         if not a.no_lowk:
             out["shape_flat_lowk"] = shape_error(
-                emu, a.n_shape, z_nodes, band=K_LOWK, label="flat low-k band",
-                design=box.sample(a.n_shape, seed=991, pin={"Omega_k": 0.0}))
+                emu, a.n_shape, z_nodes, band=K_LOWK, design=design,
+                label=f"pinned low-k band ({what})")
     else:
         out["shape"] = shape_error(emu, a.n_shape, z_nodes)
         if not a.no_flat_slice:
