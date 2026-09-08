@@ -272,3 +272,39 @@ class TestEveryJobParameterTravelsAsAnArgument:
         src = (OARSUB / "submit_campaign.sh").read_text()
         assert "grep -c Waiting || echo 0" not in src, (
             "that idiom yields '0\\n0' on an empty queue")
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_the_submitter_does_not_repeat_the_list_of_arms(self):
+        """`campaign_arm` is the only place that knows which arms exist.
+
+        The submitter used to carry its own `case "${ARM}" in c|f)`, which went
+        stale the moment a third arm was added: `EMU_ARM=d` was refused with
+        "must be c or f" by a script whose own campaign environment had known
+        about `d` since before it was run.
+        """
+        # Code only: the comment above the fix quotes the stale line on
+        # purpose, and a check that reads it would fail on its own explanation.
+        code = "\n".join(ln for ln in
+                         (OARSUB / "submit_campaign.sh").read_text().splitlines()
+                         if not ln.lstrip().startswith("#"))
+        assert 'in c|f)' not in code, "the arm list is duplicated again"
+        assert "campaign_arm" in code
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_every_arm_campaign_arm_knows_is_accepted(self):
+        """Whatever `campaign_arm` accepts, the submitter must accept."""
+        env = (OARSUB / "_campaign_env.sh").read_text()
+        arms = [ln.strip()[0] for ln in env.splitlines()
+                if len(ln.strip()) > 2 and ln.strip()[1] == ")"
+                and ln.strip()[0].isalpha() and "EMU_PIN=" in ln]
+        assert set(arms) >= {"c", "f", "d"}, f"found {arms}"
+        for a in arms:
+            script = (
+                'set -u\n'
+                'export EMU_PK_PROJECT=t EMU_PK_WORK=/tmp/w\n'
+                f'source {OARSUB}/_campaign_env.sh >/dev/null 2>&1\n'
+                f'campaign_arm {a} || exit 2\n'
+                'echo "$EMU_PK_ARM"\n')
+            r = subprocess.run(["bash", "-c", script], capture_output=True,
+                               text=True)
+            assert r.returncode == 0 and r.stdout.strip() == a, a

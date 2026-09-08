@@ -48,11 +48,15 @@ DEVEL="${2:-}"
 PROJECT="$(campaign_project)"
 
 # Which arm.  Read from the environment *here*, on the frontend where that
-# works, and passed to the job as an argument, where it survives.  `c` is the
-# nine-parameter design; `f` is its flat control with Omega_k pinned to zero.
+# works, and passed to the job as an argument, where it survives.
+#
+# `campaign_arm` is the *only* place that knows which arms exist, and it
+# already refuses an unknown one by name.  This used to repeat the list as
+# `case "${ARM}" in c|f)`, which then went stale the moment a third arm was
+# added -- `EMU_ARM=d` was rejected here with "must be c or f" by a submitter
+# whose own campaign environment had known about `d` for an hour.
 ARM="${EMU_ARM:-c}"
-case "${ARM}" in c|f) ;; *) echo "!! EMU_ARM must be c or f" >&2; exit 2;; esac
-campaign_arm "${ARM}"
+campaign_arm "${ARM}" || exit 2
 
 EPOCHS="${EPOCHS:-240}"
 # Names the run, and therefore the weights file.  NOT "base": that maps to the
