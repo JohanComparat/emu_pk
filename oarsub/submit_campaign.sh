@@ -85,7 +85,18 @@ N_EMU_SHARDS=$(( (EMU_N_TOTAL + EMU_PER_SHARD - 1) / EMU_PER_SHARD ))
 # the array alone -- which is how a 94-element array that passed this check
 # still bounced off `[MAX_JOBS] you cannot have more than 100 jobs waiting`,
 # because the queue was not empty.  So ask the queue rather than assume it is.
-_waiting=$(oarstat -u "${USER}" 2>/dev/null | grep -c Waiting || echo 0)
+# `grep -c` prints 0 and exits 1 when it matches nothing, and this file runs
+# under `set -e`.  Both obvious repairs are wrong, and both fail *only* when the
+# queue is empty -- the one case this guard exists to wave through:
+#
+#   n=$(... | grep -c X || echo 0)   ->  n is "0\n0"; the arithmetic below
+#                                        dies with a syntax error
+#   n=$(... | grep -c X); n=${n:-0}  ->  set -e kills the script at the
+#                                        assignment, silently, before the
+#                                        default is ever applied
+#
+# The `||` has to be on the *assignment*, where it is what suppresses `set -e`.
+_waiting=$(oarstat -u "${USER}" 2>/dev/null | grep -c Waiting) || _waiting=0
 _room=$(( 100 - _waiting ))
 if [ "${FAMILY}" = "emu" ] && [ -z "${DEVEL}" ]; then
   if [ "${N_EMU_SHARDS}" -gt "${_room}" ]; then

@@ -226,3 +226,49 @@ class TestEveryJobParameterTravelsAsAnArgument:
         src = (OARSUB / "run_generate.sh").read_text()
         assert 'EMU_N_TOTAL="${3:-${EMU_N_TOTAL}}"' in src
         assert 'EMU_PER_SHARD="${4:-${EMU_PER_SHARD}}"' in src
+
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_the_queue_guard_survives_an_empty_queue(self):
+        """`grep -c` prints 0 and exits 1 when it matches nothing.
+
+        So `count=$(... | grep -c X || echo 0)` yields "0\n0", and the
+        arithmetic that follows dies with a syntax error -- precisely when the
+        queue is empty, which is the one case the guard should wave through.
+        That is not hypothetical: it refused both control arms the first time
+        the queue drained.
+        """
+        # Under the real `set -euo pipefail`, which is what the file uses.
+        script = (
+            'set -euo pipefail\n'
+            '_waiting=$(echo "no matches here" | grep -c Waiting) || _waiting=0\n'
+            '_room=$(( 100 - _waiting ))\n'
+            'echo "$_room"\n')
+        r = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip() == "100"
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_the_two_wrong_repairs_really_are_wrong(self):
+        """Both were tried, and both broke only on an empty queue.
+
+        `|| echo 0` inside the substitution yields "0\\n0"; a `${n:-0}` default
+        *after* the assignment never runs, because `set -e` has already killed
+        the script.  Pinned so neither comes back looking reasonable.
+        """
+        run = lambda body: subprocess.run(
+            ["bash", "-c", "set -euo pipefail\n" + body],
+            capture_output=True, text=True)
+
+        r = run('n=$(echo x | grep -c Waiting || echo 0)\necho "[$n]"\n')
+        assert r.stdout.strip() == "[0\n0]", "the doubling is the point"
+
+        r = run('n=$(echo x | grep -c Waiting)\nn=${n:-0}\necho "[$n]"\n')
+        assert r.returncode != 0 and not r.stdout, (
+            "set -e should kill this before the default is applied")
+
+    @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
+    def test_the_guard_does_not_use_the_broken_idiom(self):
+        src = (OARSUB / "submit_campaign.sh").read_text()
+        assert "grep -c Waiting || echo 0" not in src, (
+            "that idiom yields '0\\n0' on an empty queue")
