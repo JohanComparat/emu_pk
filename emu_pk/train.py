@@ -357,10 +357,53 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
         print("  loss: unweighted MSE on whitened coefficients "
               "(--no-weighted)", flush=True)
 
+    # -- the split, by cosmology and not by row --------------------------------
+    # Rows are `(cosmology, redshift)` pairs: `assemble` writes every redshift
+    # in `grid.Z_NODES_EMU` for each solve, consecutively.  A random *row* split
+    # therefore puts all 31 redshifts of nearly every cosmology on both sides,
+    # and `val_loss` measures interpolation in z within cosmologies the network
+    # has already seen -- not generalisation to new ones.
+    #
+    # That is not only optimistic, it disables the one diagnostic the campaign
+    # runs on: `oarsub/README.md` says to read data-limited versus
+    # capacity-limited off the train/val gap, and a leaking split makes the two
+    # track each other whichever is true.  Splitting on the cosmology makes
+    # `val_loss` mean what the README assumes it means.
     rng = np.random.default_rng(seed)
-    perm = rng.permutation(len(Xn))
-    n_val = int(len(Xn) * val_frac)
-    val, tr = perm[:n_val], perm[n_val:]
+    # From the *raw* design matrix by name.  `Xn` has the analytic columns
+    # removed, so its last index is not `X`'s -- and `Xs[:, -1]` may already
+    # have been transformed to log10(1+z), where "unique" still counts the same
+    # nodes but the values are not redshifts.
+    zc = X[:, COLS.index("z")]
+    n_z = len(np.unique(zc))
+    n_cos = len(Xn) // n_z if n_z else 0
+    # The redshift axis has to *tile*: `assemble` writes the same node list for
+    # every cosmology, consecutively, so the first block must repeat exactly.
+    # Checking that rather than just the arithmetic is what keeps a synthetic
+    # fixture -- where every row carries its own random z -- from being read as
+    # one cosmology with a very long redshift axis, and the whole of it then
+    # going to validation.
+    tiles = (n_z > 1 and n_cos >= 4 and len(Xn) % n_z == 0
+             and np.array_equal(zc[:n_z], zc[n_z:2 * n_z]))
+    if tiles:
+        pc = rng.permutation(n_cos)
+        n_val_c = min(max(1, int(n_cos * val_frac)), n_cos - 1)
+        # Rows of one cosmology are consecutive, so a cosmology is a contiguous
+        # block of `n_z` rows and the row indices follow from the block index.
+        blk = lambda c: (c[:, None] * n_z + np.arange(n_z)[None, :]).ravel()
+        val, tr = blk(pc[:n_val_c]), blk(pc[n_val_c:])
+        print(f"  split: {n_cos - n_val_c} cosmologies train, {n_val_c} val "
+              f"({n_z} redshifts each) -- held out whole, so val_loss is "
+              f"generalisation and not z-interpolation", flush=True)
+    else:
+        # A dataset that is not a clean outer product of cosmologies with a
+        # shared redshift axis -- a hand-built fixture, or a future layout.
+        # Fall back rather than guess, and say so.
+        perm = rng.permutation(len(Xn))
+        val, tr = perm[:int(len(Xn) * val_frac)], perm[int(len(Xn) * val_frac):]
+        print(f"  split: by row ({len(val)} of {len(Xn)}); the redshift axis is "
+              f"not a shared factor of the row count, so cosmologies could not "
+              f"be held out whole", flush=True)
 
     sizes = [Xn.shape[1], *hidden, T.shape[1]]
     n_layers = len(sizes) - 1

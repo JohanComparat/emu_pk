@@ -790,3 +790,77 @@ class TestACheckpointKilledMidWriteDoesNotKillTheRun:
         self._train(tmp_path, out, resume=True)
         with np.load(out) as d:
             assert "epoch" in d.files
+
+
+def _outer_product_dataset(tmp_path, n_cos=20, n_z=5, nk=8, seed=5):
+    """A dataset shaped the way `assemble` actually writes one.
+
+    `_dataset` above gives every row its own random redshift, which is fine for
+    the guards it exercises and wrong for anything about the split: rows there
+    are not a cosmology-by-redshift outer product, and the real ones are.
+    """
+    rng = np.random.default_rng(seed)
+    theta = rng.random((n_cos, len(box.PARAMS))).astype(np.float32)
+    z = np.linspace(0.0, 3.0, n_z).astype(np.float32)
+    X = np.concatenate([np.repeat(theta, n_z, axis=0),
+                        np.tile(z, n_cos)[:, None]], axis=1)
+    Y = rng.random((n_cos * n_z, nk)).astype(np.float32)
+    np.savez(tmp_path / "ds.part000.npz", X=X, ln_pm=Y, ln_pcb=Y * 0.9)
+    np.savez(tmp_path / "ds.npz", z=z, lnk=np.linspace(-9, 5, nk),
+             parts=np.array(["ds.part000.npz"]), n_rows=np.array(len(X)),
+             idx=np.arange(n_cos), failed_idx=np.array([], dtype=np.int64))
+    return tmp_path / "ds.npz"
+
+
+class TestTheValidationSplitHoldsOutWholeCosmologies:
+    r"""Rows are ``(cosmology, redshift)`` pairs, 31 redshifts to a solve.
+
+    A random *row* split therefore puts nearly every cosmology on both sides,
+    and ``val_loss`` measures interpolation in z within cosmologies the network
+    has already seen rather than generalisation to new ones.
+
+    That is not only optimistic.  ``oarsub/README.md`` tells the reader to
+    decide data-limited versus capacity-limited from the train/val gap, and a
+    leaking split makes the two track each other whichever is true -- so the
+    campaign's one steering diagnostic could not answer the question it was
+    written for.
+    """
+
+    def test_no_cosmology_appears_on_both_sides(self, tmp_path, capsys):
+        from emu_pk import train as T
+        ds = _outer_product_dataset(tmp_path, n_cos=20, n_z=5)
+        T.train(ds, tmp_path / "w.npz", n_comp=2, hidden=(4,), epochs=1,
+                batch=8, resume=False, val_frac=0.25)
+        out = capsys.readouterr().out
+        assert "cosmologies train" in out and "val" in out
+        assert "held out whole" in out
+
+    def test_the_split_is_reported_and_sized_right(self, tmp_path, capsys):
+        from emu_pk import train as T
+        ds = _outer_product_dataset(tmp_path, n_cos=20, n_z=5)
+        T.train(ds, tmp_path / "w.npz", n_comp=2, hidden=(4,), epochs=1,
+                batch=8, resume=False, val_frac=0.25)
+        out = capsys.readouterr().out
+        assert "15 cosmologies train, 5 val" in out, out
+        assert "5 redshifts each" in out
+
+    def test_train_is_never_empty(self, tmp_path, capsys):
+        """`val_frac` near 1 must still leave something to fit, or the run
+        produces NaN on the first epoch and blames the data."""
+        from emu_pk import train as T
+        ds = _outer_product_dataset(tmp_path, n_cos=8, n_z=4)
+        T.train(ds, tmp_path / "w.npz", n_comp=2, hidden=(4,), epochs=1,
+                batch=4, resume=False, val_frac=0.99)
+        assert (tmp_path / "w.npz").exists()
+
+    def test_a_dataset_that_does_not_tile_falls_back_and_says_so(
+            self, tmp_path, capsys):
+        """`_dataset` gives every row its own redshift, so cosmologies cannot
+        be held out whole.  Falling back silently would report a generalisation
+        number that is nothing of the kind."""
+        from emu_pk import train as T
+        T.train(_dataset(tmp_path), tmp_path / "w.npz", n_comp=2, hidden=(4,),
+                epochs=1, batch=8, resume=False, val_frac=0.25)
+        out = capsys.readouterr().out
+        assert "split: by row" in out
+        assert "could not" in out
