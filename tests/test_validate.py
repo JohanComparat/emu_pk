@@ -484,3 +484,59 @@ class TestTheCurvatureStrataAreReported:
         s = out["m"]["0"]
         assert "negative_de" in s and "curved" in s
         assert "quintessence_corner" in s, "the existing stratum is untouched"
+
+
+class TestTheNeutrinoStrataAreReported:
+    r"""Half the mass axis is above what any measurement supports.
+
+    The box runs to 0.6 eV and cosmological bounds put :math:`\Sigma m_\nu`
+    near 0.1; about half the design is therefore mass no data allows.  The box
+    is *not* narrowed to match, because a bound is a posterior and deriving one
+    means evaluating the likelihood far above it -- so what the high-mass half
+    costs has to be reported instead of assumed.
+    """
+
+    def test_the_split_is_where_the_bounds_are(self):
+        assert 0.1 <= V.HEAVY_NU <= 0.3
+        lo, hi = box.BOX["sum_mnu"]
+        assert lo < V.HEAVY_NU < hi, "the split must cut the axis, not miss it"
+
+    def test_where_in_box_reports_the_mass_and_the_spread(self):
+        th = dict(zip(box.PARAMS, box.sample(1, seed=4)[0]))
+        th["sum_mnu"], th["nu_r1"], th["nu_r2"] = 0.42, 1 / 3, 1 / 3
+        w = V.where_in_box(np.array([th[p] for p in box.PARAMS]))
+        assert w["sum_mnu"] == pytest.approx(0.42)
+        # Degenerate: m3 - m1 is zero, so the spread is zero.
+        assert w["nu_spread"] == pytest.approx(0.0, abs=1e-9)
+
+    def test_the_spread_is_zero_only_when_the_masses_are_equal(self):
+        th = dict(zip(box.PARAMS, box.sample(1, seed=4)[0]))
+        th["nu_r1"], th["nu_r2"] = 0.0149, 0.4888        # inverted ordering
+        w = V.where_in_box(np.array([th[p] for p in box.PARAMS]))
+        assert abs(w["nu_spread"]) > 0.4
+
+    def test_the_summary_carries_all_three(self, fake_class):
+        out = V.shape_error(FakeEmulator(), n=6, z_nodes=(0.0,), which="m",
+                            verbose=False)
+        s = out["m"]["0"]
+        for k in ("heavy_nu", "light_nu", "degenerate_nu"):
+            assert k in s, k
+        # And the older strata are untouched.
+        for k in ("edge", "interior", "negative_de", "curved"):
+            assert k in s, k
+
+    def test_light_and_heavy_partition_the_design(self, fake_class):
+        """Every scored point is in exactly one of them, so the two `n` add up
+        to the total -- which is what makes them comparable."""
+        out = V.shape_error(FakeEmulator(), n=8, z_nodes=(0.0,), which="m",
+                            verbose=False)
+        s = out["m"]["0"]
+        n_l = s["light_nu"].get("n", 0)
+        n_h = s["heavy_nu"].get("n", 0)
+        assert n_l + n_h == s["n_scored"]
+
+    def test_about_half_the_box_is_above_the_bound(self):
+        """The number that makes the stratum worth having at all."""
+        d = box.sample(4000, seed=11)
+        frac = np.mean(d[:, box.PARAMS.index("sum_mnu")] > V.HEAVY_NU)
+        assert 0.4 < frac < 0.6, f"{frac:.2f} of the design is heavy"

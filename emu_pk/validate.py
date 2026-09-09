@@ -120,6 +120,25 @@ EDGE_FRAC = 0.10
 #: CLASS solves without complaining.  See :func:`emu_pk.box.sample`.
 NEGATIVE_DE = 0.0
 
+#: Where the neutrino mass axis crosses from observationally live into
+#: observationally dead, in eV.  Cosmological bounds put :math:`\Sigma m_\nu`
+#: below roughly 0.1--0.2 eV; the box goes to 0.6, so about half of it is mass
+#: no measurement supports.
+#:
+#: **The box is not narrowed to match, and this stratum is why it does not have
+#: to be.**  A bound on :math:`\Sigma m_\nu` is a *posterior*, and deriving one
+#: means evaluating the likelihood far above it -- ``ggah_mod`` declares
+#: ``"mnu": None`` and takes the prior from the user's sampler configuration,
+#: where flat priors to 0.5 or 1.0 eV are ordinary.  A box capped at the
+#: posterior could not support the run that produces the posterior.
+#:
+#: What the high-mass half costs is therefore reported rather than assumed.
+#: Measured on the pilot fit: the *median* error is the same on both sides
+#: (0.40 % against 0.33 %), and the *tail* is not -- p90 2.3x and max 3.6x
+#: worse above the split.  Fourteen points a side, so it is worth a stratum and
+#: not yet worth a conclusion.
+HEAVY_NU = 0.30
+
 #: `w0 + wa` above this is the corner where CPL dark energy behaves like matter
 #: before recombination, where CLASS refused during generation, and where the
 #: training set is therefore thinnest.  The design rejects `w0 + wa >= 0`.
@@ -161,7 +180,13 @@ def where_in_box(theta) -> dict:
     return {"edge": float(np.min(np.minimum(u, 1.0 - u))),
             "w0_plus_wa": float(d["w0"] + d["wa"]),
             "omega_k": float(d["Omega_k"]),
-            "omega_de": float(1.0 - d["Omega_k"] - om)}
+            "omega_de": float(1.0 - d["Omega_k"] - om),
+            "sum_mnu": float(d["sum_mnu"]),
+            # How far the three masses are from equal, as a fraction of the
+            # sum.  0 is degenerate -- the convention 1.0.0 used and the vertex
+            # of the sampled simplex, so the corner a network is least
+            # constrained at and the one every published result sits on.
+            "nu_spread": float((1.0 - d["nu_r1"] - d["nu_r2"]) - d["nu_r1"])}
 
 
 def _summary(errs, where, n_requested):
@@ -185,12 +210,19 @@ def _summary(errs, where, n_requested):
     # parameter is being paid for by the cosmologies that use it.
     neg_de = np.array([w.get("omega_de", 1.0) < NEGATIVE_DE for w in where])
     curved = np.array([abs(w.get("omega_k", 0.0)) > 0.10 for w in where])
+    # The observationally dead half of the mass axis, and its complement.
+    heavy = np.array([w.get("sum_mnu", 0.0) > HEAVY_NU for w in where])
+    # Near-degenerate neutrinos: the vertex of the sampled simplex, and the
+    # slice every result predating this box was computed on.
+    degen = np.array([abs(w.get("nu_spread", 0.0)) < 0.05 for w in where])
     out = stats(np.ones(errs.size, bool))
     out.pop("n")
     out.update(n_scored=int(errs.size), n_requested=int(n_requested),
                edge=stats(edge), interior=stats(~edge),
                quintessence_corner=stats(corner),
-               negative_de=stats(neg_de), curved=stats(curved))
+               negative_de=stats(neg_de), curved=stats(curved),
+               heavy_nu=stats(heavy), light_nu=stats(~heavy),
+               degenerate_nu=stats(degen))
     return out
 
 
@@ -532,6 +564,7 @@ def main(argv=None):
     out = {"z_nodes": list(z_nodes), "n_shape": a.n_shape, "n_deriv": a.n_deriv,
            "k_trusted": list(K_TRUSTED), "k_lowk": list(K_LOWK),
            "k_norm": K_NORM, "negative_de": NEGATIVE_DE,
+           "heavy_nu": HEAVY_NU,
            "params": list(box.PARAMS),
            # What the network was *not* fed, for a pilot arm scored with
            # --allow-narrow-box.  Empty for anything that ships, and the
