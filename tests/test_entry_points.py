@@ -565,9 +565,15 @@ class TestANonFiniteLossStopsTheRun:
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_the_pca_path_refuses_it_earlier(self, tmp_path):
-        """The same bad data on the default path, so the two guards are not
+        """The same bad data on the PCA path, so the two guards are not
         confused for each other: `fit_pca` cannot decompose a matrix with a
-        non-finite entry and says so where it happens."""
+        non-finite entry and says so where it happens.
+
+        `direct=False` is passed explicitly.  It used to be the default, and
+        this test used to say "the default path" -- which stopped being true
+        when the defaults were corrected to match what the package ships, and
+        is exactly the kind of silent drift that correction was for.
+        """
         import numpy.linalg as LA
         from emu_pk import train as T
         ds = _dataset(tmp_path)
@@ -577,7 +583,7 @@ class TestANonFiniteLossStopsTheRun:
         np.savez(ds.with_name("ds.part000.npz"), X=X, ln_pm=Ym, ln_pcb=Ycb)
         with pytest.raises(LA.LinAlgError):
             T.train(ds, tmp_path / "w.npz", n_comp=2, hidden=(4,), epochs=2,
-                    batch=8, resume=False, val_frac=0.25)
+                    batch=8, resume=False, val_frac=0.25, direct=False)
 
 
 class TestValidateSolvesTheCosmologyItWasAskedFor:

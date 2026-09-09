@@ -1156,3 +1156,92 @@ class TestACheckpointMustFeedEverySampledParameter:
         """
         skip_if_shipped_weights_are_stale()
         assert PkEmulator(check_box=False)._narrow == ()
+
+
+class TestTheTrainerDefaultsAreWhatShips:
+    r"""The default configuration must build the model the package ships.
+
+    It did not, and the gap cost a whole campaign.  ``train()`` defaulted to
+    ``direct=False`` and ``z_var="z"`` while the shipped checkpoint declares
+    ``output_form=direct`` and ``z_var=log10_1pz``, and the cluster submitter
+    passes neither flag -- so every cluster run, the pilot and all three
+    production arms, trained a PCA-head network on plain ``z``.
+
+    The 1.0.0 campaign's own ablation arms had already measured what that
+    costs, on the same box and the same design: 0.1824 % median for the PCA
+    plus plain-``z`` configuration against 0.1113 % for the one that ships.
+
+    Nothing compared the two, because the divergence was between a *default*
+    and an *artefact* and no test looked at both.  This one does, and it reads
+    the shipped file rather than repeating its contents -- a constant written
+    down twice is the thing that drifts.
+    """
+
+    @staticmethod
+    def _shipped():
+        import numpy as np
+        from emu_pk.model import DEFAULT_WEIGHTS
+        if not DEFAULT_WEIGHTS.exists():
+            pytest.skip("no weights are shipped")
+        with np.load(DEFAULT_WEIGHTS) as d:
+            return {k: str(d[k]) for k in ("output_form", "z_var",
+                                           "target_form", "loss_form")
+                    if k in d.files}
+
+    @staticmethod
+    def _defaults():
+        import inspect
+
+        from emu_pk import train as T
+        return {k: v.default
+                for k, v in inspect.signature(T.train).parameters.items()}
+
+    def test_the_output_head_default_is_the_shipped_one(self):
+        w, d = self._shipped(), self._defaults()
+        if "output_form" not in w:
+            pytest.skip("the shipped file predates output_form")
+        assert w["output_form"] == ("direct" if d["direct"] else "pca")
+
+    def test_the_redshift_variable_default_is_the_shipped_one(self):
+        w, d = self._shipped(), self._defaults()
+        if "z_var" not in w:
+            pytest.skip("the shipped file predates z_var")
+        assert w["z_var"] == d["z_var"]
+
+    def test_the_target_and_loss_defaults_are_the_shipped_ones(self):
+        """The two that were already right, pinned so they stay that way."""
+        w, d = self._shipped(), self._defaults()
+        if "target_form" in w:
+            assert w["target_form"] == ("reduced" if d["reduced"] else "raw")
+        if "loss_form" in w:
+            assert w["loss_form"] == ("lnp_mse" if d["weighted"]
+                                      else "whitened_mse")
+
+    def test_a_flagless_run_declares_the_shipped_form(self, tmp_path):
+        """End to end: train with no flags at all and read back what it wrote.
+
+        The signature check above would pass if `main()` inverted a flag on the
+        way through, which is exactly the shape of the bug it is guarding
+        against -- so the real assertion is on a checkpoint.
+        """
+        from emu_pk import train as T
+        rng = np.random.default_rng(0)
+        n, nz, nk = 16, 2, 8
+        X = rng.random((n * nz, len(box.PARAMS) + 1)).astype(np.float32)
+        Y = rng.random((n * nz, nk)).astype(np.float32)
+        ds = tmp_path / "ds.npz"
+        np.savez(tmp_path / "ds.part000.npz", X=X, ln_pm=Y, ln_pcb=Y * 0.9)
+        np.savez(ds, z=np.linspace(0, 3, nz),
+                 lnk=np.log(np.logspace(-3, 0, nk)),
+                 parts=np.array(["ds.part000.npz"]),
+                 n_rows=np.array(len(X)), idx=np.arange(n),
+                 failed_idx=np.array([], dtype=np.int64))
+        out = tmp_path / "w.npz"
+        T.train(ds, out, n_comp=2, hidden=(4,), epochs=2, batch=8,
+                resume=False, val_frac=0.25)
+        w = self._shipped()
+        with np.load(out) as d:
+            if "output_form" in w:
+                assert str(d["output_form"]) == w["output_form"]
+            if "z_var" in w:
+                assert str(d["z_var"]) == w["z_var"]

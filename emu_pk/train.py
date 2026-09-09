@@ -204,8 +204,8 @@ def _apply(p, x, n_layers):
 def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
           batch=1024, lr=1e-3, seed=0, resume=True, val_frac=0.05,
           reduced=True, weighted=True, schedule=True, warmup_epochs=2,
-          lr_end=1e-5, direct=False, staged=False, stages=STAGES,
-          z_var="z"):
+          lr_end=1e-5, direct=True, staged=False, stages=STAGES,
+          z_var="log10_1pz"):
     r"""Train both heads at once and write ``out``.
 
     One network with two heads rather than two networks: ``P_m`` and ``P_cb``
@@ -749,21 +749,29 @@ def main(argv=None):
                     help="run CosmoPower's own schedule: five learning rates "
                          "from 1e-2 to 1e-6, each until early stopping.  "
                          "Overrides --epochs, --lr and --no-schedule")
-    ap.add_argument("--z-var", default="z", choices=("z", "log10_1pz"),
+    ap.add_argument("--z-var", default="log10_1pz", choices=("z", "log10_1pz"),
                     help="what to feed the redshift as.  ln P is nearly linear "
                          "in log10(1+z) -- its slope there is -2 ln(10) f(z) "
                          "and f is bounded -- so the network has less curvature "
                          "to represent and less room to bend at z=0")
-    ap.add_argument("--direct", action="store_true",
-                    help="predict standardised ln P at every wavenumber "
-                         "instead of PCA coefficients -- CosmoPower's own "
-                         "choice for this quantity")
+    # `--no-direct` rather than `--direct`, matching `--no-reduced` and
+    # `--no-weighted`: the *default* is what ships, and the flag turns it off.
+    # It was the other way round, and that is how an entire campaign trained a
+    # PCA-head network under a submitter that passed no flags at all.
+    ap.add_argument("--no-direct", action="store_true",
+                    help="predict PCA coefficients instead of standardised "
+                         "ln P at every wavenumber.  The default is the "
+                         "direct head, which is CosmoPower's own choice for "
+                         "this quantity and what this package ships; a basis "
+                         "makes every coefficient error non-local in k, and "
+                         "the metric is the max over k")
     a = ap.parse_args(argv)
     train(a.dataset, a.out, n_comp=a.n_comp, epochs=a.epochs, batch=a.batch,
           lr=a.lr, resume=not a.no_resume, hidden=tuple(a.hidden),
           reduced=not a.no_reduced, weighted=not a.no_weighted,
           schedule=not a.no_schedule, warmup_epochs=a.warmup_epochs,
-          lr_end=a.lr_end, direct=a.direct, staged=a.staged, z_var=a.z_var)
+          lr_end=a.lr_end, direct=not a.no_direct, staged=a.staged,
+          z_var=a.z_var)
 
 
 if __name__ == "__main__":  # pragma: no cover
