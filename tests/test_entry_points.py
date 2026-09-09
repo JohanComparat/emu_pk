@@ -719,3 +719,68 @@ class TestEveryDeclaredNameExists:
         from emu_pk import model
         assert emu_pk.PkEmulator is model.PkEmulator
         assert emu_pk.primordial_ln_pk is model.primordial_ln_pk
+
+
+class TestACheckpointKilledMidWriteDoesNotKillTheRun:
+    r"""Training checkpoints every epoch, on a queue that preempts.
+
+    That is ~240 write windows per run and preemption inside one of them is an
+    eventuality, not a risk.  Writing in place turned it into a *dead run*: the
+    truncated file sits at exactly the path the restart resumes from, so it
+    killed every subsequent attempt rather than one of them.
+
+    Observed twice in a single campaign -- one resume checkpoint left at 3.4 MB
+    mid-zip (`BadZipFile`), another at 0 bytes (`EOFError`) -- while the
+    best-epoch file beside each was perfectly intact.
+    """
+
+    @staticmethod
+    def _train(tmp_path, out, **kw):
+        from emu_pk import train as T
+        ds = _dataset(tmp_path, n=16, nz=2, nk=8)
+        return T.train(ds, out, n_comp=2, hidden=(4,), epochs=2, batch=8,
+                       val_frac=0.25, **kw)
+
+    def test_the_write_is_atomic(self, tmp_path):
+        """No `.part` file survives a completed write, and the target loads."""
+        out = tmp_path / "w.npz"
+        self._train(tmp_path, out, resume=False)
+        assert out.exists()
+        assert not list(tmp_path.glob("*.part.npz")), "a temporary file leaked"
+        with np.load(out) as d:
+            assert "epoch" in d.files
+
+    def test_a_truncated_resume_file_is_ignored_not_fatal(self, tmp_path):
+        """The exact failure that killed two arms: the resume file is corrupt
+        and the best-epoch file beside it is fine."""
+        out = tmp_path / "w.npz"
+        self._train(tmp_path, out, resume=False)
+        resume = out.with_name(out.stem + ".resume.npz")
+        assert resume.exists()
+        # Truncate it the way a kill mid-write does.
+        data = resume.read_bytes()
+        resume.write_bytes(data[: len(data) // 3])
+        with pytest.raises(Exception):
+            np.load(resume)
+        # The run must still start, from the intact best-epoch file.
+        self._train(tmp_path, out, resume=True)
+        assert out.exists()
+
+    def test_a_zero_byte_resume_file_is_ignored_too(self, tmp_path):
+        """The other half of what was seen: killed before anything was written."""
+        out = tmp_path / "w.npz"
+        self._train(tmp_path, out, resume=False)
+        out.with_name(out.stem + ".resume.npz").write_bytes(b"")
+        self._train(tmp_path, out, resume=True)
+        assert out.exists()
+
+    def test_a_corrupt_best_epoch_file_is_survivable_as_well(self, tmp_path):
+        """Both candidates unreadable means starting fresh, which is a cost --
+        not a crash."""
+        out = tmp_path / "w.npz"
+        self._train(tmp_path, out, resume=False)
+        out.write_bytes(b"not a zip")
+        out.with_name(out.stem + ".resume.npz").write_bytes(b"")
+        self._train(tmp_path, out, resume=True)
+        with np.load(out) as d:
+            assert "epoch" in d.files

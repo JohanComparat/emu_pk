@@ -441,11 +441,32 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
             "loss_form": "lnp_mse" if weighted else "whitened_mse",
             "k_pivot": np.float64(cosmo.K_PIVOT)}
 
-    if resume and resume_path.exists():
+    def _readable(path):
+        """Whether `path` is a checkpoint `np.load` can actually open.
+
+        A file killed mid-write is worse than an absent one: it sits at exactly
+        the path the restart resumes from, so it kills every subsequent attempt
+        rather than one.  Writing is atomic now, so this should never fire --
+        which is why it is checked, and why it *reports* rather than raising:
+        the run has a perfectly good best-epoch checkpoint to fall back to, and
+        losing the optimiser trajectory is a far smaller loss than losing the
+        run.
+        """
+        if not path.exists():
+            return False
+        try:
+            with np.load(path) as _:
+                return True
+        except Exception as e:
+            print(f"  {path.name} is unreadable ({type(e).__name__}); it was "
+                  f"probably killed mid-write.  Ignoring it.", flush=True)
+            return False
+
+    if resume and _readable(resume_path):
         out_for_resume = resume_path
     else:
         out_for_resume = out
-    if resume and out_for_resume.exists():
+    if resume and _readable(out_for_resume):
         # Reconstruct by the exact key names the architecture implies, rather
         # than by pattern-matching what is in the file: a checkpoint written by
         # a *different* architecture must fail to load, not load partially.
@@ -679,8 +700,24 @@ def _save(out, params, decode, x_mean, x_std, lnk, n_layers, epoch, val,
                       "k_pivot": np.float64(cosmo.K_PIVOT)})
     if opt_state is not None:
         d.update(_opt_to_arrays(opt_state))
-    pathlib.Path(out).parent.mkdir(parents=True, exist_ok=True)
-    np.savez(out, **d)
+    out = pathlib.Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # **Written to a temporary name and renamed**, exactly as `generate.emu_shard`
+    # writes a shard, and for a sharper version of the same reason.  Training
+    # checkpoints every epoch and runs on a besteffort queue, so there are ~240
+    # write windows per run and preemption inside one of them is not a risk but
+    # an eventuality.  Writing in place turned that into a *dead run*: the
+    # truncated file sits at exactly the path the restart resumes from, so every
+    # subsequent attempt died on it.  Observed twice in one campaign -- one
+    # checkpoint left at 3.4 MB mid-zip, another at 0 bytes.
+    #
+    # The temporary name has to *end* in `.npz`: `np.savez` appends the
+    # extension when the path lacks it, so a bare `.part` suffix produces
+    # `....npz.part.npz` on disk and the rename then looks for a file that was
+    # never written.  Rename within one filesystem is atomic.
+    tmp = out.with_name(out.stem + ".part.npz")
+    np.savez(tmp, **d)
+    tmp.replace(out)
 
 
 def main(argv=None):
