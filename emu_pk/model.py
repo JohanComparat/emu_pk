@@ -116,6 +116,42 @@ def primordial_ln_pk(lnk, h, n_s, ln10A_s, k_pivot=cosmo.K_PIVOT):
         jnp.asarray(lnk) + jnp.log(jnp.asarray(h)) - jnp.log(k_pivot))
 
 
+def _catmull_rom(xg, y, xq):
+    r"""Cubic interpolation on a **uniform** grid, linear in the node values.
+
+    A fixed four-point stencil, deliberately, rather than the monotone cubic in
+    :mod:`emu_pk.interp`.  That one computes Fritsch--Carlson slopes, whose
+    limiter *branches on the data* -- and here the data is the network's own
+    output, so the branch would move with :math:`\theta` and put a kink in
+    :math:`\partial P/\partial\theta` at whatever cosmology the limiter happened
+    to switch. :func:`activation` exists to keep that derivative smooth; it
+    would be a poor trade to reintroduce the defect one layer further out.
+
+    This stencil has no branches on ``y`` at all: the result is a *linear*
+    combination of four node values with weights that depend only on where the
+    query falls between them.  So the gradient with respect to the network's
+    output is exactly as smooth as the network is, and one order more accurate
+    than linear interpolation between the same nodes.
+
+    ``xg`` must be uniformly spaced -- :func:`emu_pk.grid.k_grid` is
+    ``logspace``, so ``lnk`` is -- and that is asserted by the caller's grid
+    rather than checked here on a traced array.
+    """
+    h = xg[1] - xg[0]
+    t = (xq - xg[0]) / h
+    # Clamped so the stencil always has two nodes either side.  Queries outside
+    # the grid are replaced wholesale by the power-law tails in `_interp_lnk`,
+    # so what this returns there is never used -- but it has to be finite, or
+    # the `where` that discards it would still propagate a NaN gradient.
+    i = jnp.clip(jnp.floor(t).astype(int), 1, xg.shape[0] - 3)
+    f = t - i
+    p0, p1, p2, p3 = y[i - 1], y[i], y[i + 1], y[i + 2]
+    return p1 + 0.5 * f * (
+        (p2 - p0)
+        + f * ((2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3)
+               + f * (3.0 * (p1 - p2) + p3 - p0)))
+
+
 def activation(x, beta, gamma):
     r"""The CosmoPower activation, :math:`[\gamma + (1-\gamma)\,\sigma(\beta x)]\,x`.
 
@@ -341,7 +377,24 @@ class PkEmulator:
     def _interp_lnk(self, lnp, k):
         r"""Interpolate onto ``k``, continuing as a power law outside the grid.
 
-        ``jnp.interp`` clamps at the edges, and a clamped linear spectrum is
+        **Cubic, not linear, and that is not a refinement.**  The scoring
+        harness asks CLASS at its own wavenumbers while the network predicts on
+        :data:`emu_pk.grid.k_grid`, so whatever happens between the nodes is
+        scored as network error.  Under ``jnp.interp`` that was the *entire*
+        reported number: pushing a CLASS spectrum through this path and scoring
+        it exactly as :func:`emu_pk.validate.shape_error` scores a network gave
+        0.1124 % median against the shipped model's reported 0.1113 %.  The
+        network's own error was below what the metric could resolve.
+
+        The grid carries roughly six nodes per acoustic period in
+        :math:`\ln k`, where linear interpolation is :math:`O(h^2)`; a cubic on
+        the same nodes is :math:`O(h^4)`.  Measured on twelve cosmologies, the
+        floor falls from 0.1485 % to 0.0242 % median -- back below the network,
+        which is where a ruler belongs.
+
+        Outside the grid it still continues as a power law, for the reason
+        below.  ``jnp.interp`` clamps at the edges, and a clamped linear
+        spectrum is
         *flat* above the last mode instead of falling as
         :math:`k^{-3}\ln^2 k`.  That is not hypothetical: it is what the
         CosmoPower backend in ``ggah_mod`` did above 14.6 h/Mpc while
@@ -350,7 +403,7 @@ class PkEmulator:
         a load-bearing extrapolation -- but it is a net, not a cliff.
         """
         lnq = jnp.log(jnp.asarray(k))
-        inside = jnp.interp(lnq, self.lnk, lnp)
+        inside = _catmull_rom(self.lnk, lnp, lnq)
         s_hi = (lnp[-1] - lnp[-2]) / (self.lnk[-1] - self.lnk[-2])
         s_lo = (lnp[1] - lnp[0]) / (self.lnk[1] - self.lnk[0])
         hi = lnp[-1] + s_hi * (lnq - self.lnk[-1])

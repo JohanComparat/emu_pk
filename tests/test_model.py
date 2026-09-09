@@ -82,7 +82,21 @@ def test_does_not_flatline_above_the_grid(toy):
     p = np.asarray(toy.pk(k, 0.0, _theta()))
     slopes = np.diff(np.log(p)) / np.diff(np.log(k))
     assert np.all(slopes < -0.5), f"spectrum flattens outside the grid: {slopes}"
-    assert slopes[-1] == pytest.approx(slopes[-2], rel=1e-6)
+
+    # The continuation is a *single* power law, so every interval lying wholly
+    # outside the grid has the same log-slope.
+    #
+    # Intervals that straddle the last node do not, and used to only by
+    # accident: under linear interpolation the value just inside sat exactly on
+    # the line through the last two nodes, so a slope measured across the
+    # boundary matched the tail to machine precision.  That tie was a property
+    # of the interpolant, not of the continuation, and it went away when the
+    # interpolant became cubic.  Comparing two intervals that are both outside
+    # tests what this is actually about.
+    out = np.array([khi * 2.0, khi * 4.0, khi * 8.0, khi * 16.0])
+    p_out = np.asarray(toy.pk(out, 0.0, _theta()))
+    s_out = np.diff(np.log(p_out)) / np.diff(np.log(out))
+    assert s_out[0] == pytest.approx(s_out[-1], rel=1e-6)
 
 
 def test_gradient_flows_to_every_parameter(toy):
@@ -1245,3 +1259,73 @@ class TestTheTrainerDefaultsAreWhatShips:
                 assert str(d["output_form"]) == w["output_form"]
             if "z_var" in w:
                 assert str(d["z_var"]) == w["z_var"]
+
+
+class TestTheInterpolantIsCubicAndLinearInTheData:
+    r"""What lies between the nodes is scored as network error.
+
+    The scoring harness asks CLASS at its own wavenumbers while the network
+    predicts on `grid.k_grid`, so `_interp_lnk` sits inside every number the
+    package reports.  Under `jnp.interp` it *was* every number: pushed through
+    the same path with a CLASS spectrum in place of a network, linear
+    interpolation scored 0.1124 % median against the shipped model's reported
+    0.1113 %.
+
+    Two properties make the replacement safe, and neither is obvious from the
+    formula, so both are pinned here.
+    """
+
+    @staticmethod
+    def _grid(n=41):
+        return jnp.linspace(0.0, 10.0, n)
+
+    def test_it_is_far_more_accurate_than_linear_on_smooth_data(self):
+        xg = self._grid()
+        f = lambda x: 0.3 * x ** 3 - 1.2 * x ** 2 + 0.7 * x + 2.0
+        xq = jnp.linspace(1.0, 9.0, 97)
+        cub = float(jnp.abs(M._catmull_rom(xg, f(xg), xq) - f(xq)).max())
+        lin = float(jnp.abs(jnp.interp(xq, xg, f(xg)) - f(xq)).max())
+        assert cub < lin / 50, f"cubic {cub:.3g} vs linear {lin:.3g}"
+
+    def test_it_reproduces_the_nodes_exactly(self):
+        """An interpolant, not a smoother: it must pass through its data."""
+        xg = self._grid()
+        y = jnp.sin(xg) * 3.0 + 1.0
+        got = M._catmull_rom(xg, y, xg[2:-2])
+        assert jnp.allclose(got, y[2:-2], atol=1e-6)
+
+    def test_it_is_linear_in_the_node_values(self):
+        r"""**The property that makes it safe here.**
+
+        The nodes are the network's output, so anything non-linear in them --
+        a monotonicity limiter, say -- would put a kink in
+        :math:`\partial P/\partial\theta` at whatever cosmology the branch
+        happened to switch.  That is the defect `activation` exists to avoid,
+        and it would be a poor trade to reintroduce it one layer out.
+
+        Linear in the data means superposition holds exactly.
+        """
+        xg = self._grid()
+        xq = jnp.linspace(1.0, 9.0, 33)
+        a, b = jnp.sin(xg), jnp.cos(2 * xg)
+        lhs = M._catmull_rom(xg, 2.5 * a - 1.5 * b, xq)
+        rhs = 2.5 * M._catmull_rom(xg, a, xq) - 1.5 * M._catmull_rom(xg, b, xq)
+        assert jnp.allclose(lhs, rhs, atol=1e-6)
+
+    def test_the_gradient_is_a_four_point_stencil_and_finite(self):
+        xg = self._grid()
+        y = jnp.sin(xg)
+        g = jax.grad(lambda v: M._catmull_rom(xg, v, jnp.array([3.33]))[0])(y)
+        assert bool(jnp.all(jnp.isfinite(g)))
+        assert int((jnp.abs(g) > 1e-12).sum()) == 4
+
+    def test_queries_outside_the_grid_stay_finite(self):
+        """`_interp_lnk` discards them for the power-law tails, but a `where`
+        still propagates a NaN gradient from the branch it did not take."""
+        xg = self._grid()
+        y = jnp.sin(xg)
+        far = jnp.array([-50.0, -1.0, 11.0, 500.0])
+        v = M._catmull_rom(xg, y, far)
+        assert bool(jnp.all(jnp.isfinite(v)))
+        g = jax.grad(lambda w: M._catmull_rom(xg, w, far).sum())(y)
+        assert bool(jnp.all(jnp.isfinite(g)))
