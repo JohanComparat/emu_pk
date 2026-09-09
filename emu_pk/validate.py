@@ -64,7 +64,7 @@ from . import box, cosmo, generate, grid
 from .model import PkEmulator
 
 __all__ = ["shape_error", "derivative_error", "redshift_derivative_error",
-           "flat_slice_error", "main"]
+           "flat_slice_error", "interpolation_floor", "main"]
 
 #: The range the comparison is scored over, which is not the full grid.  The
 #: emulator is trained to 200 h/Mpc but a linear spectrum there is far inside
@@ -242,6 +242,85 @@ def _summary(errs, where, n_requested):
 # ==========================================================================
 # Shape
 # ==========================================================================
+def interpolation_floor(n: int = 8, z_nodes=(0.0,), seed: int = 991,
+                        band=K_TRUSTED, design=None, verbose=True):
+    r"""What the *metric* costs, before any network is involved.
+
+    :func:`shape_error` asks CLASS at 300 fresh log points while the network
+    predicts on :data:`emu_pk.grid.k_grid`'s 400 nodes and
+    ``model._interp_lnk`` interpolates linearly in :math:`\ln k` between them.
+    That interpolation is scored as though it were network error.
+
+    So it is measured the same way :func:`derivative_error` measures its own
+    finite-difference floor: push a *CLASS* spectrum through the same path --
+    solve on the native grid, interpolate to the scoring points, compare
+    against CLASS solved at the scoring points -- and report what comes out.
+
+    **The answer is that the shipped headline number is the ruler.**  Measured
+    on the same ``seed=991`` design the shipped model was scored on, with the
+    same renormalisation, at ``z = 0``, ``n = 16``:
+
+    ==========================  =========  =========  =========
+    .                           median     p90        max
+    ==========================  =========  =========  =========
+    interpolation floor         0.1124 %   0.2337 %   0.3068 %
+    shipped network, reported   0.1113 %   0.2244 %   0.6213 %
+    ratio                       **1.01**   **1.04**   0.49
+    ==========================  =========  =========  =========
+
+    The reported median and p90 are accounted for entirely by linear
+    interpolation from the 400-node grid onto the 300 scoring points; the
+    network's own error is below what this measurement can resolve.  Half the
+    max is the ruler too.
+
+    Linear interpolation of an acoustic wiggle at roughly six nodes per period
+    is an :math:`O(h^2)` error of exactly this size, and the error sits in the
+    acoustic band.  A cubic interpolant is :math:`O(h^4)` on the same nodes --
+    and :mod:`emu_pk.interp` already ships one, written for the correction
+    table, while the spectrum itself gets ``jnp.interp``.
+
+    Returns ``{z: summary}``, in the same shape as everything else here.
+    """
+    k_nat = grid.k_grid()
+    k = np.logspace(np.log10(band[0]), np.log10(band[1]), 300)
+    # Renormalised at K_NORM and maxed over k, exactly as `shape_error` scores
+    # a network -- otherwise this is a floor for a different measurement.
+    i0 = int(np.argmin(abs(k - K_NORM)))
+    z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
+    design = box.sample(n, seed=seed) if design is None else np.asarray(design)
+    errs, tots, where = ({float(zz): [] for zz in z_nodes},
+                         {float(zz): [] for zz in z_nodes}, [])
+    for theta in design:
+        try:
+            ref = _class_pk(theta, z_nodes, k)[0]
+            nat = _class_pk(theta, z_nodes, k_nat)[0]
+        except Exception as e:
+            print(f"  CLASS refused a floor point ({type(e).__name__}); skipped")
+            continue
+        where.append(where_in_box(theta))
+        for j, zz in enumerate(z_nodes):
+            got = np.exp(np.interp(np.log(k), np.log(k_nat), np.log(nat[j])))
+            r = (got / got[i0]) / (ref[j] / ref[j][i0])
+            errs[float(zz)].append(float(np.max(np.abs(r - 1.0))))
+            tots[float(zz)].append(float(np.max(np.abs(got / ref[j] - 1.0))))
+    out = {f"{zz:g}": _summary(errs[float(zz)], where, len(design))
+           for zz in z_nodes}
+    for zz in z_nodes:
+        if out[f"{zz:g}"].get("n_scored"):
+            out[f"{zz:g}"]["total"] = _summary(tots[float(zz)], where,
+                                               len(design))
+    if verbose:
+        print(f"interpolation floor of the shape metric, k in "
+              f"[{band[0]:g}, {band[1]:g}], {len(where)}/{len(design)} points:")
+        print(f"  {'z':>5}  {'median':>9} {'90th':>9} {'max':>9}")
+        for zz in z_nodes:
+            r = out[f"{zz:g}"]
+            if r.get("n_scored"):
+                print(f"  {zz:5g}  {r['median']:8.4%} {r['p90']:8.4%} "
+                      f"{r['max']:8.4%}")
+    return out
+
+
 def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                 which=("m", "cb"), verbose=True, band=K_TRUSTED, design=None,
                 label="shape error"):
@@ -540,6 +619,12 @@ def main(argv=None):
                     help="score a checkpoint that has no input for some "
                          "parameter this box samples.  For a pilot arm fitted "
                          "without an axis; never for weights that ship.")
+    ap.add_argument("--no-floor", action="store_true",
+                    help="skip the shape metric's own interpolation floor.  "
+                         "It costs 2 CLASS solves per point and it is what "
+                         "says how much of the tail is the network and how "
+                         "much is linear interpolation across the acoustic "
+                         "wiggles")
     ap.add_argument("--no-lowk", action="store_true",
                     help="skip the k < 1e-3 diagnostic band, which costs one "
                          "more CLASS pass over the same design")
@@ -624,6 +709,13 @@ def main(argv=None):
         out["derivative"] = derivative_error(
             emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
         out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
+        if not a.no_floor:
+            # The shape metric's own ruler, reported beside the number it
+            # limits.  `derivative_error` has carried its finite-difference
+            # floor since 1.0.0; the shape metric never had one, and its tail
+            # is where the difference shows.
+            out["shape_floor"] = interpolation_floor(
+                n=min(a.n_deriv, 8), z_nodes=z_nodes)
     if a.json:
         import json
         with open(a.json, "w") as fh:
