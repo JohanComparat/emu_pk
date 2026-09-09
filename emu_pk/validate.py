@@ -132,11 +132,24 @@ NEGATIVE_DE = 0.0
 #: where flat priors to 0.5 or 1.0 eV are ordinary.  A box capped at the
 #: posterior could not support the run that produces the posterior.
 #:
-#: What the high-mass half costs is therefore reported rather than assumed.
-#: Measured on the pilot fit: the *median* error is the same on both sides
-#: (0.40 % against 0.33 %), and the *tail* is not -- p90 2.3x and max 3.6x
-#: worse above the split.  Fourteen points a side, so it is worth a stratum and
-#: not yet worth a conclusion.
+#: What the high-mass half costs is therefore reported rather than assumed --
+#: and the answer, once measured properly, is that it costs nothing.  Two
+#: independent 32-point runs, sixteen points a side, median shape error at
+#: z = 0:
+#:
+#:     arm            light (<= 0.3 eV)   heavy (> 0.3 eV)
+#:     Omega_k pinned      0.4953 %           0.3532 %
+#:     ratios pinned       0.5234 %           0.4272 %
+#:
+#: **The heavy half fits better**, on median and on p90, in both.  That agrees
+#: with where the target actually bends: the departure from a straight line in
+#: ``ln P`` is 0.0027 over [0, 0.3] against 0.0004 over [0.3, 0.6], so the low
+#: mass end is the curved one and the high end is nearly linear.  Narrowing the
+#: box to the observational bound would discard the easy region and keep the
+#: hard one.
+#:
+#: An earlier fourteen-point sample said the opposite -- tail 2.3x worse above
+#: the split -- and was noise.  That is what the stratum is for.
 HEAVY_NU = 0.30
 
 #: `w0 + wa` above this is the corner where CPL dark energy behaves like matter
