@@ -1,7 +1,7 @@
 # emu_pk
 
-Differentiable emulation of the **linear matter power spectrum**, over a
-nine-parameter cosmology that includes the summed neutrino mass, CPL dark
+Differentiable emulation of the **linear matter power spectrum**, over an
+eleven-parameter cosmology with three separate neutrino masses, CPL dark
 energy and spatial curvature, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
 It reproduces CLASS's shape to a **median 0.111 %** and its amplitude to
@@ -20,7 +20,7 @@ Against central differences of CLASS at $z = 0$:
 `ln10A_s` and `n_s` are **exact**, to $2\times10^{-14}$ and $6\times10^{-8}$:
 the primordial power law is divided out of the training target and restored in
 closed form, so those two are analytic rather than fitted, and a Fisher matrix
-built on this network is exact in two of its nine directions.
+built on this network is exact in two of its eleven directions.
 
 The derivative with respect to redshift, which $f\sigma_8$ is built from:
 
@@ -39,7 +39,7 @@ from emu_pk import PkEmulator
 
 emu = PkEmulator()
 k = np.logspace(-3, 1, 200)
-theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0])
+theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0, 1/3, 1/3])
 pk = emu.pk(k, z=0.5, params=theta)
 ```
 

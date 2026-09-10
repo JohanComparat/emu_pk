@@ -1011,11 +1011,55 @@ class TestTheColdAndTotalSpectraAreConsistent:
               + cosmo.omega_nu(theta[box.PARAMS.index("sum_mnu")], h))
         return cosmo.f_nu(theta[box.PARAMS.index("sum_mnu")], h, om)
 
-    def test_the_cold_field_has_more_power_than_the_total(self):
+    #: How closely the two heads agree where the physics says they are the same
+    #: field.  Below the free-streaming scale the neutrinos cluster with
+    #: everything else, so `P_cb / P_m` is exactly 1 and whatever the network
+    #: returns instead is head-to-head noise, of either sign.
+    #:
+    #: Measured: 1.9e-5 for the 1.0.0 weights and 4.2e-5 for 2.0.0's.  The
+    #: assertion used to be `P_cb >= P_m` to 1e-6 over the *whole* range, which
+    #: is tighter than either model's noise -- 1.0.0 passed it because its noise
+    #: happened to fall on the correct side, not because it was resolving the
+    #: inequality.  A test that a model passes by luck is not testing anything.
+    LARGE_SCALE_AGREEMENT = 1e-4
+
+    def test_the_cold_field_is_never_below_the_total(self):
+        r"""`P_cb >= P_m` -- the neutrinos do not cluster, so the cold field
+        cannot have *less* power.
+
+        The tolerance is the two heads' own agreement and not zero.  Below the
+        free-streaming scale the two are the same field, `P_cb / P_m` is exactly
+        1, and what the network returns instead is head-to-head noise of either
+        sign: measured 1.9e-5 for the 1.0.0 weights and 4.2e-5 for 2.0.0's.
+
+        This used to assert `>= 1 - 1e-6` over the whole range, which is tighter
+        than the noise of either model.  1.0.0 passed because its noise happened
+        to land on the correct side; 2.0.0's lands on the other.  A bound a
+        model clears by luck is not measuring anything, so the bound is now the
+        measured agreement -- still an order of magnitude inside the shape
+        error, so it would catch a real inversion.
+        """
         emu = PkEmulator(check_box=False)
-        pm = np.asarray(emu.pk(self.K, 0.0, self.TH))
-        pcb = np.asarray(emu.pk_cb(self.K, 0.0, self.TH))
-        assert np.all(pcb >= pm * (1 - 1e-6)), "P_cb dips below P_m"
+        r = (np.asarray(emu.pk_cb(self.K, 0.0, self.TH))
+             / np.asarray(emu.pk(self.K, 0.0, self.TH)))
+        assert r.min() > 1.0 - self.LARGE_SCALE_AGREEMENT, (
+            f"P_cb dips {1 - r.min():.2e} below P_m")
+
+    def test_it_is_strictly_above_once_free_streaming_bites(self):
+        """Where the inequality carries physical content it is strict.
+
+        Above `k ~ 1e-2` the neutrinos have stopped falling into haloes and the
+        cold field has pulled measurably away -- 1.0086 at that wavenumber for
+        the 0.30 eV fiducial, rising to the free-streaming limit.  Nothing in
+        the loss enforces it: the two heads are fitted to their own targets, so
+        this is a statement about the fit rather than about the code.
+        """
+        emu = PkEmulator(check_box=False)
+        bites = self.K > 1e-2
+        r = (np.asarray(emu.pk_cb(self.K, 0.0, self.TH))
+             / np.asarray(emu.pk(self.K, 0.0, self.TH)))[bites]
+        assert np.all(r > 1.0), "P_cb does not exceed P_m where it must"
+        assert r.min() > 1.0 + 0.25 * self._f_nu(self.TH)
 
     def test_they_converge_on_large_scales(self):
         emu = PkEmulator(check_box=False)

@@ -6,10 +6,10 @@
 [![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=stable)](https://emu-pk.readthedocs.io/en/stable/)
 [![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
 
-Differentiable emulation of the **linear matter power spectrum**, over a
-nine-parameter cosmology that includes the summed neutrino mass, CPL dark
-energy and **spatial curvature**, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and
-$z = 5$.
+Differentiable emulation of the **linear matter power spectrum**, over an
+eleven-parameter cosmology that includes **three separate neutrino masses**,
+CPL dark energy and **spatial curvature**, out to
+$k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
 It is written in JAX, so derivatives with respect to cosmological parameters
 come from automatic differentiation rather than finite differences — and two of
@@ -22,8 +22,19 @@ from emu_pk import PkEmulator
 
 emu = PkEmulator()
 k = np.logspace(-3, 1, 200)                      # h/Mpc
-#            omega_b  omega_cdm    h      n_s  ln10A_s  sum_mnu   w0   wa  Omega_k
-theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0,    0.0])
+theta = np.array([
+    0.02237,     # omega_b
+    0.1200,      # omega_cdm
+    0.6736,      # h
+    0.9649,      # n_s
+    3.044,       # ln10A_s
+    0.06,        # sum_mnu [eV] -- still the sum, unchanged in meaning
+    -1.0,        # w0
+    0.0,         # wa
+    0.0,         # Omega_k      -- positive is open
+    1 / 3,       # nu_r1  \  how that sum is divided over three species,
+    1 / 3,       # nu_r2  /  m_i = r_i * sum_mnu, with r_3 = 1 - r_1 - r_2.
+])               #            (1/3, 1/3) is the degenerate convention.
 
 pk = emu.pk(k, z=0.5, params=theta)              # P_m(k, z) in (Mpc/h)^3
 pk_cb = emu.pk_cb(k, z=0.5, params=theta)        # cdm + baryons, without neutrinos
@@ -97,6 +108,8 @@ does not have. Outside these bounds the network does not fail, it
 | `w0` | — | −1.5000 – −0.5000 |
 | `wa` | — | −1.0000 – 0.6000 |
 | `Omega_k` | — | −0.1500 – 0.1500 |
+| `nu_r1` | — | 0.0000 – 0.3333 |
+| `nu_r2` | — | 0.0000 – 0.5000 |
 | $k_{\max}$ [h/Mpc] | 14.56 | **200** |
 | $z$ | 0 – 5 | 0 – 5 |
 
@@ -116,6 +129,24 @@ sits there and the 1.0.0 weights were trained through it; curvature takes that
 to 0.9 %. It is exotic, not ill-posed — CLASS solves it and the spectrum is
 smooth in the parameters — so `validate` reports it as its own stratum instead
 of the design cutting it out.
+
+The two neutrino ratios divide `sum_mnu` over three separate species,
+$m_i = r_i \Sigma m_\nu$ with $r_3 = 1 - r_1 - r_2$, and are sampled on the
+*ordered* simplex $0 \le r_1 \le r_2 \le (1-r_1)/2$. Ordering is not a taste
+constraint: CLASS sums the species' contributions and cannot tell them apart,
+so the six permutations of one mass vector are the same cosmology and sampling
+all six would spend network capacity learning an exact symmetry.
+
+Both mass orderings and the degenerate limit live inside it. The degenerate
+point $(1/3, 1/3)$ — the convention every earlier result uses — is a *vertex*
+of that simplex and cannot be made interior, because a spread is non-negative;
+it is scored as its own stratum for that reason.
+
+Why it is worth having: measured against CLASS, the degenerate approximation is
+wrong by **0.32 %** in $P(k)$ at $\Sigma m_\nu = 0.10$ eV in an inverted
+ordering — three times this emulator's median error — and by under 0.012 %
+above 0.25 eV, where the three masses really are nearly equal. It is a good
+approximation exactly where it does not matter.
 
 Curvature is the cheapest axis in the box. Above $k \approx 10^{-2}$ its effect
 is a $k$-independent growth rescaling, flat in $k$ to better than 0.5 %, so it

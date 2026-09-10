@@ -76,7 +76,7 @@ train on.
 
 Two places, and both are reported separately by `emu_pk.validate`:
 
-**The walls.** A nine-dimensional Latin hypercube essentially never samples a
+**The walls.** An eleven-dimensional Latin hypercube essentially never samples a
 corner. The design's points are stratified, so they cover each axis evenly, but
 a point near the wall *in every axis at once* does not occur. A sampler with
 wide priors will visit places the training set did not.

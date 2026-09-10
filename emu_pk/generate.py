@@ -7,7 +7,7 @@ runs on the cluster.  Two products, from the same driver:
     the Phase-1 correction grid: the fiducial cosmology, swept over
     ``(sum_mnu, w0, wa)``, every redshift in one solve.
 ``--mode emu``
-    the Phase-2 training set: a Latin-hypercube slice of the nine-parameter
+    the Phase-2 training set: a Latin-hypercube slice of the eleven-parameter
     box, every redshift in one solve.
 
 **Shards skip if their output exists.**  That single property is what makes a

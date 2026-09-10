@@ -12,7 +12,7 @@ from emu_pk import PkEmulator
 
 emu = PkEmulator()
 k = np.logspace(-3, 1, 200)
-theta = jnp.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0])
+theta = jnp.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0, 1/3, 1/3])
 
 jac = jax.jacfwd(lambda t: jnp.log(emu.pk(k, 0.0, t)))(theta)   # (200, 8)
 ```

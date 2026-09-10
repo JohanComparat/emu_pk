@@ -95,6 +95,82 @@ no test on either side can see, because each is self-consistent.
 The 93.14 eV denominator is itself a *convention*, 0.53 % from the exact
 Fermi-Dirac integral, and is committed to everywhere for exactly that reason.
 
+## The spectrum is interpolated with a cubic, and the metric had no floor
+
+`shape_error` asks CLASS at 300 fresh log points while the network predicts on
+`grid.k_grid`'s 400 nodes, so whatever happens *between* the nodes is scored as
+network error. `_interp_lnk` used `jnp.interp`, and that turned out to be the
+entire reported number.
+
+Pushing a CLASS spectrum through the identical path — solve on the native grid,
+interpolate to the scoring points, renormalise at `K_NORM`, max over $k$ — on
+the same `seed=991` design the 1.0.0 model was scored on:
+
+| | median | p90 | max |
+|---|---|---|---|
+| interpolation floor | 0.1124 % | 0.2337 % | 0.3068 % |
+| 1.0.0 as reported | 0.1113 % | 0.2244 % | 0.6213 % |
+| **ratio** | **1.01** | **1.04** | 0.49 |
+
+The reported median and p90 were the ruler. The network's own error was below
+what the measurement could resolve, and half the max was ruler too. That also
+means no amount of extra design points or capacity could have moved the number:
+the thing being measured was `jnp.interp` across the acoustic wiggles, at
+roughly six nodes per period in $\ln k$, which is an $O(h^2)$ error of exactly
+the observed size.
+
+A cubic on the same nodes is $O(h^4)$. Measured through the emulator's own path,
+the floor falls to **0.0199 %** — 31 % of the current error rather than 101 %.
+
+**Not the monotone cubic in `interp.py`**, though it was written for this shape
+of problem. Its Fritsch–Carlson limiter branches on the data, and here the data
+is the network's own output — so the branch would move with $\theta$ and put a
+kink in $\partial P/\partial\theta$ at whatever cosmology it happened to switch.
+That is the defect `model.activation` exists to avoid, and reintroducing it one
+layer further out would be a poor trade. The fixed four-point stencil has no
+branches on the node values at all: the result is a linear combination of four
+of them, so the gradient is exactly as smooth as the network is. A test pins
+that superposition holds.
+
+`validate.interpolation_floor` reports the floor beside the number it bounds,
+the way `derivative_error` has always reported its finite-difference floor. It
+calls `model._catmull_rom` rather than reimplementing it — it did reimplement
+it once, with `np.interp`, and kept doing so after the emulator became cubic, at
+which point it reported a floor *above* the error it exists to bound.
+
+## The validation split holds out whole cosmologies
+
+Rows are `(cosmology, redshift)` pairs and `assemble` writes all 31 redshifts of
+a solve consecutively, so a random 5 % *row* split put nearly every cosmology on
+both sides. `val_loss` then measured interpolation in $z$ within cosmologies the
+network had already seen, not generalisation to new ones.
+
+The consequence was worse than an optimistic number. `oarsub/README.md` tells
+the reader to decide data-limited versus capacity-limited from the train/val
+gap, and that is what the campaign steers on — but with the split leaking, train
+and val track each other whichever is true. The diagnostic could not answer the
+question it was written for.
+
+The redshift axis has to *tile* — the first block of unique $z$ values repeating
+exactly — rather than merely divide the row count, because a fixture that gives
+every row its own redshift otherwise reads as one cosmology with a very long
+redshift axis, and the whole of it goes to validation.
+
+## The trainer's defaults are what the package ships
+
+`train()` defaulted to `direct=False` and `z_var="z"` while the shipped
+checkpoint declared `direct` and `log10_1pz`, and the cluster submitter passes
+neither flag. Every cluster run therefore trained a PCA-head network on plain
+$z$ — the configuration the 1.0.0 ablations had already measured as the worst of
+four, at 0.1824 % against 0.1113 % for the one that ships.
+
+Nothing compared them, because the divergence was *between* a default and an
+artefact and every test looked at one or the other. The defaults now match, and
+four tests read the shipped checkpoint and assert the signature agrees —
+including one that trains with no flags at all and reads back what it declared,
+because a signature check would pass if `main()` inverted a flag on the way
+through, which is the shape of the bug itself.
+
 ## The curvature scale sits inside the k grid
 
 `K_MIN` is $10^{-4}\ h\,\mathrm{Mpc}^{-1}$ and the curvature scale is

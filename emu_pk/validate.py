@@ -25,7 +25,7 @@ sweep costs nothing but the loop.
 
 **The redshift derivative itself.**  :math:`f = -\,\mathrm{d}\ln D/\mathrm{d}\ln
 (1+z)`, so :math:`\partial\ln P/\partial z` is the thing :math:`f\sigma_8` is
-built from.  It is scored here the same way the nine parameters are.
+built from.  It is scored here the same way the eleven parameters are.
 
 **The metric's own noise floor.**  The reference is a central difference of
 CLASS, which is not exact: it carries a truncation error going as the square of
@@ -41,7 +41,7 @@ summary, and the comparison with nothing removed is reported as ``total``.
 The three together say what the emulator does to :math:`P(k)`: an amplitude, a
 shape, and the whole thing.
 
-**Where in the box.**  A nine-dimensional Latin hypercube essentially never
+**Where in the box.**  An eleven-dimensional Latin hypercube essentially never
 samples a corner, so a median over the design says nothing about the walls --
 and the walls are where a sampler with a wide prior spends its time.  Points
 within ``EDGE_FRAC`` of any bound are reported separately, and so is the
@@ -354,7 +354,7 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
     z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
     which = (which,) if isinstance(which, str) else tuple(which)
     # An explicit design is what makes two arms comparable: `box.sample` under a
-    # nine-parameter box draws different eight-parameter values than it did
+    # wider box draws different values for the older parameters than it did
     # under eight, so scoring two networks on "seed 991" alone compares them on
     # different cosmologies.  At n = 32 the median scatters enough to matter.
     design = box.sample(n, seed=seed) if design is None else np.asarray(design)
@@ -429,7 +429,7 @@ def flat_slice_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
     1.0.0 scored 0.111 % on a box with no curvature axis in it at all.  Adding
     one widens the space the same network capacity has to cover, and a user who
     never leaves :math:`\Omega_k = 0` should not pay much for that.  Scoring the
-    full nine-dimensional design cannot answer it -- the curved points are a
+    full eleven-dimensional design cannot answer it -- the curved points are a
     different question -- so this pins the column and scores the flat
     cosmologies alone.
 
