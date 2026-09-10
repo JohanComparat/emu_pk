@@ -102,8 +102,8 @@ class TestTheDesignArmSelectsItsOwnPaths:
     @pytest.mark.skipif(not shutil.which("bash"), reason="needs bash")
     def test_the_array_cap_is_enforced_before_the_scheduler_sees_it(self):
         """GRICAD refuses more than 100 waiting jobs, and an array of N is N
-        jobs.  The submitter used to hand that rejection to the scheduler,
-        which reports it without saying which knob to turn."""
+        jobs.  Left to the scheduler, that rejection arrives without saying
+        which knob to turn."""
         src = (OARSUB / "submit_campaign.sh").read_text()
         assert "N_EMU_SHARDS" in src
         # The budget is jobs *already waiting* plus the new array, not the
@@ -277,10 +277,9 @@ class TestEveryJobParameterTravelsAsAnArgument:
     def test_the_submitter_does_not_repeat_the_list_of_arms(self):
         """`campaign_arm` is the only place that knows which arms exist.
 
-        The submitter used to carry its own `case "${ARM}" in c|f)`, which went
-        stale the moment a third arm was added: `EMU_ARM=d` was refused with
-        "must be c or f" by a script whose own campaign environment had known
-        about `d` since before it was run.
+        A second `case "${ARM}" in ...)` in the submitter goes stale the moment
+        an arm is added, and refuses a valid arm on behalf of an environment
+        that already knows about it.
         """
         # Code only: the comment above the fix quotes the stale line on
         # purpose, and a check that reads it would fail on its own explanation.

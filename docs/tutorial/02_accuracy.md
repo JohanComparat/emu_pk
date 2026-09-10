@@ -66,8 +66,8 @@ network predicts on a fixed 400-node $\ln k$ grid and the metric asks CLASS at
 300 other wavenumbers, so the interpolation between nodes is scored as network
 error; the floor is a CLASS spectrum pushed through that same interpolation
 with no network involved. At 0.020 % it is about a third of the reported
-median. It was 1.01× the median under the linear interpolation this package
-shipped before — the metric was measuring itself — which is why
+median, which is where a ruler belongs: linear interpolation on the same nodes
+would put it at 0.11 %, above the number it is meant to bound, so
 `model._interp_lnk` is a fixed four-point cubic. See {doc}`../design_notes`.
 
 The scored range stops at $k = 10\ h\,\mathrm{Mpc}^{-1}$. The emulator is
@@ -195,6 +195,6 @@ parameter cost the other eight nothing** — that comparison is what
 `validate --flat-only` exists for.
 
 The degenerate neutrino point $r = (1/3, 1/3)$ is a vertex of the sampled
-simplex rather than an interior point, so a hypercube almost never lands on it;
-it is scored as its own stratum for that reason, and every published result
-from before version 2 sits there.
+simplex rather than an interior point, so a hypercube almost never lands on it.
+It is also where an analysis that keeps the degenerate approximation sits, which
+is why it is scored as its own stratum rather than left to the interior.

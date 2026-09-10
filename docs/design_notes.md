@@ -73,6 +73,14 @@ The two effects couple physically — more late-time growth is more time for fre
 streaming to suppress — so the residual grows with the *product* of neutrino
 mass and dark-energy deviation.
 
+![The neutrino and CPL corrections](_static/figures/05_correction.png)
+
+Each panel holds the other axis at its neutral value, so both are exactly 1 at
+the massless ΛCDM corner. The table is indexed on $f_\nu$ and therefore does
+not resolve the mass splitting; `emu_pk.ratio` is a correction for an emulator
+that has neither neutrinos nor CPL, and the network is trained on the real
+spectra directly.
+
 ## The interpolator carries every mixed partial
 
 Carrying one slope array per axis is C¹ *at a node* in every axis, because the
@@ -95,37 +103,32 @@ no test on either side can see, because each is self-consistent.
 The 93.14 eV denominator is itself a *convention*, 0.53 % from the exact
 Fermi-Dirac integral, and is committed to everywhere for exactly that reason.
 
-## The spectrum is interpolated with a cubic, and the metric had no floor
+## The spectrum is interpolated with a cubic, and the metric reports its floor
 
 `shape_error` asks CLASS at 300 fresh log points while the network predicts on
 `grid.k_grid`'s 400 nodes, so whatever happens *between* the nodes is scored as
-network error. `_interp_lnk` used `jnp.interp`, and that turned out to be the
-entire reported number.
+network error. At six nodes per acoustic period in $\ln k$, linear
+interpolation is an $O(h^2)$ error large enough to be the whole score.
 
 Pushing a CLASS spectrum through the identical path — solve on the native grid,
-interpolate to the scoring points, renormalise at `K_NORM`, max over $k$ — on
-the same `seed=991` design the 1.0.0 model was scored on:
+interpolate to the scoring points, renormalise at `K_NORM`, max over $k$ — with
+no network involved:
 
-| | median | p90 | max |
+| interpolant | median | p90 | max |
 |---|---|---|---|
-| interpolation floor | 0.1124 % | 0.2337 % | 0.3068 % |
-| 1.0.0 as reported | 0.1113 % | 0.2244 % | 0.6213 % |
-| **ratio** | **1.01** | **1.04** | 0.49 |
+| linear | 0.1124 % | 0.2337 % | 0.3068 % |
+| **four-point cubic** | **0.0199 %** | 0.0311 % | 0.0324 % |
 
-The reported median and p90 were the ruler. The network's own error was below
-what the measurement could resolve, and half the max was ruler too. That also
-means no amount of extra design points or capacity could have moved the number:
-the thing being measured was `jnp.interp` across the acoustic wiggles, at
-roughly six nodes per period in $\ln k$, which is an $O(h^2)$ error of exactly
-the observed size.
-
-A cubic on the same nodes is $O(h^4)$. Measured through the emulator's own path,
-the floor falls to **0.0199 %** — 31 % of the current error rather than 101 %.
+A ruler that reads 0.11 % cannot resolve a network at 0.06 %: under linear
+interpolation the reported median would be the metric measuring itself, and no
+quantity of design points or capacity could move it. A cubic on the same nodes
+is $O(h^4)$ and puts the floor at a third of the network's error, which is where
+a ruler belongs.
 
 **Not the monotone cubic in `interp.py`**, though it was written for this shape
 of problem. Its Fritsch–Carlson limiter branches on the data, and here the data
-is the network's own output — so the branch would move with $\theta$ and put a
-kink in $\partial P/\partial\theta$ at whatever cosmology it happened to switch.
+is the network's own output — so the branch moves with $\theta$ and puts a kink
+in $\partial P/\partial\theta$ at whatever cosmology it happens to switch.
 That is the defect `model.activation` exists to avoid, and reintroducing it one
 layer further out would be a poor trade. The fixed four-point stencil has no
 branches on the node values at all: the result is a linear combination of four
@@ -133,10 +136,10 @@ of them, so the gradient is exactly as smooth as the network is. A test pins
 that superposition holds.
 
 `validate.interpolation_floor` reports the floor beside the number it bounds,
-the way `derivative_error` has always reported its finite-difference floor. It
-calls `model._catmull_rom` rather than reimplementing it — it did reimplement
-it once, with `np.interp`, and kept doing so after the emulator became cubic, at
-which point it reported a floor *above* the error it exists to bound.
+the way `derivative_error` reports its finite-difference floor. It calls
+`model._catmull_rom` rather than reimplementing the interpolant: a floor
+computed through a different path than the emulator's own measures that path
+instead, and can land *above* the error it exists to bound.
 
 ## The validation split holds out whole cosmologies
 
@@ -215,9 +218,8 @@ package already carries a test for.
 So the band is **scored instead**. `validate.K_LOWK` reports
 $k \in [10^{-4}, 10^{-3}]$ separately from `K_TRUSTED`, and the headline
 numbers keep their existing definition. Sixteen per cent of the network's
-outputs live in that band; before this they were generated and never scored,
-which is a claim nobody had checked rather than a limitation anybody had
-stated.
+outputs live in that band, and scoring it is what makes the accuracy there a
+stated limitation rather than an unchecked claim.
 
 There is deliberately **no per-band weight in the trainer**. From the shipped
 `feat_std_m`, the band is 64 of 400 modes carrying 16.9 % of
@@ -242,31 +244,30 @@ in closed form — as the one legitimate exemption. `ANALYTIC` therefore lives i
 `model`, where the inference path can see it, and `train` re-exports it: the
 trainer must drop exactly the inputs the predictor is willing to find missing.
 
-## JAX clamps an out-of-range gather, so a short `theta` returned a spectrum
+## A short `theta` is refused explicitly, because JAX will not refuse it
 
 `_forward` reads its inputs with `p[self._in_idx]`. JAX does not raise on an
-out-of-range index — it clamps — and `_validate` could not catch it either,
-because it zips `box.PARAMS` against `params` and `zip` stops at the shorter.
-A `theta` one element short therefore gave the missing parameter some other
-parameter's value and returned a finite, smooth, wrong spectrum. Measured
-against the shipped weights: a seven-long vector where eight were wanted moved
-$P(0.05)$ by 10.3 %.
+out-of-range index — it clamps — and a name-by-name check cannot catch a short
+vector either, because zipping `box.PARAMS` against `params` stops at the
+shorter. Without an explicit length check a `theta` one element short takes some
+other parameter's value in the missing slot and returns a spectrum that is
+finite, smooth and wrong. Measured against the shipped weights, a vector one
+element short moves $P(0.05)$ by 10.3 %.
 
-Nothing passed seven, so it was unreachable — until the box grew, at which
-point every caller written against the old length becomes a short vector and
-`Omega_k` takes `wa`'s value. Since `wa = 0` is the common case, it would have
-looked right most of the time. The length is now checked explicitly; `.shape`
-is static under `jit`, so the check costs no tracing and does not touch the
-gradient.
+The failure is quiet in the worst way: a caller written against a narrower box
+gives `Omega_k` whatever `wa` holds, and since `wa = 0` is the common case the
+answer looks right most of the time. So `predict` compares `len(params)` against
+`len(box.PARAMS)` before anything else. `.shape` is static under `jit`, so the
+check costs no tracing and does not touch the gradient.
 
 ## The box bounds carry float32 slack
 
 `nu_r1`'s upper bound is 1/3. It is not a choice — it follows from the ordering
 constraint $r_1 \le r_2 \le (1-r_1)/2$ — and `np.float32(1/3)` is
-$9.9\times10^{-9}$ *above* it. The network runs in single precision, so a
-`theta` built with `jnp.array` was refused at exactly the degenerate neutrino
-point $(1/3, 1/3)$: the convention every result published before version 2 sits
-at, and the one the tutorials hand the reader.
+$9.9\times10^{-9}$ *above* it. The network runs in single precision, so an exact
+comparison refuses the degenerate neutrino point $(1/3, 1/3)$ whenever `theta`
+is built with `jnp.array`: the one point a reader is most likely to evaluate,
+and the convention the degenerate approximation names.
 
 `inside` therefore compares against the bound plus two float32 epsilons of the
 axis's width. That is $2.4\times10^{-7}$ of a range, orders below any width at

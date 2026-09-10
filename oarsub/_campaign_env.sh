@@ -92,10 +92,10 @@ export EMU_PK_SHARDS_RATIO="${WORK}/shards_ratio"
 # `EMU_ARM=f oarsub -S ./run_generate.sh` would silently run the default arm
 # into the default arm's directory.  That is the same trap as `MODE`.
 # A campaign tag, because a *box* change needs fresh directories and the arm
-# letter alone does not carry one.  `shards_emu_c` holds the nine-parameter
-# pilot; the eleven-parameter run must not land on top of it -- `emu_shard`
-# skips on filename, so it would keep the old shards and mix two designs
-# silently.  `assemble`'s parameter stamp would catch it, but at the far end.
+# letter alone does not carry one.  Two boxes must not share a directory --
+# `emu_shard` skips on filename, so the second run keeps the first's shards and
+# mixes two designs silently.  `assemble`'s parameter stamp catches it, but at
+# the far end of a campaign rather than the near one.
 EMU_CAMPAIGN="${EMU_CAMPAIGN:-v2}"
 
 campaign_arm () {
@@ -127,7 +127,7 @@ campaign_arm "${EMU_ARM:-c}" || true
 # `classy` unconditionally would abort every GPU training job before it
 # started, over a dependency it was never going to import.
 #
-#   campaign_activate_env              # numpy, jax, classy  (the old behaviour)
+#   campaign_activate_env              # numpy, jax, classy  (the default)
 #   campaign_activate_env train        # numpy, jax, optax
 campaign_activate_env () {
     # Two clusters, two package managers, and neither is a migration of the

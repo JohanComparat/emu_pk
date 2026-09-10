@@ -17,8 +17,9 @@ from emu_pk.model import PkEmulator
 
 
 #: A fiducial for every axis the box carries, built by name.  A literal array
-#: here would be silently one short the next time `box.PARAMS` grows -- and a
-#: short theta used to return a spectrum rather than raise.
+#: here would be silently one short the next time `box.PARAMS` grows, and a
+#: theta of the wrong length is a spectrum nobody asked for unless something
+#: checks.
 _FID = {"omega_b": 0.02237, "omega_cdm": 0.12, "h": 0.6736, "n_s": 0.9649,
         "ln10A_s": 3.044, "sum_mnu": 0.06, "w0": -1.0, "wa": 0.0,
         "Omega_k": 0.0, "nu_r1": 1.0 / 3.0, "nu_r2": 1.0 / 3.0}
@@ -569,10 +570,8 @@ class TestANonFiniteLossStopsTheRun:
         confused for each other: `fit_pca` cannot decompose a matrix with a
         non-finite entry and says so where it happens.
 
-        `direct=False` is passed explicitly.  It used to be the default, and
-        this test used to say "the default path" -- which stopped being true
-        when the defaults were corrected to match what the package ships, and
-        is exactly the kind of silent drift that correction was for.
+        `direct=False` is passed explicitly rather than left to the default,
+        so this test keeps testing the PCA path whatever the default becomes.
         """
         import numpy.linalg as LA
         from emu_pk import train as T

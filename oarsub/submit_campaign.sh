@@ -51,10 +51,9 @@ PROJECT="$(campaign_project)"
 # works, and passed to the job as an argument, where it survives.
 #
 # `campaign_arm` is the *only* place that knows which arms exist, and it
-# already refuses an unknown one by name.  This used to repeat the list as
-# `case "${ARM}" in c|f)`, which then went stale the moment a third arm was
-# added -- `EMU_ARM=d` was rejected here with "must be c or f" by a submitter
-# whose own campaign environment had known about `d` for an hour.
+# refuses an unknown one by name.  Repeating the list here as a second
+# `case "${ARM}" in ...)` goes stale the moment an arm is added, and rejects a
+# valid arm on behalf of a campaign environment that already knows about it.
 ARM="${EMU_ARM:-c}"
 campaign_arm "${ARM}" || exit 2
 

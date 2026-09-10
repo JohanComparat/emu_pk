@@ -1,8 +1,8 @@
 """The scoring, exercised against an emulator whose answer is known.
 
-`validate.py` produces every number this package claims, and had no tests at
-all.  It cannot be tested against CLASS in CI -- that is the `[gen]` install and
-minutes per solve -- but it does not need to be: what has to be right is the
+`validate.py` produces every number this package claims.  It cannot be tested
+against CLASS in CI -- that is the `[gen]` install and minutes per solve -- and
+it does not need to be: what has to be right is the
 *arithmetic* of scoring, and that is checkable against an analytic spectrum
 whose shape error and derivatives are known in closed form.
 
@@ -371,8 +371,8 @@ class TestTheTotalIsReportedToo:
 
 
 class TestTheLowKBandIsScoredSeparately:
-    r"""The decade below ``K_TRUSTED``, which used to be generated and never
-    scored.
+    r"""The decade below ``K_TRUSTED``: generated and trained on, and scored
+    here on its own rather than folded into the headline number.
 
     The curvature scale :math:`\sqrt{|\Omega_k|}H_0/c` is
     :math:`1.3\times10^{-4}\ h\,{\rm Mpc}^{-1}` at the edge of the box, so the
@@ -410,11 +410,11 @@ class TestTheLowKBandIsScoredSeparately:
 
 
 class TestTheFlatSliceIsScoredOnItsOwn:
-    """What the ninth parameter cost the eight that were already there.
+    """What the curvature axis costs a caller who never leaves the flat slice.
 
-    1.0.0 scored 0.111 % on a box with no curvature in it.  Scoring the full
-    nine-dimensional design cannot say whether a flat user lost anything,
-    because the curved points are a different question.
+    Scoring the full eleven-dimensional design cannot say: the curved points are
+    a different question.  Pinning the column and scoring the flat cosmologies
+    alone is what compares against the released flat-box figure of 0.111 %.
     """
 
     def test_every_scored_point_is_flat(self, fake_class, monkeypatch):

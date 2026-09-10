@@ -102,7 +102,7 @@ def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
     * ``use_ppf = yes``.  The sampling box contains ``w(a)`` that cross -1, and
       the fluid parameterisation is singular there without PPF.
     * ``k_pivot``.  Also CLASS's default, but the training target divides the
-      primordial power law out analytically, so the pivot is now a term in the
+      primordial power law out analytically, so the pivot is a term in the
       predictor rather than a detail of the solver.  See :data:`K_PIVOT`.
     """
     params = {

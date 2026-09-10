@@ -23,6 +23,11 @@ The bounds are closed and inclusive, and these are the values themselves:
 | $k$ [$h\,\mathrm{Mpc}^{-1}$] | $10^{-4}$ … 200 | up to 14.56 |
 | $z$ | 0 … 5 | 0 … 5 |
 
+![The training box against CosmoPower's](../_static/figures/04_the_box.png)
+
+Each bar is one axis, normalised to the `emu_pk` range so the comparison is a
+fraction rather than a unit.
+
 The `emu_pk` column is `box.BOX`, and the wavenumber and redshift rows are
 `grid.K_MIN`/`grid.K_MAX` and `grid.Z_MIN`/`grid.Z_MAX`. Of the five axes the
 two share, `emu_pk` is strictly wider in four and matches on `n_s`. It carries

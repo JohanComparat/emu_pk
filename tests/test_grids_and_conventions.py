@@ -111,8 +111,8 @@ class TestTheDensityConventions:
         assert isinstance(p["N_ncdm"], int)
 
     def test_the_default_ratios_are_the_degenerate_convention(self):
-        """A caller that names no ratios gets the physics 1.0.0 had, so the
-        general path is the only path and the old one cannot rot."""
+        """A caller that names no ratios gets the degenerate convention, so
+        the three-species path is the only path and cannot rot."""
         base = dict(h=0.6736, omega_b=0.02237, omega_cdm=0.12,
                     n_s=0.9649, ln10A_s=3.044, sum_mnu=0.12)
         m = [float(x) for x in cosmo.class_params(**base)["m_ncdm"].split(",")]
@@ -149,12 +149,12 @@ class TestTheDensityConventions:
         assert p["k_pivot"] == pytest.approx(cosmo.K_PIVOT)
 
     def test_curvature_and_linearity_are_explicit(self):
-        """`Omega_k` is stated rather than defaulted -- and now it is *sampled*.
+        """`Omega_k` is stated rather than defaulted, and it is *sampled*.
 
-        It used to be stated because flatness was an assumption worth writing
-        down.  It is stated for the same reason now that it is a parameter: a
-        default here is a cosmology nobody chose.  What changed is that the
-        default is only the default; the value has to travel.
+        A default here is a cosmology nobody chose, which is reason enough to
+        write it down whether or not it is a parameter.  Being one adds the
+        second requirement: the default is only the default, and the value has
+        to travel.
         """
         p = cosmo.class_params(h=0.7, omega_b=0.022, omega_cdm=0.12,
                                n_s=0.96, ln10A_s=3.0)

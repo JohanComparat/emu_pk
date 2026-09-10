@@ -91,8 +91,8 @@ wider box** -- 0.064 % median shape error against 0.111 %.
   changes and above the largest rounding the dtype can produce.
 - **A checkpoint killed mid-write killed the run.** `_save` wrote in place, so a
   preemption during a write left a truncated file at the path the restart
-  resumes from. Observed on two of three arms in one campaign. Writes are
-  atomic and unreadable checkpoints are skipped rather than fatal.
+  resumes from. Writes are atomic and unreadable checkpoints are skipped rather
+  than fatal.
 
 ### Unchanged
 

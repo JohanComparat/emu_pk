@@ -49,7 +49,7 @@ def toy(tmp_path):
 #: that adding a parameter to `box.PARAMS` does not require editing eight
 #: array literals scattered through this file -- and, more to the point, so
 #: that a *missing* entry fails loudly here rather than producing a `theta`
-#: that is silently one short.  A short `theta` used to return a spectrum.
+#: that is silently one short.
 _FID = {"omega_b": 0.0224, "omega_cdm": 0.12, "h": 0.6736, "n_s": 0.9649,
         "ln10A_s": 3.044, "sum_mnu": 0.06, "w0": -1.0, "wa": 0.0,
         "Omega_k": 0.0, "nu_r1": 1.0 / 3.0, "nu_r2": 1.0 / 3.0}
@@ -86,10 +86,10 @@ def test_does_not_flatline_above_the_grid(toy):
     # The continuation is a *single* power law, so every interval lying wholly
     # outside the grid has the same log-slope.
     #
-    # Intervals that straddle the last node do not, and used to only by
-    # accident: under linear interpolation the value just inside sat exactly on
+    # Intervals that straddle the last node do not, and match only by
+    # accident under a linear interpolant: the value just inside sits exactly on
     # the line through the last two nodes, so a slope measured across the
-    # boundary matched the tail to machine precision.  That tie was a property
+    # boundary matches the tail to machine precision.  That tie is a property
     # of the interpolant, not of the continuation, and it went away when the
     # interpolant became cubic.  Comparing two intervals that are both outside
     # tests what this is actually about.
@@ -104,7 +104,7 @@ def test_gradient_flows_to_every_parameter(toy):
     J = np.asarray(jax.jacfwd(lambda t: jnp.log(toy.pk(k, 0.3, t)))(_theta()))
     assert J.shape == (8, len(box.PARAMS))
     assert np.all(np.isfinite(J))
-    # w0 and wa are the two that were structurally absent before this package.
+    # w0 and wa are the two CosmoPower's `mpk_lin` does not carry at all.
     for p in ("w0", "wa", "sum_mnu"):
         j = box.PARAMS.index(p)
         assert np.any(J[:, j] != 0.0), f"no response to {p}"
@@ -808,7 +808,7 @@ class TestTheOutputRepresentationIsDeclared:
             PkEmulator(tmp_path / "bad.npz", check_box=False)
 
     def test_a_file_without_output_form_is_read_as_pca(self, tmp_path):
-        """Every checkpoint written before this key existed is a PCA one."""
+        """A checkpoint that does not declare `output_form` is a PCA one."""
         lnk = np.log(np.logspace(np.log10(grid.K_MIN), np.log10(grid.K_MAX), 32))
         p = _legacy_weights(tmp_path, lnk)
         with np.load(p) as d:
@@ -1016,11 +1016,9 @@ class TestTheColdAndTotalSpectraAreConsistent:
     #: everything else, so `P_cb / P_m` is exactly 1 and whatever the network
     #: returns instead is head-to-head noise, of either sign.
     #:
-    #: Measured: 1.9e-5 for the 1.0.0 weights and 4.2e-5 for 2.0.0's.  The
-    #: assertion used to be `P_cb >= P_m` to 1e-6 over the *whole* range, which
-    #: is tighter than either model's noise -- 1.0.0 passed it because its noise
-    #: happened to fall on the correct side, not because it was resolving the
-    #: inequality.  A test that a model passes by luck is not testing anything.
+    #: Measured at 4.2e-5 for the shipped weights.  A tolerance tighter than
+    #: that noise -- 1e-6, say -- is one a model can only clear by having its
+    #: noise land on the correct side, which is luck rather than a measurement.
     LARGE_SCALE_AGREEMENT = 1e-4
 
     def test_the_cold_field_is_never_below_the_total(self):
@@ -1030,14 +1028,11 @@ class TestTheColdAndTotalSpectraAreConsistent:
         The tolerance is the two heads' own agreement and not zero.  Below the
         free-streaming scale the two are the same field, `P_cb / P_m` is exactly
         1, and what the network returns instead is head-to-head noise of either
-        sign: measured 1.9e-5 for the 1.0.0 weights and 4.2e-5 for 2.0.0's.
+        sign: measured 4.2e-5 for the shipped weights.
 
-        This used to assert `>= 1 - 1e-6` over the whole range, which is tighter
-        than the noise of either model.  1.0.0 passed because its noise happened
-        to land on the correct side; 2.0.0's lands on the other.  A bound a
-        model clears by luck is not measuring anything, so the bound is now the
-        measured agreement -- still an order of magnitude inside the shape
-        error, so it would catch a real inversion.
+        A bound tighter than that noise is one a model clears by luck, so the
+        bound is the measured agreement -- still an order of magnitude inside
+        the shape error, so it catches a real inversion.
         """
         emu = PkEmulator(check_box=False)
         r = (np.asarray(emu.pk_cb(self.K, 0.0, self.TH))

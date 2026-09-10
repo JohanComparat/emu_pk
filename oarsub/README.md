@@ -61,11 +61,11 @@ that and returns numbers that mean nothing, smoothly and without raising.
 **A new box needs a new shard directory, and this is why.**
 `generate.emu_shard` skips on filename, and the filename carries the shard
 index and the design offset but *not* the parameters. A directory reused across
-a box change keeps the old shards and silently mixes two designs — and `z` and
-`lnk` do not change when the box does, so `assemble`'s grid check would not see
-it either. Shards now carry a `params` stamp and `assemble` refuses a mismatch
+a box change keeps the existing shards and silently mixes two designs — and `z`
+and `lnk` do not change when the box does, so `assemble`'s grid check does not
+see it either. Shards carry a `params` stamp and `assemble` refuses a mismatch
 by name, which also catches a permuted column. The unsuffixed `shards_emu` is
-deliberately untouched: it is the 1.0.0 reproduction.
+left alone: it is the 1.0.0 reproduction.
 
 ## The campaign, in order
 
@@ -178,8 +178,8 @@ EPOCHS=240 TAG=c2noweight TRAIN_FLAGS=--no-weighted ./oarsub/submit_campaign.sh 
 
 Tags name the weights: `emu_pk_mlp_<arm>_<tag>.npz`, since `EMU_PK_WEIGHTS`
 already carries the design arm. The default tag is `c2`, and **`base` is the
-only tag that takes the unsuffixed name** — which is now `emu_pk_mlp_<arm>.npz`
-and no longer the 1.0.0 file. Pass it deliberately or not at all.
+only tag that takes the unsuffixed name** — `emu_pk_mlp_<arm>.npz`, which is not
+the file the package ships. Pass it deliberately or not at all.
 
 Each arm writes `emu_pk_mlp_<tag>.npz` **and** `emu_pk_mlp_<tag>.validation.json`
 beside it — `run_train.sh` scores the weights it just trained, while the

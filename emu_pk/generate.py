@@ -35,11 +35,11 @@ def class_params_for(theta, **kw):
     order, or a mapping.
 
     The only place the design's column order becomes keyword arguments.  Three
-    call sites used to spell the parameters out -- here, the timing gate, and
-    ``validate._class_pk`` -- so adding one to the box meant editing three
-    lists, and missing one meant training on a column CLASS never saw.  Nothing
-    here names a parameter, so nothing here can be left behind naming eight of
-    nine.
+    call sites need it -- here, the timing gate, and ``validate._class_pk`` --
+    and spelling the parameters out at each would mean editing three lists to
+    add one to the box, where missing one trains on a column CLASS never saw.
+    Nothing here names a parameter, so nothing here can be left behind naming
+    ten of eleven.
 
     It works because :func:`emu_pk.cosmo.class_params`'s keyword names *are*
     ``box.PARAMS``, exactly.  ``tests/test_entry_points.py`` asserts that

@@ -55,9 +55,9 @@ class TestTheBoxCarriesCurvature:
         """Every other `PARAMS.index` keeps its value, so a checkpoint's
         `_in_idx` and a shard's columns stay comparable across the change.
 
-        `Omega_k` is no longer *last* -- the neutrino ratios were appended after
-        it, by the same rule -- but it is still after the original eight, which
-        is what the rule actually says."""
+        `Omega_k` is not *last* -- the neutrino ratios come after it, by the
+        same rule -- but it is after the first eight, which is what the rule
+        says."""
         assert box.PARAMS[:8] == ("omega_b", "omega_cdm", "h", "n_s",
                                   "ln10A_s", "sum_mnu", "w0", "wa")
         assert box.PARAMS[8] == "Omega_k"
@@ -132,9 +132,9 @@ class TestTheBoundsSurviveFloat32:
 
     ``nu_r1``'s upper bound *is* 1/3 -- it follows from the ordering constraint
     rather than being chosen -- and ``np.float32(1/3)`` lands 9.9e-9 above it.
-    So the degenerate neutrino point, the convention every result published
-    before version 2 sits at and the one the tutorials hand the reader, was
-    refused for a rounding error.
+    An exact comparison therefore refuses the degenerate neutrino point, which
+    is the one point a reader is most likely to evaluate and the one the
+    tutorials hand them.
     """
 
     DEGENERATE = np.float32([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06,

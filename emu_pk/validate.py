@@ -426,16 +426,15 @@ def flat_slice_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
 
     **The number that says what the ninth parameter cost the other eight.**
 
-    1.0.0 scored 0.111 % on a box with no curvature axis in it at all.  Adding
-    one widens the space the same network capacity has to cover, and a user who
-    never leaves :math:`\Omega_k = 0` should not pay much for that.  Scoring the
-    full eleven-dimensional design cannot answer it -- the curved points are a
-    different question -- so this pins the column and scores the flat
-    cosmologies alone.
+    A curvature axis widens the space the same network capacity has to cover,
+    and a user who never leaves :math:`\Omega_k = 0` should not pay much for
+    that.  Scoring the full eleven-dimensional design cannot answer it -- the
+    curved points are a different question -- so this pins the column and scores
+    the flat cosmologies alone, against the released flat-box figure of 0.111 %.
 
     Held out exactly as :func:`shape_error` is: the design comes from a
     different seed from the training set's.  Pinning is applied after the draw,
-    so the other eight columns are the ones the seed names, and a flat control
+    so the other ten columns are the ones the seed names, and a flat control
     trained on ``box.sample(pin={"Omega_k": 0})`` is scored here on cosmologies
     drawn the same way.
     """

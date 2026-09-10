@@ -194,11 +194,11 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
 #: Slack on the bounds, in units of the axis's own width.  A bound is a
 #: physical statement, not a bit pattern, and the network is fed float32: a
 #: point that is inside in double precision can land outside once rounded.
-#: ``nu_r1``'s upper bound *is* 1/3, and ``np.float32(1/3)`` is 9.9e-9 above it
-#: -- so the degenerate neutrino point, the convention every result before
-#: version 2 was published at, was refused for a rounding error.  The slack is
-#: two float32 epsilons of the range, which is far below any width at which the
-#: fit changes and far above the largest rounding the dtype can produce.
+#: ``nu_r1``'s upper bound *is* 1/3, and ``np.float32(1/3)`` sits 9.9e-9 above
+#: it -- so without slack the degenerate neutrino point is refused for a
+#: rounding error, at the one point a reader is most likely to evaluate.  Two
+#: float32 epsilons of the range is far below any width at which the fit changes
+#: and far above the largest rounding the dtype can produce.
 _SLACK = 2.0 * float(np.finfo(np.float32).eps)
 
 

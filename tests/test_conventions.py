@@ -37,14 +37,11 @@ def test_fiducial_matches_planck18():
 
 
 def test_class_params_states_curvature_and_linearity_explicitly():
-    """Stated rather than defaulted -- and curvature is now a parameter.
+    """Stated rather than defaulted, and curvature is a sampled parameter.
 
-    It used to be that `ggah_mod` was flat throughout and this package agreed
-    by hard-coding zero.  `ggah_mod` has carried `Omega_k` for a while
-    (`Cosmology.Omega_k`, and a closure that subtracts it), so the assumption
-    was only ever true on this side.  Now neither side assumes it, and the
-    convention that has to agree is the *sign*: positive is open, in CLASS, in
-    `ggah_mod`, and here.
+    `ggah_mod` carries `Omega_k` too -- `Cosmology.Omega_k`, and a closure that
+    subtracts it -- so neither side assumes flatness and the convention that has
+    to agree is the *sign*: positive is open, in CLASS, in `ggah_mod`, and here.
     """
     p = cosmo.class_params(h=0.6736, omega_b=0.0224, omega_cdm=0.12,
                            n_s=0.9649, ln10A_s=3.044)
