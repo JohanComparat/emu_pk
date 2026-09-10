@@ -4,27 +4,38 @@ Differentiable emulation of the **linear matter power spectrum**, over an
 eleven-parameter cosmology with three separate neutrino masses, CPL dark
 energy and spatial curvature, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-It reproduces CLASS's shape to a median 0.064 % and its amplitude to 0.010 %,
-giving a total error on $P(k)$ of 0.066 %.
+**On the spectrum itself**, it reproduces CLASS's shape to a median 0.064 % and
+its amplitude to 0.010 %, giving a total error on $P(k)$ of 0.066 %.
 
-It is written in JAX, so derivatives with respect to the cosmological
-parameters come from automatic differentiation. Against central differences of
-CLASS at $z = 0$:
+It is written in JAX, so derivatives with respect to the cosmological parameters
+come from automatic differentiation. **Those derivatives are scored separately,
+and the tables below are that score, not the accuracy of $P(k)$.** Each entry is
+the median over $k$ of
 
-| `omega_cdm` | `h` | `w0` | `Omega_k` | `omega_b` | `sum_mnu` | `wa` | `nu_r1` | `nu_r2` |
-|---|---|---|---|---|---|---|---|---|
-| 0.046 % | 0.094 % | 0.097 % | 0.141 % | 0.159 % | 0.303 % | 0.353 % | 5.58 % | 5.05 % |
+$$\frac{\left|\partial\ln P/\partial\theta\ \text{(emulator)} -
+        \partial\ln P/\partial\theta\ \text{(CLASS)}\right|}
+       {\left|\partial\ln P/\partial\theta\ \text{(CLASS)}\right|},$$
+
+the emulator side from automatic differentiation, the CLASS side from central
+differences. The ratio is taken against CLASS's own derivative, so an axis the
+emulator barely responds to scores near 100 % rather than looking accurate for
+being small. At $z = 0$:
+
+| ${\partial\ln P}/{\partial\theta}$ | `omega_cdm` | `h` | `w0` | `Omega_k` | `omega_b` | `sum_mnu` | `wa` | `nu_r1` | `nu_r2` |
+|---|---|---|---|---|---|---|---|---|---|
+| **error vs CLASS** | 0.046 % | 0.094 % | 0.097 % | 0.141 % | 0.159 % | 0.303 % | 0.353 % | 5.58 % | 5.05 % |
 
 `ln10A_s` and `n_s` are exact, to $2\times10^{-14}$ and $8\times10^{-6}$.
 The primordial power law is divided out of the training target and restored in
 closed form, so those two are analytic; a Fisher matrix built on this network is
 exact in two of its eleven directions.
 
-The derivative with respect to redshift, which $f\sigma_8$ is built from:
+The same score for the derivative with respect to redshift, which $f\sigma_8$ is
+built from:
 
-| z = 0 | z = 0.5 | z = 1 | z = 2 |
-|---|---|---|---|
-| 0.060 % | 0.023 % | 0.012 % | 0.012 % |
+| ${\partial\ln P}/{\partial z}$ | z = 0 | z = 0.5 | z = 1 | z = 2 |
+|---|---|---|---|---|
+| **error vs CLASS** | 0.060 % | 0.023 % | 0.012 % | 0.012 % |
 
 Away from $z = 0$ that is within about a factor of two of what the comparison
 itself can resolve; the per-parameter floors are on the
