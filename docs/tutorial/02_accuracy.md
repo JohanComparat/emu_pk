@@ -125,7 +125,7 @@ At $z = 0$, with the comparison's own floor beside each:
 
 `ln10A_s` and `n_s` are exact by construction: the primordial power law is
 divided out of the training target and restored in closed form, so neither is a
-network input and the two derivatives are $1$ and $\ln(k/k_\ast)$ exactly. The
+network input and the two derivatives are $1$ and $\ln(kh/k_\ast)$ exactly. The
 $2\times10^{-14}$ and $8\times10^{-6}$ they score is what the float32 forward
 pass and CLASS's own finite difference leave behind. A Fisher matrix built on
 this network is exact in two of its eleven directions. See
@@ -187,7 +187,7 @@ count, at $z = 0$:
 
 The edge is where the error is, at 1.7× the interior. That is the expected
 shape for a hypercube fit and it is the reason the regions are reported apart:
-a sampler running against a wall is scoring the third row, not the first.
+a sampler running against a wall is scoring the second row, not the first.
 
 The curvature stratum is the same as the box as a whole, and the flat slice
 $\Omega_k = 0$ scores 0.067 % against the full box's 0.064 %. **The ninth
