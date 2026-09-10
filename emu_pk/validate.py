@@ -62,6 +62,7 @@ import numpy as np
 
 from . import box, cosmo, generate, grid
 from .model import PkEmulator
+from .model import _catmull_rom as model_catmull_rom
 
 __all__ = ["shape_error", "derivative_error", "redshift_derivative_error",
            "flat_slice_error", "interpolation_floor", "main"]
@@ -275,9 +276,15 @@ def interpolation_floor(n: int = 8, z_nodes=(0.0,), seed: int = 991,
 
     Linear interpolation of an acoustic wiggle at roughly six nodes per period
     is an :math:`O(h^2)` error of exactly this size, and the error sits in the
-    acoustic band.  A cubic interpolant is :math:`O(h^4)` on the same nodes --
-    and :mod:`emu_pk.interp` already ships one, written for the correction
-    table, while the spectrum itself gets ``jnp.interp``.
+    acoustic band.  :meth:`PkEmulator._interp_lnk` is cubic now for that reason,
+    which is :math:`O(h^4)` on the same nodes and takes the floor to 0.0208 %
+    median -- back below the network.
+
+    **This function calls that interpolant rather than reimplementing it.**  It
+    did reimplement it, with ``np.interp``, and kept doing so after the emulator
+    became cubic -- so it measured a path nothing takes and reported a floor
+    five times too high, *above* the error it exists to bound.  A floor that
+    does not share the code it is a floor for is worse than no floor.
 
     Returns ``{z: summary}``, in the same shape as everything else here.
     """
@@ -299,7 +306,15 @@ def interpolation_floor(n: int = 8, z_nodes=(0.0,), seed: int = 991,
             continue
         where.append(where_in_box(theta))
         for j, zz in enumerate(z_nodes):
-            got = np.exp(np.interp(np.log(k), np.log(k_nat), np.log(nat[j])))
+            # **Through the emulator's own interpolant, not a copy of it.**
+            # This floor was written against `jnp.interp` and kept using it
+            # after `_interp_lnk` became cubic, so it measured a path nothing
+            # takes any more and over-stated itself fivefold -- reporting a
+            # floor *above* the error it was supposed to bound.  Calling the
+            # real function is what stops the two drifting again.
+            got = np.exp(np.asarray(model_catmull_rom(
+                jnp.asarray(np.log(k_nat)), jnp.asarray(np.log(nat[j])),
+                jnp.asarray(np.log(k)))))
             r = (got / got[i0]) / (ref[j] / ref[j][i0])
             errs[float(zz)].append(float(np.max(np.abs(r - 1.0))))
             tots[float(zz)].append(float(np.max(np.abs(got / ref[j] - 1.0))))
