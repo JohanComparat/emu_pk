@@ -24,6 +24,7 @@ $k = 0.05\ h\,\mathrm{Mpc}^{-1}$. `emu_pk` reproduces it to a **median
 It holds across the trained range, between 0.005 % and 0.012 % at every scored
 redshift:
 
+<!-- NUMBERS-PENDING: 1.0.0 figures; regenerate from validation.json, see RELEASE_TODO.md -->
 | z | 0 | 0.5 | 1 | 2 | 3 | 5 |
 |---|---|---|---|---|---|---|
 | amplitude | 0.012 % | 0.010 % | 0.007 % | 0.006 % | 0.005 % | 0.011 % |
@@ -46,6 +47,7 @@ The median stays between 0.105 % and 0.117 % across the whole redshift range.
 
 Combining the two rows gives the accuracy of $P(k)$ as it stands:
 
+<!-- NUMBERS-PENDING: 1.0.0 figures; regenerate from validation.json, see RELEASE_TODO.md -->
 | at $z = 0$ | median | 90th | max |
 |---|---|---|---|
 | amplitude at $k = 0.05$ | 0.012 % | 0.035 % | 0.059 % |
@@ -89,6 +91,7 @@ matrix shows as a flat direction.
 
 At $z = 0$, with the comparison's own floor beside each:
 
+<!-- NUMBERS-PENDING: 1.0.0 figures; regenerate from validation.json, see RELEASE_TODO.md -->
 | parameter | error | floor | | parameter | error | floor |
 |---|---|---|---|---|---|---|
 | `ln10A_s` | **exact** | — | | `omega_cdm` | 0.06 % | 0.031 % |
@@ -100,10 +103,11 @@ At $z = 0$, with the comparison's own floor beside each:
 $6\times10^{-8}$ — because the primordial power law is divided out of the
 training target and restored in closed form, which makes those two
 derivatives analytic. A Fisher matrix built on this network is exact in
-two of its eight directions. See {doc}`../design_notes`.
+two of its eleven directions. See {doc}`../design_notes`.
 
 ### With respect to redshift
 
+<!-- NUMBERS-PENDING: 1.0.0 figures; regenerate from validation.json, see RELEASE_TODO.md -->
 | | z = 0 | z = 0.5 | z = 1 | z = 2 |
 |---|---|---|---|---|
 | $\partial\ln P/\partial z$ | 0.155 % | 0.015 % | 0.012 % | 0.008 % |

@@ -11,10 +11,10 @@ eleven-parameter cosmology that includes **three separate neutrino masses**,
 CPL dark energy and **spatial curvature**, out to
 $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-It is written in JAX, so derivatives with respect to cosmological parameters
-come from automatic differentiation rather than finite differences — and two of
-them are *exact*, because the primordial power law is divided out of the
-training target and restored in closed form.
+It is written in JAX, so derivatives with respect to the cosmological
+parameters come from automatic differentiation. Two of them are exact: the
+primordial power law is divided out of the training target and restored in
+closed form.
 
 ```python
 import numpy as np
@@ -42,15 +42,18 @@ pk_cb = emu.pk_cb(k, z=0.5, params=theta)        # cdm + baryons, without neutri
 
 ## Accuracy
 
-Against held-out CLASS solves — a Latin hypercube on a different seed from the
-training design, so no scored point was trained on. The full record is
+We score the network against held-out CLASS solves, on a Latin hypercube drawn
+from a different seed from the training design. The record is
 [`emu_pk/data/validation.json`](emu_pk/data/validation.json), written by
-`python -m emu_pk.validate` and not typed by hand.
+`python -m emu_pk.validate`.
 
-Three quantities are scored, and together they describe $P(k)$: its amplitude
-at $k = 0.05\ h\,\mathrm{Mpc}^{-1}$, its shape once both spectra are
-renormalised there, and the two combined with nothing removed. Medians are over
-the held-out cosmologies, at $z = 0$.
+Three quantities describe $P(k)$: its amplitude at
+$k = 0.05\ h\,\mathrm{Mpc}^{-1}$, its shape once both spectra are
+renormalised there, and the two combined. Shape error is the largest fractional
+departure from CLASS over $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$.
+Medians are over the held-out cosmologies, at $z = 0$.
+
+<!-- NUMBERS-PENDING: regenerate from validation.json, see RELEASE_TODO.md -->
 
 | at $z = 0$ | median | 90th | max |
 |---|---|---|---|
@@ -58,18 +61,18 @@ the held-out cosmologies, at $z = 0$.
 | shape, renormalised | **0.111 %** | 0.224 % | 0.621 % |
 | **total, absolute** | **0.112 %** | 0.221 % | 0.603 % |
 
-**0.112 %** is the single number for $P(k)$. CosmoPower's released
-linear-matter model reaches 0.159 % on the shape measure, on a box narrower in
-four of the five axes the two share and equal on the fifth. Shape error is the
-largest fractional departure from CLASS over
-$k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$; the amplitude is the factor that
-renormalisation divides out, and it holds between 0.005 % and 0.012 % across
-the whole redshift range.
+CosmoPower's released linear-matter model reaches 0.159 % on the shape measure,
+over a box narrower in four of the five axes the two share.
 
-Derivatives are what a Fisher forecast actually consumes, and an emulator can
-reproduce $P(k)$ to a tenth of a percent and still get
-$\partial\ln P/\partial\theta$ wrong. Against central differences of CLASS, at
-$z = 0$:
+The metric carries its own floor. The network predicts on a 400-node grid and
+the comparison asks CLASS at 300 other wavenumbers, so the interpolation
+between nodes is scored as network error. Pushing a CLASS spectrum through the
+same path gives 0.020 %.
+
+A Fisher forecast consumes derivatives rather than spectra. Against central
+differences of CLASS, at $z = 0$:
+
+<!-- NUMBERS-PENDING: regenerate from validation.json, see RELEASE_TODO.md -->
 
 | parameter | error | | parameter | error |
 |---|---|---|---|---|
@@ -78,24 +81,21 @@ $z = 0$:
 | `omega_cdm` | 0.06 % | | `omega_b` | 0.20 % |
 | `h` | 0.12 % | | `wa` | 0.41 % |
 
-And with respect to redshift — the derivative $f\sigma_8$ is built from:
+And with respect to redshift, which $f\sigma_8$ is built from:
 
 | | z = 0 | z = 0.5 | z = 1 | z = 2 |
 |---|---|---|---|---|
 | $\partial\ln P/\partial z$ | 0.155 % | 0.015 % | 0.012 % | 0.008 % |
 | *the measurement's own floor* | *0.049 %* | *0.011 %* | *0.006 %* | *0.005 %* |
 
-Away from $z = 0$ this sits within a factor of about two of what the comparison
-itself can resolve, so most of what is quoted there is the ruler rather than the
-network. At $z = 0$ the ratio is 3.1: that node is an endpoint in slope, with
-nothing on the $z < 0$ side to constrain it.
+Away from $z = 0$ these sit within a factor of two of what the comparison can
+resolve. At $z = 0$ the ratio is 3.1; that node is an endpoint in slope.
 
 ## The box
 
-Deliberately wider than CosmoPower's `mpk_lin`, and carrying three parameters it
-does not have. Outside these bounds the network does not fail, it
-*extrapolates* — returning a number that is finite, smooth and unwarranted — so
-`PkEmulator` checks the box on every call that can afford to look.
+Wider than CosmoPower's `mpk_lin`, and carrying six parameters it does not
+have. Outside these bounds the network extrapolates, returning a finite and
+unwarranted number, so `PkEmulator` checks the box on every call it can.
 
 | parameter | CosmoPower | `emu_pk` |
 |---|---|---|
@@ -113,47 +113,37 @@ does not have. Outside these bounds the network does not fail, it
 | $k_{\max}$ [h/Mpc] | 14.56 | **200** |
 | $z$ | 0 – 5 | 0 – 5 |
 
-Points with `w0 + wa >= 0` are excluded: CPL dark energy then grows without
-bound towards early times and dominates before recombination, which is not a
-cosmology anyone means to train on.
+Points with `w0 + wa >= 0` are excluded. CPL dark energy then grows without
+bound towards early times and dominates before recombination.
 
-The curvature bound is measured rather than chosen. CLASS solves the *whole*
-box at $|\Omega_k| \le 0.15$; wider, it starts refusing on the closed side
-where the density is lowest — at `omega_cdm = 0.05`, `h = 0.85` it fails from
-$\Omega_k = -0.275$. The open side never refuses, not even where the closure
-$\Omega_{\rm de} = 1 - \Omega_k - \Omega_m - \Omega_r$ goes negative, so that
-side needed a stated bound rather than a solver error to find it.
+The curvature bound is measured. CLASS solves the whole box at
+$|\Omega_k| \le 0.15$; on the closed side it begins refusing at
+$\Omega_k = -0.275$, at `omega_cdm = 0.05`, `h = 0.85`. On the open side it
+never refuses, including where the closure
+$\Omega_{\rm de} = 1 - \Omega_k - \Omega_m - \Omega_r$ turns negative, so
+that bound is stated rather than discovered.
 
-Negative $\Omega_{\rm de}$ is **not** excluded. 0.4 % of the flat box already
-sits there and the 1.0.0 weights were trained through it; curvature takes that
-to 0.9 %. It is exotic, not ill-posed — CLASS solves it and the spectrum is
-smooth in the parameters — so `validate` reports it as its own stratum instead
-of the design cutting it out.
+Negative $\Omega_{\rm de}$ is kept. It covers 0.4 % of the flat box and 0.9 %
+of this one, CLASS solves it, and the spectrum is smooth in the parameters;
+`validate` reports it as a stratum.
 
-The two neutrino ratios divide `sum_mnu` over three separate species,
-$m_i = r_i \Sigma m_\nu$ with $r_3 = 1 - r_1 - r_2$, and are sampled on the
-*ordered* simplex $0 \le r_1 \le r_2 \le (1-r_1)/2$. Ordering is not a taste
-constraint: CLASS sums the species' contributions and cannot tell them apart,
-so the six permutations of one mass vector are the same cosmology and sampling
-all six would spend network capacity learning an exact symmetry.
+The neutrino ratios divide $\Sigma m_\nu$ over three species,
+$m_i = r_i \Sigma m_\nu$ with $r_3 = 1 - r_1 - r_2$, on the ordered simplex
+$0 \le r_1 \le r_2 \le (1-r_1)/2$. CLASS sums the species and cannot
+distinguish them, so the six permutations of a mass vector are one cosmology
+and the ordering removes five of them. Both mass orderings and the degenerate
+limit lie inside; the degenerate point $(1/3, 1/3)$ is a vertex, and is scored
+as its own stratum.
 
-Both mass orderings and the degenerate limit live inside it. The degenerate
-point $(1/3, 1/3)$ — the convention every earlier result uses — is a *vertex*
-of that simplex and cannot be made interior, because a spread is non-negative;
-it is scored as its own stratum for that reason.
+Against CLASS, the degenerate approximation is wrong by 0.32 % in $P(k)$ at
+$\Sigma m_\nu = 0.10$ eV in an inverted ordering, and by under 0.012 % above
+0.25 eV.
 
-Why it is worth having: measured against CLASS, the degenerate approximation is
-wrong by **0.32 %** in $P(k)$ at $\Sigma m_\nu = 0.10$ eV in an inverted
-ordering — three times this emulator's median error — and by under 0.012 %
-above 0.25 eV, where the three masses really are nearly equal. It is a good
-approximation exactly where it does not matter.
-
-Curvature is the cheapest axis in the box. Above $k \approx 10^{-2}$ its effect
-is a $k$-independent growth rescaling, flat in $k$ to better than 0.5 %, so it
-costs the fit almost nothing there. The exception is the lowest decade: the
-curvature scale $\sqrt{|\Omega_k|}H_0/c$ is
-$1.3\times10^{-4}\ h\,\mathrm{Mpc}^{-1}$ at the edge of the box, inside the
-$k$ grid, and that decade is scored separately — see
+Curvature costs the fit little above $k \approx 10^{-2}$, where its effect is
+a $k$-independent growth rescaling flat in $k$ to 0.5 %. Below
+$k \approx 10^{-3}$ it does not: the curvature scale $\sqrt{|\Omega_k|}H_0/c$
+is $1.3\times10^{-4}\ h\,\mathrm{Mpc}^{-1}$ at the edge of the box, inside
+the $k$ grid. That decade is scored separately; see
 [`docs/design_notes.md`](docs/design_notes.md).
 
 ## Install
@@ -164,10 +154,9 @@ pip install 'emu_pk[gen]'          # + classy, to generate data or validate
 pip install 'emu_pk[train]'        # + optax, to train
 ```
 
-The split is load-bearing. `import emu_pk` in an environment with **no**
-`classy` and **no** `optax` must work — that is what lets another package depend
-on this one without inheriting a Boltzmann solver or a training stack — and the
-test suite asserts it.
+`import emu_pk` in an environment with no `classy` and no `optax` must work,
+so that a package depending on this one does not inherit a Boltzmann solver or
+a training stack. The test suite asserts it.
 
 `[gen]` compiles CLASS from source and needs a C compiler.
 
@@ -203,12 +192,11 @@ from source.
 
 `emu_pk.ratio` is a correction measured from CLASS on a grid in
 $(\Sigma m_\nu, w_0, w_a, z, k)$ and applied multiplicatively to a
-massless-ΛCDM spectrum. It is exactly 1 at the ΛCDM massless corner, which is
-what lets it be applied unconditionally — a Python branch on the neutrino mass
-would be a branch on a tracer and would break the gradient. It exists so that an
-emulator *without* neutrinos or dark energy can be given both. `emu_pk`'s own
-network is trained on massive-neutrino w0waCDM spectra directly and needs no
-correction.
+massless-ΛCDM spectrum. It is exactly 1 at the ΛCDM massless corner, so it applies unconditionally;
+a Python branch on the neutrino mass would branch on a tracer and break the
+gradient. It gives neutrinos and dark energy to an emulator that has neither.
+This package's own network is trained on massive-neutrino w0waCDM spectra and
+needs no correction.
 
 ## Conventions
 

@@ -31,7 +31,7 @@ also catches a *permuted* column. Generate into a fresh directory.
 
 **The flat control.** `--pin Omega_k=0` holds a design column fixed after the
 draw, giving a design identical to the curved one in its other eight columns.
-It is what makes "the nine-parameter fit is worse" separable from "this design
+It separates "the wider box is worse" from "this design
 is smaller than the one that scored 0.111 %" — at any size below production
 both are true, and only the control tells them apart. A network trained on a
 pinned column has near-zero `x_std` along it and is meaningful only at
@@ -46,7 +46,7 @@ Measured, not estimated:
 | CLASS solves in the design | 150 000 |
 | seconds per solve, production settings | ~6.5 |
 | **core-hours** | **~271** |
-| *(nine parameters cost no more per solve: measured 2.7–3.0 s flat and at* | |
+| *(curvature costs no more per solve: measured 2.7–3.0 s flat and at* | |
 | *$\Omega_k = \pm0.15$ on the same machine, statistically identical)* | |
 | training rows (31 redshifts per solve) | ~4.6 million |
 | training, 240 epochs on 32 CPU cores | ~2.5 hours |

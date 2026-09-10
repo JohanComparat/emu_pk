@@ -30,7 +30,7 @@ the first is added back by `model.primordial_ln_pk`.
 Two consequences, and the second is the larger one. The derivatives
 $\partial\ln P/\partial \ln 10A_s = 1$ and
 $\partial\ln P/\partial n_s = \ln(kh/k_*)$ become *exact* rather than fitted —
-a Fisher matrix built on this network is exactly right in two of its eight
+a Fisher matrix built on this network is exactly right in two of its eleven
 directions. And amplitude and tilt are the two largest variance directions in
 the target over this box, so removing them is capacity the network gets back
 for the transfer function, the BAO and the neutrino suppression.
@@ -235,7 +235,7 @@ direction is the other: a checkpoint written against a *narrower* box names
 nothing unknown, so it loads, `_in_idx` comes out bit-identical, and it
 predicts a spectrum that silently ignores whatever axis has been added since.
 
-Growing the box from eight parameters to nine is exactly when that fires, and
+Growing the box is when that fires, and
 it fires on the file the package itself ships. So the absent case is refused
 too, with `ANALYTIC` — `ln10A_s` and `n_s`, which the reduced target restores
 in closed form — as the one legitimate exemption. `ANALYTIC` therefore lives in

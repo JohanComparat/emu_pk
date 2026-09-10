@@ -4,26 +4,26 @@ Differentiable emulation of the **linear matter power spectrum**, over an
 eleven-parameter cosmology with three separate neutrino masses, CPL dark
 energy and spatial curvature, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-It reproduces CLASS's shape to a **median 0.111 %** and its amplitude to
-**0.012 %**, so the total error on $P(k)$ itself is **0.112 %** — the shape
-metric renormalises, and the amplitude it divides out is accurate to an order
-of magnitude better than the shape.
+It reproduces CLASS's shape to a median 0.111 % and its amplitude to
+0.012 %, giving a total error on $P(k)$ of 0.112 %.
 
-Because it is written in JAX, its derivatives with respect to cosmological
-parameters come from automatic differentiation rather than finite differences.
-Against central differences of CLASS at $z = 0$:
+It is written in JAX, so derivatives with respect to the cosmological
+parameters come from automatic differentiation. Against central differences of
+CLASS at $z = 0$:
 
+<!-- NUMBERS-PENDING: 1.0.0 figures; regenerate from validation.json, see RELEASE_TODO.md -->
 | `omega_cdm` | `h` | `w0` | `sum_mnu` | `omega_b` | `wa` |
 |---|---|---|---|---|---|
 | 0.06 % | 0.12 % | 0.16 % | 0.18 % | 0.20 % | 0.41 % |
 
-`ln10A_s` and `n_s` are **exact**, to $2\times10^{-14}$ and $6\times10^{-8}$:
-the primordial power law is divided out of the training target and restored in
-closed form, so those two are analytic rather than fitted, and a Fisher matrix
-built on this network is exact in two of its eleven directions.
+`ln10A_s` and `n_s` are exact, to $2\times10^{-14}$ and $6\times10^{-8}$.
+The primordial power law is divided out of the training target and restored in
+closed form, so those two are analytic; a Fisher matrix built on this network is
+exact in two of its eleven directions.
 
 The derivative with respect to redshift, which $f\sigma_8$ is built from:
 
+<!-- NUMBERS-PENDING: 1.0.0 figures; regenerate from validation.json, see RELEASE_TODO.md -->
 | z = 0 | z = 0.5 | z = 1 | z = 2 |
 |---|---|---|---|
 | 0.155 % | 0.015 % | 0.012 % | 0.008 % |
@@ -46,20 +46,19 @@ pk = emu.pk(k, z=0.5, params=theta)
 ## Why this one
 
 Most linear-$P(k)$ emulators are trained on a narrower box and validated on
-*values*. `emu_pk` differs in three ways that matter for a forecast:
+values. This package differs in three ways that matter for a forecast.
 
-- **The box carries `sum_mnu`, `w0` and `wa`**, and is wider than CosmoPower's
-  in every axis they share. An emulator without those parameters returns
-  $\partial P/\partial w_0 = 0$ — not a small response, an absent one, which in
-  a Fisher matrix is a flat direction.
-- **The derivatives are validated, not assumed.** An emulator can reproduce
-  $P(k)$ to a tenth of a percent and still get $\partial\ln P/\partial\theta$
-  wrong, because the error surface is smooth in $k$ and rough in $\theta$.
-  `emu_pk.validate` measures autodiff against central differences of CLASS,
-  per parameter and per redshift, and reports the finite-difference floor of
-  its own comparison.
-- **It reaches $k = 200\ h\,\mathrm{Mpc}^{-1}$**, which is what a halo-model
-  $\sigma(M)$ integral actually needs.
+- The box carries `sum_mnu`, `w0`, `wa`, `Omega_k` and two neutrino mass
+  ratios, and is wider than CosmoPower's in every axis they share. An emulator
+  without a parameter returns a zero derivative for it, which in a Fisher
+  matrix is a flat direction.
+- The derivatives are validated. An emulator can reproduce $P(k)$ to a tenth of
+  a percent and still get $\partial\ln P/\partial\theta$ wrong, because the
+  error surface is smooth in $k$ and rough in $\theta$. `emu_pk.validate`
+  measures autodiff against central differences of CLASS, per parameter and per
+  redshift, and reports the floor of its own comparison.
+- It reaches $k = 200\ h\,\mathrm{Mpc}^{-1}$, which is what a halo-model
+  $\sigma(M)$ integral needs.
 
 ```{toctree}
 :maxdepth: 2
