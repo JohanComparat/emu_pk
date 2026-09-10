@@ -22,7 +22,7 @@ import pathlib
 import numpy as np
 
 import emu_pk
-from emu_pk import box, grid
+from emu_pk import box, grid, model
 from emu_pk.model import PkEmulator
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -32,7 +32,8 @@ OUT = HERE / "_static" / "figures"
 #: to return a spectrum rather than raise.
 _PLANCK_BY_NAME = {"omega_b": 0.02237, "omega_cdm": 0.1200, "h": 0.6736,
                    "n_s": 0.9649, "ln10A_s": 3.044, "sum_mnu": 0.06,
-                   "w0": -1.0, "wa": 0.0, "Omega_k": 0.0}
+                   "w0": -1.0, "wa": 0.0, "Omega_k": 0.0,
+                   "nu_r1": 1.0 / 3.0, "nu_r2": 1.0 / 3.0}
 PLANCK = np.array([_PLANCK_BY_NAME[p] for p in box.PARAMS])
 
 
@@ -98,7 +99,7 @@ def fig_spectrum(plt, emu):
 
 
 def fig_derivatives(plt, emu):
-    """dlnP/dtheta for all eight parameters, two of them exact."""
+    """dlnP/dtheta for every parameter in the box, two of them exact."""
     import jax
     import jax.numpy as jnp
     from emu_pk import cosmo
@@ -108,8 +109,11 @@ def fig_derivatives(plt, emu):
         lambda t: jnp.log(emu.pk(k, 0.0, t)))(jnp.asarray(PLANCK)))
 
     # The two analytic ones are shown as the *residual* against their closed
-    # form.  Plotted as values they look like wild oscillation, because they
-    # are 1 +/- 6e-8 and the axis auto-scales to the roundoff.
+    # form.  Plotted as values they look like wild oscillation, because the
+    # axis auto-scales to arithmetic noise on a constant.  `ln10A_s` sits at
+    # float32 epsilon; `n_s` sits ~250x higher, because its closed form is
+    # added on the node grid and then interpolated, and the Catmull-Rom stencil
+    # differences values of order 10 in float32.
     exact = {"ln10A_s": np.ones_like(k),
              "n_s": np.log(k * PLANCK[2] / cosmo.K_PIVOT)}
     eps32 = np.finfo(np.float32).eps
@@ -141,8 +145,9 @@ def fig_derivatives(plt, emu):
     for ax in axes[:len(box.PARAMS)]:
         ax.set_xlabel(r"$k\ [h\,\mathrm{Mpc}^{-1}]$")
     fig.suptitle("Automatic differentiation at $z=0$.  `ln10A_s` and `n_s` are "
-                 "not fitted: they are added back in closed form, so their "
-                 "error is float32 roundoff.", fontsize=10)
+                 "not fitted: they are restored in closed form, so their two "
+                 "panels show float32 arithmetic rather than fit error.",
+                 fontsize=10)
     return _save(fig, "03_derivatives")
 
 
@@ -174,13 +179,15 @@ def fig_box(plt):
 
 def fig_correction(plt):
     """The neutrino / CPL correction, exactly 1 at the LambdaCDM corner."""
-    from emu_pk import ratio
+    from emu_pk import cosmo, ratio
 
     k = np.logspace(-3, 1, 200)
     fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.4))
     for mnu in (0.0, 0.06, 0.2, 0.4, 0.6):
-        f_nu = mnu / (93.14 * 0.6736 ** 2) / 0.31
-        a.semilogx(k, ratio.suppression_m(k, 0.0, f_nu, -1.0, 0.0), lw=1.4,
+        # `cosmo.f_nu` rather than a local 93.14 eV: the conversion belongs to
+        # one place, and the figure has to agree with what `ratio` is indexed on.
+        f_nu = cosmo.f_nu(mnu, h=0.6736, Omega_m=0.31)
+        a.semilogx(k, ratio.suppression_m(k, f_nu, 0.0, -1.0, 0.0), lw=1.4,
                    label=rf"$\Sigma m_\nu = {mnu:g}$ eV")
     a.axhline(1.0, color="k", lw=0.7)
     a.set(xlabel=r"$k\ [h\,\mathrm{Mpc}^{-1}]$", ylabel=r"$r(k)$",
@@ -221,9 +228,13 @@ def fig_validation(plt):
     a.legend(frameon=False, fontsize=8)
 
     d = v["derivative"][zs[0]]
-    names = list(box.PARAMS)
-    err = [max(d[p]["err"], 1e-16) * 100 for p in names]
-    flo = [(d[p]["floor"] or 1e-16) * 100 for p in names]
+    # `ln10A_s` and `n_s` are restored in closed form rather than fitted, so
+    # they score 1e-14 and 1e-6 and would stretch a shared log axis over twelve
+    # decades, squashing every fitted axis against the right edge.  They are
+    # their own figure (`03_derivatives`); this one shows what was fitted.
+    names = [p for p in box.PARAMS if p not in model.ANALYTIC]
+    err = [d[p]["err"] * 100 for p in names]
+    flo = [(d[p]["floor"] or 0.0) * 100 for p in names]
     y = np.arange(len(names))
     b.barh(y, err, color="C0", label="network")
     b.plot(flo, y, "k|", ms=10, label="the metric's own floor")
@@ -231,8 +242,8 @@ def fig_validation(plt):
     b.set_yticklabels([f"`{p}`" for p in names])
     b.set_xscale("log")
     b.set(xlabel=r"$|\Delta\,\partial\ln P/\partial\theta|$ [%], at $z=0$",
-          title="derivative error")
-    b.legend(frameon=False, fontsize=8)
+          title="derivative error, the fitted axes")
+    b.legend(frameon=False, fontsize=8, loc="lower right")
     return _save(fig, "02_accuracy")
 
 

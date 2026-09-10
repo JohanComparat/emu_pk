@@ -19,13 +19,23 @@ theta = np.array([
     -1.0,      # w0
     0.0,       # wa
     0.0,       # Omega_k   (positive is open)
+    1/3,       # nu_r1     m_1 / sum_mnu
+    1/3,       # nu_r2     m_2 / sum_mnu;  m_3 takes the rest
 ])
 
 pk_m = emu.pk(k, z=0.0, params=theta)            # P_m(k) in (Mpc/h)^3
 ```
 
 The parameter order is `emu_pk.box.PARAMS`, and it is read from there by
-everything downstream rather than repeated.
+everything downstream rather than repeated. A `theta` of the wrong length is
+refused rather than padded.
+
+The last two split the neutrino mass over three species,
+$m_i = r_i \Sigma m_\nu$ with $r_3 = 1 - r_1 - r_2$, ordered
+$r_1 \le r_2 \le r_3$. `(1/3, 1/3)` is the degenerate convention every earlier
+version assumed; the physical orderings sit near `(0.00, 0.15)` for normal at
+$\Sigma m_\nu = 0.059$ eV and `(0.02, 0.49)` for inverted at 0.101 eV, and both
+tend to `(1/3, 1/3)` as the mass grows. See {doc}`tutorial/04_the_box`.
 
 ## Several redshifts at once
 
@@ -110,7 +120,7 @@ def ln_pk_m(params):
 
 dlnP_dtheta = jax.jacfwd(ln_pk_m)(jnp.asarray(theta))
 
-dlnP_dtheta.shape                                # (400, 8) == (len(k), len(PARAMS))
+dlnP_dtheta.shape                                # (400, 11) == (len(k), len(PARAMS))
 dlnP_dtheta[:, box.PARAMS.index("omega_cdm")]    # d ln P / d omega_cdm, across k
 ```
 

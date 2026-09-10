@@ -191,11 +191,26 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     return kept
 
 
+#: Slack on the bounds, in units of the axis's own width.  A bound is a
+#: physical statement, not a bit pattern, and the network is fed float32: a
+#: point that is inside in double precision can land outside once rounded.
+#: ``nu_r1``'s upper bound *is* 1/3, and ``np.float32(1/3)`` is 9.9e-9 above it
+#: -- so the degenerate neutrino point, the convention every result before
+#: version 2 was published at, was refused for a rounding error.  The slack is
+#: two float32 epsilons of the range, which is far below any width at which the
+#: fit changes and far above the largest rounding the dtype can produce.
+_SLACK = 2.0 * float(np.finfo(np.float32).eps)
+
+
 def inside(theta) -> dict:
     """Map ``{name: (value, bounds)}`` for every parameter outside the box.
 
     Empty when the point is inside.  Takes a mapping or a sequence in
     :data:`PARAMS` order.
+
+    The comparison carries :data:`_SLACK` of the axis's width, so a value that
+    is inside in double precision is not refused once it has been rounded to
+    the float32 the network runs in.
     """
     if not hasattr(theta, "keys"):
         theta = dict(zip(PARAMS, np.asarray(theta)))
@@ -204,7 +219,8 @@ def inside(theta) -> dict:
         if p not in BOX or v is None:
             continue
         lo, hi = BOX[p]
-        if not lo <= float(v) <= hi:
+        eps = _SLACK * (hi - lo)
+        if not lo - eps <= float(v) <= hi + eps:
             out[p] = (float(v), (lo, hi))
     return out
 

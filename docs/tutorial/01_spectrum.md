@@ -35,7 +35,7 @@ This is the **fiducial** cosmology, which sits near the middle of the training
 box where the emulator is at its best. It is not a held-out average, and the
 residual here is smaller than the accuracy you should assume. For that, see
 {doc}`02_accuracy`, which scores a held-out design and reports a median of
-0.111 %.
+0.064 %.
 ```
 
 ## Two spectra

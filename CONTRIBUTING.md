@@ -7,7 +7,7 @@ pip install -e '.[dev]'
 python -m pytest tests/ -q
 ```
 
-314 tests, about a minute and a half. Some skip without `ggah_mod`, which is
+317 tests, about a minute and a half. Some skip without `ggah_mod`, which is
 an optional peer; the tests that need `classy` are marked `slow` and skip
 without it.
 
@@ -91,7 +91,12 @@ More of this kind of thing, with the reasons, is in `docs/design_notes.md`.
    emu_pk/data/validation.json` **locally**, with no `--weights`. Run on the
    cluster it records the path it scored, and the shipped record must say
    `"shipped"`; a test asserts it.
-4. Update every number quoted from that file. They are listed in
-   `RELEASE_TODO.md`, and marked in the source with `NUMBERS-PENDING`.
-5. Regenerate the figures.
+4. Update every number quoted from that file. They live in `README.md`,
+   `docs/index.md`, `docs/tutorial/02_accuracy.md`, `docs/tutorial/01_spectrum.md`,
+   `docs/design_notes.md` and `docs/reproducing.md`; grep for `%` in a table.
+   A number that appears twice is a number that will disagree with itself.
+5. Regenerate the figures: `python docs/make_figures.py`, which needs `[gen]`
+   and about two minutes. They are committed artefacts because ReadTheDocs
+   cannot compile CLASS. Deterministic against unchanged weights, so a stale
+   figure shows up as a diff.
 6. Tag, and let the publish workflow build and upload.

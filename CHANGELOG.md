@@ -82,6 +82,13 @@ wider box** -- 0.064 % median shape error against 0.111 %.
   random row split put nearly every cosmology on both sides and `val_loss`
   measured z-interpolation rather than generalisation. Whole cosmologies are
   held out now.
+- **The degenerate neutrino point was outside the box in single precision.**
+  `nu_r1`'s upper bound is 1/3, which follows from the ordering constraint
+  rather than being chosen, and `np.float32(1/3)` lands 9.9e-9 above it -- so
+  `theta` built with `jnp.array` was refused at the one point every result
+  published before this release sits at. `inside` now carries two float32
+  epsilons of the axis's width, which is below any width at which the fit
+  changes and above the largest rounding the dtype can produce.
 - **A checkpoint killed mid-write killed the run.** `_save` wrote in place, so a
   preemption during a write left a truncated file at the path the restart
   resumes from. Observed on two of three arms in one campaign. Writes are

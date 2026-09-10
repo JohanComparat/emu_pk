@@ -124,3 +124,39 @@ class TestPinHoldsAColumnFixed:
     def test_no_pin_is_the_default(self):
         assert np.array_equal(box.sample(20, seed=3),
                               box.sample(20, seed=3, pin=None))
+
+
+class TestTheBoundsSurviveFloat32:
+    """The network runs in single precision, and a bound is a physical
+    statement rather than a bit pattern.
+
+    ``nu_r1``'s upper bound *is* 1/3 -- it follows from the ordering constraint
+    rather than being chosen -- and ``np.float32(1/3)`` lands 9.9e-9 above it.
+    So the degenerate neutrino point, the convention every result published
+    before version 2 sits at and the one the tutorials hand the reader, was
+    refused for a rounding error.
+    """
+
+    DEGENERATE = np.float32([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06,
+                             -1.0, 0.0, 0.0, 1 / 3, 1 / 3])
+
+    def test_the_degenerate_neutrino_point_is_inside_in_float32(self):
+        assert box.inside(self.DEGENERATE) == {}
+        box.check(self.DEGENERATE)          # must not raise
+
+    def test_every_corner_of_the_box_survives_the_round_trip(self):
+        """Not only that one vertex: each bound, cast down and checked."""
+        for j, p in enumerate(box.PARAMS):
+            for v in box.BOX[p]:
+                theta = np.array([box.BOX[q][0] for q in box.PARAMS])
+                theta[j] = v
+                assert box.inside(np.float32(theta)) == {}, p
+
+    def test_the_slack_is_far_below_anything_physical(self):
+        """A tolerance that let a real excursion through would be worse than
+        the problem it fixes."""
+        for p, (lo, hi) in box.BOX.items():
+            j = box.PARAMS.index(p)
+            theta = np.array([box.BOX[q][0] for q in box.PARAMS])
+            theta[j] = hi + 1e-4 * (hi - lo)
+            assert p in box.inside(theta), p

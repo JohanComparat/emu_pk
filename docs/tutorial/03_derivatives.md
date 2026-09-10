@@ -14,10 +14,10 @@ emu = PkEmulator()
 k = np.logspace(-3, 1, 200)
 theta = jnp.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0, 1/3, 1/3])
 
-jac = jax.jacfwd(lambda t: jnp.log(emu.pk(k, 0.0, t)))(theta)   # (200, 8)
+jac = jax.jacfwd(lambda t: jnp.log(emu.pk(k, 0.0, t)))(theta)   # (200, 11)
 ```
 
-![All eight derivatives](../_static/figures/03_derivatives.png)
+![Every derivative in the box](../_static/figures/03_derivatives.png)
 
 The baryon acoustic oscillations are visible in `omega_b`, `omega_cdm` and `h`,
 which is the correct behaviour: those parameters move the sound horizon, so
@@ -37,13 +37,17 @@ form, so
 $$\frac{\partial \ln P}{\partial \ln 10A_s} = 1, \qquad
   \frac{\partial \ln P}{\partial n_s} = \ln\!\big(kh/k_*\big)$$
 
-hold to float32 roundoff rather than to whatever the fit achieved. In the figure
-those two panels show the *residual* against the closed form, sitting at or
-below $\epsilon_{32} \approx 1.2\times10^{-7}$; plotted as values they would
-look like wild oscillation, because they are $1 \pm 6\times10^{-8}$.
+hold by construction rather than to whatever the fit achieved — neither
+parameter is a network input at all. In the figure those two panels show the
+*residual* against the closed form, and what is left is arithmetic:
+`ln10A_s` sits at $6\times10^{-8}$, one float32 epsilon, because it is an
+additive constant; `n_s` sits at $3\times10^{-5}$, because its closed form is
+added on the network's own $\ln k$ grid and then interpolated, and the cubic
+stencil differences values of order 10 in single precision. Against a
+derivative whose value is a few, that is a relative $10^{-5}$.
 
 A Fisher matrix built on this network is therefore exactly right in two of its
-eight directions.
+eleven directions.
 
 ## With respect to redshift
 
@@ -65,7 +69,7 @@ handles it, so `jax.grad` of `pk` is still $\mathrm{d}/\mathrm{d}z$.
 ```python
 from emu_pk import box
 
-thetas = box.sample(64, seed=0)                  # (64, 8), a Latin hypercube
+thetas = box.sample(64, seed=0)                  # (64, 11), a Latin hypercube
 
 @jax.jit
 def spectrum(params, redshift):
@@ -84,8 +88,9 @@ model.
 ## A caution
 
 The derivative errors in the validation record are *medians over $k$*, at the
-fiducial redshift grid. They are small, but they are not zero, and `w0` and
-`wa` degrade towards $z = 5$ where the CPL parameterisation has least leverage.
-If your forecast is dominated by one parameter at one redshift, score that
-configuration rather than trusting the median — `emu_pk.validate` takes
-`--z` and will do it.
+fiducial redshift grid. They are small, but they are not zero, and they are not
+flat in redshift: `w0` runs from 0.097 % at $z = 0$ to 1.50 % at $z = 5$ and
+`wa` from 0.353 % to 1.76 %, where the CPL parameterisation has least leverage.
+Most other axes are flat or improve. If your forecast is dominated by one
+parameter at one redshift, score that configuration rather than trusting the
+$z = 0$ number — `emu_pk.validate` takes `--z` and will do it.

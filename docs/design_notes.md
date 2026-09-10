@@ -65,7 +65,7 @@ A factorised table — a neutrino factor times a dark-energy factor — is far
 cheaper: 2² and 2³ derivative arrays over small cubes against 2⁴ over a
 1.8-million-element one. `assemble.build_ratio` builds the full grid and
 measures the cross term a factorisation would discard, storing it as
-`resid_max`. It reaches 1.61 % where the emulator's own shape error is 0.16 %,
+`resid_max`. It reaches 1.61 % where the emulator's own shape error is 0.064 %,
 which is why the table ships whole: the number is measured rather than
 assumed.
 
@@ -258,6 +258,21 @@ point every caller written against the old length becomes a short vector and
 looked right most of the time. The length is now checked explicitly; `.shape`
 is static under `jit`, so the check costs no tracing and does not touch the
 gradient.
+
+## The box bounds carry float32 slack
+
+`nu_r1`'s upper bound is 1/3. It is not a choice — it follows from the ordering
+constraint $r_1 \le r_2 \le (1-r_1)/2$ — and `np.float32(1/3)` is
+$9.9\times10^{-9}$ *above* it. The network runs in single precision, so a
+`theta` built with `jnp.array` was refused at exactly the degenerate neutrino
+point $(1/3, 1/3)$: the convention every result published before version 2 sits
+at, and the one the tutorials hand the reader.
+
+`inside` therefore compares against the bound plus two float32 epsilons of the
+axis's width. That is $2.4\times10^{-7}$ of a range, orders below any width at
+which the fit changes and orders above the largest rounding the dtype can
+produce. A bound is a statement about physics, and an exact comparison makes it
+a statement about a bit pattern instead.
 
 ## The network's redshift input is `log10(1+z)`
 

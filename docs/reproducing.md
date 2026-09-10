@@ -30,9 +30,9 @@ does, so the grid check would not see it either. Each shard therefore stamps
 also catches a *permuted* column. Generate into a fresh directory.
 
 **The flat control.** `--pin Omega_k=0` holds a design column fixed after the
-draw, giving a design identical to the curved one in its other eight columns.
+draw, giving a design identical to the curved one in its other ten columns.
 It separates "the wider box is worse" from "this design
-is smaller than the one that scored 0.111 %" — at any size below production
+is smaller than the one that scored 0.064 %" — at any size below production
 both are true, and only the control tells them apart. A network trained on a
 pinned column has near-zero `x_std` along it and is meaningful only at
 `Omega_k = 0`; score it with `validate --flat-only`.
@@ -44,13 +44,18 @@ Measured, not estimated:
 | | |
 |---|---|
 | CLASS solves in the design | 150 000 |
-| seconds per solve, production settings | ~6.5 |
-| **core-hours** | **~271** |
-| *(curvature costs no more per solve: measured 2.7–3.0 s flat and at* | |
-| *$\Omega_k = \pm0.15$ on the same machine, statistically identical)* | |
+| seconds per solve, production settings | ~8.7 |
+| **core-hours** | **~360** |
 | training rows (31 redshifts per solve) | ~4.6 million |
 | training, 240 epochs on 32 CPU cores | ~2.5 hours |
 | assembled training set on disk | ~9 GB |
+
+Two measurements set the per-solve figure. **Curvature is free**: 2.7–3.0 s
+flat and at $\Omega_k = \pm0.15$ on the same machine, statistically identical.
+**Three separate neutrino species cost 1.34×**: 2.81 s degenerate against
+3.76 s at `N_ncdm=3`, at production settings. The overhead amortises over the
+expensive high-$k$ solve rather than tripling anything. On the cluster's slower
+cores that 1.34× applies to 6.5 s.
 
 Generation is embarrassingly parallel across shards and is the only part that
 needs a cluster — and it genuinely needs one. Measured on a mobile i9 (8

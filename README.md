@@ -53,43 +53,47 @@ renormalised there, and the two combined. Shape error is the largest fractional
 departure from CLASS over $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$.
 Medians are over the held-out cosmologies, at $z = 0$.
 
-<!-- NUMBERS-PENDING: regenerate from validation.json, see RELEASE_TODO.md -->
 
 | at $z = 0$ | median | 90th | max |
 |---|---|---|---|
-| amplitude at $k = 0.05$ | 0.012 % | 0.035 % | 0.059 % |
-| shape, renormalised | **0.111 %** | 0.224 % | 0.621 % |
-| **total, absolute** | **0.112 %** | 0.221 % | 0.603 % |
+| amplitude at $k = 0.05$ | 0.010 % | 0.030 % | 0.062 % |
+| shape, renormalised | **0.064 %** | 0.152 % | 0.225 % |
+| **total, absolute** | **0.066 %** | 0.144 % | 0.238 % |
+| *the metric's own floor* | *0.020 %* | *0.031 %* | *0.032 %* |
 
 CosmoPower's released linear-matter model reaches 0.159 % on the shape measure,
 over a box narrower in four of the five axes the two share.
 
-The metric carries its own floor. The network predicts on a 400-node grid and
+The floor row is the metric's own. The network predicts on a 400-node grid and
 the comparison asks CLASS at 300 other wavenumbers, so the interpolation
-between nodes is scored as network error. Pushing a CLASS spectrum through the
-same path gives 0.020 %.
+between the nodes is scored as network error; that row is a CLASS spectrum
+pushed through the same path.
 
 A Fisher forecast consumes derivatives rather than spectra. Against central
 differences of CLASS, at $z = 0$:
 
-<!-- NUMBERS-PENDING: regenerate from validation.json, see RELEASE_TODO.md -->
 
-| parameter | error | | parameter | error |
-|---|---|---|---|---|
-| `ln10A_s` | **exact** | | `sum_mnu` | 0.18 % |
-| `n_s` | **exact** | | `w0` | 0.16 % |
-| `omega_cdm` | 0.06 % | | `omega_b` | 0.20 % |
-| `h` | 0.12 % | | `wa` | 0.41 % |
+| parameter | error | floor | | parameter | error | floor |
+|---|---|---|---|---|---|---|
+| `ln10A_s` | **exact** | — | | `sum_mnu` | 0.303 % | 0.010 % |
+| `n_s` | **exact** | — | | `wa` | 0.353 % | 0.032 % |
+| `omega_cdm` | 0.046 % | 0.038 % | | `Omega_k` | 0.141 % | 0.007 % |
+| `h` | 0.094 % | 0.010 % | | `nu_r1` | 5.58 % | 0.261 % |
+| `w0` | 0.097 % | 0.036 % | | `nu_r2` | 5.05 % | 0.202 % |
+| `omega_b` | 0.159 % | 0.013 % | | | | |
+
+The two mass ratios are the weakest axes. Their effect on $P(k)$ is 0.32 % at
+$\Sigma m_\nu = 0.10$ eV and under 0.012 % above 0.25 eV, so there is little
+signal to fit; an axis the network ignored would score near 100 %.
 
 And with respect to redshift, which $f\sigma_8$ is built from:
 
 | | z = 0 | z = 0.5 | z = 1 | z = 2 |
 |---|---|---|---|---|
-| $\partial\ln P/\partial z$ | 0.155 % | 0.015 % | 0.012 % | 0.008 % |
-| *the measurement's own floor* | *0.049 %* | *0.011 %* | *0.006 %* | *0.005 %* |
+| $\partial\ln P/\partial z$ | 0.060 % | 0.023 % | 0.012 % | 0.012 % |
+| *the measurement's own floor* | *0.038 %* | *0.009 %* | *0.007 %* | *0.006 %* |
 
-Away from $z = 0$ these sit within a factor of two of what the comparison can
-resolve. At $z = 0$ the ratio is 3.1; that node is an endpoint in slope.
+These sit within a factor of two or three of what the comparison can resolve.
 
 ## The box
 
@@ -137,7 +141,7 @@ as its own stratum.
 
 Against CLASS, the degenerate approximation is wrong by 0.32 % in $P(k)$ at
 $\Sigma m_\nu = 0.10$ eV in an inverted ordering, and by under 0.012 % above
-0.25 eV.
+0.25 eV. This emulator's own shape error is 0.064 %.
 
 Curvature costs the fit little above $k \approx 10^{-2}$, where its effect is
 a $k$-independent growth rescaling flat in $k$ to 0.5 %. Below
