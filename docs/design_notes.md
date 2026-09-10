@@ -161,18 +161,18 @@ redshift axis, and the whole of it goes to validation.
 
 ## The trainer's defaults are what the package ships
 
-`train()` defaulted to `direct=False` and `z_var="z"` while the shipped
-checkpoint declared `direct` and `log10_1pz`, and the cluster submitter passes
-neither flag. Every cluster run therefore trained a PCA-head network on plain
-$z$ — the configuration the 1.0.0 ablations had already measured as the worst of
-four, at 0.1824 % against 0.1113 % for the one that ships.
+`train()` defaults to `direct=True` and `z_var="log10_1pz"`, which is what the
+shipped checkpoint declares. The cluster submitter passes neither flag, so a
+default that disagreed with the artefact would train a different model from the
+one released, and on this quantity that costs a factor of 1.6: measured over
+four ablations on one design, a PCA head on plain $z$ scores 0.1824 % against
+0.1113 % for the direct head on $\log_{10}(1+z)$.
 
-Nothing compared them, because the divergence was *between* a default and an
-artefact and every test looked at one or the other. The defaults now match, and
-four tests read the shipped checkpoint and assert the signature agrees —
-including one that trains with no flags at all and reads back what it declared,
-because a signature check would pass if `main()` inverted a flag on the way
-through, which is the shape of the bug itself.
+A divergence between a default and an artefact is invisible to a test that
+looks at either alone, so four tests read the shipped checkpoint and assert the
+signature agrees — including one that trains with no flags at all and reads
+back what it declared, since a signature check alone would pass if `main()`
+inverted a flag on the way through.
 
 ## The curvature scale sits inside the k grid
 

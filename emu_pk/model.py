@@ -392,15 +392,12 @@ class PkEmulator:
         floor falls from 0.1485 % to 0.0242 % median -- back below the network,
         which is where a ruler belongs.
 
-        Outside the grid it still continues as a power law, for the reason
-        below.  ``jnp.interp`` clamps at the edges, and a clamped linear
-        spectrum is
-        *flat* above the last mode instead of falling as
-        :math:`k^{-3}\ln^2 k`.  That is not hypothetical: it is what the
-        CosmoPower backend in ``ggah_mod`` did above 14.6 h/Mpc while
-        :math:`\sigma(M)` quadratured out to 200, silently and with no test.
-        Here the grid reaches 200 h/Mpc so the tail is a safety net rather than
-        a load-bearing extrapolation -- but it is a net, not a cliff.
+        Outside the grid it continues as a power law.  ``jnp.interp`` clamps at
+        the edges instead, which leaves the spectrum *flat* above the last mode
+        rather than falling as :math:`k^{-3}\ln^2 k` -- and a
+        :math:`\sigma(M)` quadrature running past that edge then integrates a
+        plateau, silently.  This grid reaches 200 h/Mpc, so the tail is a safety
+        net rather than a load-bearing extrapolation.
         """
         lnq = jnp.log(jnp.asarray(k))
         inside = _catmull_rom(self.lnk, lnp, lnq)

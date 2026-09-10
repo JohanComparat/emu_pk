@@ -65,7 +65,7 @@ a box change keeps the existing shards and silently mixes two designs — and `z
 and `lnk` do not change when the box does, so `assemble`'s grid check does not
 see it either. Shards carry a `params` stamp and `assemble` refuses a mismatch
 by name, which also catches a permuted column. The unsuffixed `shards_emu` is
-left alone: it is the 1.0.0 reproduction.
+left alone: it reproduces the first release's design.
 
 ## The campaign, in order
 
@@ -131,10 +131,11 @@ rather than a margin. The asymmetry is the reason: a besteffort kill costs the
 partial chunk, because chunks skip; a walltime kill lands on the last chunk of
 every one of 94 elements at once.
 
-The shipped 1.0.0 campaign was sized at ~6.5 s/solve, which fits 1 600 solves
-into 6 h with room. At 12.2 it does not. Before submitting production, either
-raise the `emu` walltime to 12 h at `EMU_PER_SHARD=1600`, or pin the CPU model
-so the rate is the one you measured. A besteffort kill is cheap — chunks skip —
+A campaign sized at ~6.5 s/solve fits 1 600 solves into 6 h with room. At the
+8.7 s three species cost, or at the 12.2 a slow node delivers, it does not.
+Before submitting production, either raise the `emu` walltime at
+`EMU_PER_SHARD=1600`, or pin the CPU model so the rate is the one you
+measured. A besteffort kill is cheap — chunks skip —
 but a *walltime* kill on the last chunk of every element wastes the tail of
 each one.
 

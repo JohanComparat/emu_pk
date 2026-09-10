@@ -85,7 +85,7 @@ export EMU_PK_SHARDS_RATIO="${WORK}/shards_ratio"
 # shards and silently mixes two designs.  `z` and `lnk` are unchanged by a box
 # change, so `assemble`'s grid check would not see it either; it compares the
 # stamped parameter names instead, and refuses.  The unsuffixed `shards_emu`
-# is deliberately left alone: it is the 1.0.0 reproduction.
+# is deliberately left alone: it reproduces the first release's design.
 #
 # The arm reaches a *job* as an argument, never as an environment variable --
 # OAR does not propagate the submitting shell's environment to the node, so
@@ -104,7 +104,7 @@ campaign_arm () {
         c) EMU_PIN="" ;;
         f) EMU_PIN="--pin Omega_k=0" ;;
         # The degenerate control: three neutrino masses held equal, which is
-        # the convention 1.0.0 and every published result use.  It is what says
+        # the degenerate convention, which is what says
         # whether splitting the mass cost the user who never splits it.
         d) EMU_PIN="--pin nu_r1=0.3333333333 --pin nu_r2=0.3333333333" ;;
         *) echo "!! unknown arm '${arm}' (c = full box, f = flat control," >&2

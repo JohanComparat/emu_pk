@@ -12,9 +12,7 @@ CPL dark energy and **spatial curvature**, out to
 $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
 It is written in JAX, so derivatives with respect to the cosmological
-parameters come from automatic differentiation. Two of them are exact: the
-primordial power law is divided out of the training target and restored in
-closed form.
+parameters come from automatic differentiation. 
 
 ```python
 import numpy as np
@@ -61,9 +59,6 @@ Medians are over the held-out cosmologies, at $z = 0$.
 | **total, absolute** | **0.066 %** | 0.144 % | 0.238 % |
 | *the metric's own floor* | *0.020 %* | *0.031 %* | *0.032 %* |
 
-CosmoPower's released linear-matter model reaches 0.159 % on the shape measure,
-over a box narrower in four of the five axes the two share.
-
 The floor row is the metric's own. The network predicts on a 400-node grid and
 the comparison asks CLASS at 300 other wavenumbers, so the interpolation
 between the nodes is scored as network error; that row is a CLASS spectrum
@@ -97,25 +92,24 @@ These sit within a factor of two or three of what the comparison can resolve.
 
 ## The box
 
-Wider than CosmoPower's `mpk_lin`, and carrying six parameters it does not
-have. Outside these bounds the network extrapolates, returning a finite and
+Outside these bounds the network extrapolates, returning a finite and
 unwarranted number, so `PkEmulator` checks the box on every call it can.
 
-| parameter | CosmoPower | `emu_pk` |
-|---|---|---|
-| `omega_b` | 0.01875 – 0.02625 | 0.0170 – 0.0280 |
-| `omega_cdm` | 0.05 – 0.255 | 0.0500 – 0.3000 |
-| `h` | 0.64 – 0.82 | 0.5500 – 0.8500 |
-| `n_s` | 0.84 – 1.10 | 0.8400 – 1.1000 |
-| `ln10A_s` | 1.61 – 3.91 | 1.6100 – 4.0000 |
-| `sum_mnu` [eV] | — | 0.0000 – 0.6000 |
-| `w0` | — | −1.5000 – −0.5000 |
-| `wa` | — | −1.0000 – 0.6000 |
-| `Omega_k` | — | −0.1500 – 0.1500 |
-| `nu_r1` | — | 0.0000 – 0.3333 |
-| `nu_r2` | — | 0.0000 – 0.5000 |
-| $k_{\max}$ [h/Mpc] | 14.56 | **200** |
-| $z$ | 0 – 5 | 0 – 5 |
+| parameter | range |
+|---|---|
+| `omega_b` | 0.0170 – 0.0280 |
+| `omega_cdm` | 0.0500 – 0.3000 |
+| `h` | 0.5500 – 0.8500 |
+| `n_s` | 0.8400 – 1.1000 |
+| `ln10A_s` | 1.6100 – 4.0000 |
+| `sum_mnu` [eV] | 0.0000 – 0.6000 |
+| `w0` | −1.5000 – −0.5000 |
+| `wa` | −1.0000 – 0.6000 |
+| `Omega_k` | −0.1500 – 0.1500 |
+| `nu_r1` | 0.0000 – 0.3333 |
+| `nu_r2` | 0.0000 – 0.5000 |
+| $k$ [h/Mpc] | $10^{-4}$ – **200** |
+| $z$ | 0 – 5 |
 
 Points with `w0 + wa >= 0` are excluded. CPL dark energy then grows without
 bound towards early times and dominates before recombination.

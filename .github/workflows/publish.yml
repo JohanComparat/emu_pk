@@ -8,7 +8,7 @@ name: publish
 #
 # `skip-existing` is what makes that safe.  A tag is a moving pointer while a
 # release is being prepared, and PyPI refuses to re-upload a version that
-# already exists; without it, every `git push --force origin v1.0.0` after the
+# already exists; without it, every `git push --force origin v2.0.0` after the
 # first would be a red run.  With it, a repointed tag re-runs the checks and
 # leaves the uploaded files alone.  Publishing a *new* version means bumping
 # `version` in pyproject.toml and tagging that -- which the gate below enforces.

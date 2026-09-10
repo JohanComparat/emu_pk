@@ -152,28 +152,33 @@ def fig_derivatives(plt, emu):
 
 
 def fig_box(plt):
-    """The training box against CosmoPower's."""
-    cp = {"omega_b": (0.01875, 0.02625), "omega_cdm": (0.05, 0.255),
-          "h": (0.64, 0.82), "n_s": (0.84, 1.10), "ln10A_s": (1.61, 3.91)}
-    fig, ax = plt.subplots(figsize=(7, 3.6))
-    for i, p in enumerate(box.PARAMS):
-        lo, hi = box.BOX[p]
-        ax.plot([0, 1], [i, i], color="C0", lw=6, solid_capstyle="butt",
-                label="emu_pk" if i == 0 else None)
-        if p in cp:
-            c0, c1 = cp[p]
-            ax.plot([(c0 - lo) / (hi - lo), (c1 - lo) / (hi - lo)], [i, i],
-                    color="C1", lw=2.5, solid_capstyle="butt",
-                    label="CosmoPower" if i == 0 else None)
-        else:
-            ax.text(1.02, i, "absent from CosmoPower", va="center",
-                    fontsize=8, color="C1")
-    ax.set_yticks(range(len(box.PARAMS)))
-    ax.set_yticklabels([f"`{p}`" for p in box.PARAMS])
-    ax.set_xlabel("fraction of the emu_pk range")
-    ax.set_xlim(-0.02, 1.45)
-    ax.legend(frameon=False, loc="lower right")
-    ax.set_title("Training box, normalised to emu_pk's")
+    """The two planes where `sample` rejects, and what it keeps there."""
+    d = box.sample(4000, seed=7)
+    i = box.PARAMS.index
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.6))
+
+    lo0, hi0 = box.BOX["w0"]
+    loa, hia = box.BOX["wa"]
+    a.add_patch(plt.Rectangle((lo0, loa), hi0 - lo0, hia - loa,
+                              fc="0.88", ec="0.6", lw=0.8, zorder=0))
+    a.plot(d[:, i("w0")], d[:, i("wa")], ".", ms=1.2, color="C0", zorder=2)
+    a.plot([lo0, hi0], [-lo0, -hi0], "k--", lw=1.0, zorder=3,
+           label="$w_0 + w_a = 0$")
+    a.set(xlabel="$w_0$", ylabel="$w_a$", xlim=(lo0 - .05, hi0 + .05),
+          ylim=(loa - .05, hia + .05), title="CPL: $w_0 + w_a < 0$")
+    a.legend(fontsize=8, loc="lower left", framealpha=0.92)
+
+    lo1, hi1 = box.BOX["nu_r1"]
+    lo2, hi2 = box.BOX["nu_r2"]
+    b.add_patch(plt.Rectangle((lo1, lo2), hi1 - lo1, hi2 - lo2,
+                              fc="0.88", ec="0.6", lw=0.8, zorder=0))
+    b.plot(d[:, i("nu_r1")], d[:, i("nu_r2")], ".", ms=1.2, color="C0", zorder=2)
+    r1 = np.linspace(lo1, hi1, 64)
+    b.plot(r1, r1, "k--", lw=1.0, zorder=3, label="$r_1 = r_2$")
+    b.plot(r1, (1 - r1) / 2, "k-.", lw=1.0, zorder=3, label="$r_2 = (1-r_1)/2$")
+    b.plot(1 / 3, 1 / 3, "*", ms=11, color="C3", zorder=4, label="degenerate")
+    b.set(xlabel="$r_1$", ylabel="$r_2$", title=r"neutrinos: the ordered simplex")
+    b.legend(fontsize=8, loc="lower right", framealpha=0.92)
     return _save(fig, "04_the_box")
 
 
@@ -222,7 +227,8 @@ def fig_validation(plt):
     a.plot(x, med, "o-", label="median")
     a.plot(x, p90, "s--", label="90th percentile")
     a.plot(x, mx, "^:", label="max")
-    a.axhline(0.159, color="C3", ls="-.", lw=1.2, label="CosmoPower, 0.159 %")
+    floor = [v["shape_floor"][z]["median"] * 100 for z in zs]
+    a.plot(x, floor, "-.", color="C3", lw=1.2, label="the metric's own floor")
     a.set(xlabel="$z$", ylabel="shape error vs CLASS [%]",
           title=f"held-out, {v['shape']['m'][zs[0]]['n_scored']} cosmologies")
     a.legend(frameon=False, fontsize=8)
@@ -264,8 +270,10 @@ def fig_against_class(plt, emu):
         r = (got / got[i0]) / (ref / ref[i0]) - 1.0
         ax.semilogx(k, 100 * r, lw=0.9, alpha=0.8)
     ax.axhline(0, color="k", lw=0.7)
-    ax.axhspan(-0.159, 0.159, color="C3", alpha=0.12,
-               label="CosmoPower's median, 0.159 %")
+    med = 100 * json.loads((pathlib.Path(emu_pk.__file__).parent / "data"
+                            / "validation.json").read_text())["shape"]["m"]["0"]["median"]
+    ax.axhspan(-med, med, color="C3", alpha=0.12,
+               label=f"median shape error, {med:.3f} %")
     ax.set(xlabel=r"$k\ [h\,\mathrm{Mpc}^{-1}]$",
            ylabel="fractional residual vs CLASS [%]",
            title="Twelve held-out cosmologies at $z=0$, renormalised at "

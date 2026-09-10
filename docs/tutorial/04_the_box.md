@@ -7,32 +7,24 @@ call that can afford to look, rather than a sentence in a docstring.
 
 The bounds are closed and inclusive, and these are the values themselves:
 
-| parameter | `emu_pk` | CosmoPower `mpk_lin` |
-|---|---|---|
-| `omega_b` | 0.0170 … 0.0280 | 0.01875 … 0.02625 |
-| `omega_cdm` | 0.0500 … 0.3000 | 0.05 … 0.255 |
-| `h` | 0.5500 … 0.8500 | 0.64 … 0.82 |
-| `n_s` | 0.8400 … 1.1000 | 0.84 … 1.10 |
-| `ln10A_s` | 1.6100 … 4.0000 | 1.61 … 3.91 |
-| `sum_mnu` [eV] | 0.0000 … 0.6000 | *not a parameter* |
-| `w0` | −1.5000 … −0.5000 | *not a parameter* |
-| `wa` | −1.0000 … 0.6000 | *not a parameter* |
-| `Omega_k` | −0.1500 … 0.1500 | *not a parameter* |
-| `nu_r1` | 0.0000 … 0.3333 | *not a parameter* |
-| `nu_r2` | 0.0000 … 0.5000 | *not a parameter* |
-| $k$ [$h\,\mathrm{Mpc}^{-1}$] | $10^{-4}$ … 200 | up to 14.56 |
-| $z$ | 0 … 5 | 0 … 5 |
+| parameter | range |
+|---|---|
+| `omega_b` | 0.0170 … 0.0280 |
+| `omega_cdm` | 0.0500 … 0.3000 |
+| `h` | 0.5500 … 0.8500 |
+| `n_s` | 0.8400 … 1.1000 |
+| `ln10A_s` | 1.6100 … 4.0000 |
+| `sum_mnu` [eV] | 0.0000 … 0.6000 |
+| `w0` | −1.5000 … −0.5000 |
+| `wa` | −1.0000 … 0.6000 |
+| `Omega_k` | −0.1500 … 0.1500 |
+| `nu_r1` | 0.0000 … 0.3333 |
+| `nu_r2` | 0.0000 … 0.5000 |
+| $k$ [$h\,\mathrm{Mpc}^{-1}$] | $10^{-4}$ … 200 |
+| $z$ | 0 … 5 |
 
-![The training box against CosmoPower's](../_static/figures/04_the_box.png)
-
-Each bar is one axis, normalised to the `emu_pk` range so the comparison is a
-fraction rather than a unit.
-
-The `emu_pk` column is `box.BOX`, and the wavenumber and redshift rows are
-`grid.K_MIN`/`grid.K_MAX` and `grid.Z_MIN`/`grid.Z_MAX`. Of the five axes the
-two share, `emu_pk` is strictly wider in four and matches on `n_s`. It carries
-six parameters CosmoPower's `mpk_lin` leaves fixed, and reaches
-200 $h\,\mathrm{Mpc}^{-1}$ against 14.56.
+The parameter rows are `box.BOX`; the wavenumber and redshift rows are
+`grid.K_MIN`/`grid.K_MAX` and `grid.Z_MIN`/`grid.Z_MAX`.
 
 `Omega_k` is positive for an open universe, CLASS's own sign. `nu_r1` and
 `nu_r2` divide the neutrino mass over three species, $m_i = r_i \Sigma m_\nu$
@@ -86,6 +78,11 @@ two workers can never disagree about which cosmology index *i* means.
 control arms of a campaign are built. A column pinned during *training*
 standardises to a constant, so such a network is meaningful only on the slice
 it was pinned to.
+
+![The sampled region](../_static/figures/04_the_box.png)
+
+The two constrained planes of the design. Grey is the region the bounds allow;
+the points are what `sample` keeps.
 
 Two rejections apply, and neither is a matter of taste.
 

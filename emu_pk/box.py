@@ -5,32 +5,26 @@ Outside it the network does not fail, it *extrapolates* -- returning a number
 that is finite, smooth and unwarranted.  So the box is data, checked on every
 call that can afford to look, rather than a sentence in a docstring.
 
-The bounds below are deliberately wider than CosmoPower's ``mpk_lin``, which is
-the emulator this one replaces::
+The bounds::
 
-    parameter     CosmoPower        here
-    omega_b       0.01875 0.02625   0.0170 0.0280
-    omega_cdm     0.05    0.255     0.0500 0.3000
-    h             0.64    0.82      0.5500 0.8500
-    n_s           0.84    1.10      0.8400 1.1000
-    ln10A_s       1.61    3.91      1.6100 4.0000
-    sum_mnu       --                0.0000 0.6000
-    w0            --               -1.5000 -0.5000
-    wa            --               -1.0000  0.6000
-    Omega_k       --               -0.1500  0.1500
-    nu_r1         --                0.0000  0.3333
-    nu_r2         --                0.0000  0.5000
+    omega_b        0.0170  0.0280
+    omega_cdm      0.0500  0.3000
+    h              0.5500  0.8500
+    n_s            0.8400  1.1000
+    ln10A_s        1.6100  4.0000
+    sum_mnu        0.0000  0.6000
+    w0            -1.5000 -0.5000
+    wa            -1.0000  0.6000
+    Omega_k       -0.1500  0.1500
+    nu_r1          0.0000  0.3333
+    nu_r2          0.0000  0.5000
 
-Three of those matter more than the rest.  CosmoPower's floor on ``h`` is 0.64,
-which sits 0.03 below the Planck fiducial -- close enough that a sampler with a
-wide ``h`` prior leaves the box in ordinary use.  And ``w0``/``wa`` are absent
-from it entirely, which is why the differentiable path in ``ggah_mod`` returns
-``dP/dw0 = 0`` today: not a small response, an absent one.
-
-And ``Omega_k`` is absent from *every* differentiable predictor, not only from
-CosmoPower -- which is why ``ggah_mod`` refused a curved cosmology on this path
-rather than approximating one, and sent it to a Boltzmann solver instead.  The
-bound is measured rather than chosen: see :func:`sample`.
+``h`` reaches 0.55 because a sampler with a wide ``h`` prior otherwise leaves
+the box in ordinary use: 0.64 is only 0.03 below the Planck fiducial.  A
+parameter a predictor does not carry gives ``dP/dtheta = 0`` -- not a small
+response, an absent one -- which is what ``w0``, ``wa`` and ``Omega_k`` are here
+to avoid.  The curvature bound is measured rather than chosen: see
+:func:`sample`.
 """
 
 from __future__ import annotations
@@ -121,7 +115,7 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     ``Omega_de = 1 - Omega_m - Omega_r - Omega_k`` negative, and CLASS solves
     those without a word -- a negative dark-energy density is exotic, not
     ill-posed.  **It is deliberately not rejected.**  0.34 % of the *flat* box
-    already sits there and the shipped 1.0.0 weights were trained through it
+    already sits there and the shipped weights are trained through it
     (``omega_cdm = 0.30``, ``h = 0.55`` gives ``Omega_m = 1.084``); curvature
     takes that to 0.78 %.  Carving it out now would silently narrow the flat box
     in the same release that widens it, and would break the one comparison that
@@ -150,7 +144,8 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     once -- and it cannot be made interior, because a spread is non-negative.
     That is the same situation as ``sum_mnu = 0`` and ``z = 0``, and it matters
     more than either because (1/3, 1/3) is where every published result and the
-    whole of 1.0.0 sit.  ``validate`` scores it as its own stratum.
+    the degenerate convention sits.  ``validate`` scores it as its own
+    stratum.
 
     ``pin`` holds named columns at fixed values *after* the draw --
     ``sample(n, pin={"Omega_k": 0.0})`` is the flat control the curved design is

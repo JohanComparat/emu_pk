@@ -104,7 +104,7 @@ def test_gradient_flows_to_every_parameter(toy):
     J = np.asarray(jax.jacfwd(lambda t: jnp.log(toy.pk(k, 0.3, t)))(_theta()))
     assert J.shape == (8, len(box.PARAMS))
     assert np.all(np.isfinite(J))
-    # w0 and wa are the two CosmoPower's `mpk_lin` does not carry at all.
+    # w0 and wa are the axes a flat LambdaCDM emulator does not carry at all.
     for p in ("w0", "wa", "sum_mnu"):
         j = box.PARAMS.index(p)
         assert np.any(J[:, j] != 0.0), f"no response to {p}"
@@ -306,13 +306,12 @@ class TestTheShippedWeightsAreTheOnesValidated:
                 "the shipped weights are worse in shape than the 0.470 % "
                 "median this bar is set at")
 
-    def test_it_beats_the_emulator_it_exists_to_replace(self):
-        """CosmoPower reproduces the CLASS shape to 0.159 %.
+    def test_the_shape_error_clears_the_release_bar(self):
+        """0.159 % median shape error is the bar a release has to clear.
 
-        That is the number this package has to beat to justify existing, so it
-        is the threshold worth pinning -- on a box that is wider in four of the
-        five shared axes, equal on `n_s`, and carries `sum_mnu`, `w0` and `wa`,
-        which CosmoPower does not.
+        Set well above where the shipped weights sit, so it catches a
+        regression rather than tracking one: this is the accuracy the package
+        claims, not the accuracy it has.
         """
         _, v = self._both()
         assert self._shape_m(v)["median"] < 0.00159
@@ -1214,20 +1213,16 @@ class TestACheckpointMustFeedEverySampledParameter:
 class TestTheTrainerDefaultsAreWhatShips:
     r"""The default configuration must build the model the package ships.
 
-    It did not, and the gap cost a whole campaign.  ``train()`` defaulted to
-    ``direct=False`` and ``z_var="z"`` while the shipped checkpoint declares
-    ``output_form=direct`` and ``z_var=log10_1pz``, and the cluster submitter
-    passes neither flag -- so every cluster run, the pilot and all three
-    production arms, trained a PCA-head network on plain ``z``.
+    If ``train()`` defaults to a form the shipped checkpoint does not declare,
+    the cluster submitter passes neither flag and every cluster run trains a
+    different model from the one released.  Measured over four ablations on one
+    design, that costs a factor of 1.6: 0.1824 % median for a PCA head on plain
+    ``z`` against 0.1113 % for the direct head on ``log10_1pz``.
 
-    The 1.0.0 campaign's own ablation arms had already measured what that
-    costs, on the same box and the same design: 0.1824 % median for the PCA
-    plus plain-``z`` configuration against 0.1113 % for the one that ships.
-
-    Nothing compared the two, because the divergence was between a *default*
-    and an *artefact* and no test looked at both.  This one does, and it reads
-    the shipped file rather than repeating its contents -- a constant written
-    down twice is the thing that drifts.
+    A divergence between a *default* and an *artefact* is invisible to a test
+    that looks at either alone.  This one reads the shipped file rather than
+    repeating its contents -- a constant written down twice is the thing that
+    drifts.
     """
 
     @staticmethod

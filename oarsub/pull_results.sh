@@ -41,7 +41,7 @@ echo "== pulling assembled products from ${DAHU_HOST}:${DAHU_WORK}"
 # Named from the arm rather than hardcoded: a campaign with a curved arm and a
 # flat control writes `emu_pk_mlp_c.npz` and `emu_pk_mlp_f.npz`, and a run under
 # a tag writes `..._<tag>.npz` beside them.  Hardcoding `emu_pk_mlp.npz` pulled
-# the 1.0.0 file and reported success.
+# whatever unsuffixed file was there and reported success.
 #
 # The `.validation.json` beside each is the campaign's own record of what it
 # built.  It is NOT the file that ships: it names the cluster path it scored, and

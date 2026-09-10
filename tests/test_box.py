@@ -21,8 +21,13 @@ def test_design_excludes_early_dark_energy_domination():
     assert np.all(w0 + wa < 0.0)
 
 
-def test_box_is_wider_than_cosmopower_where_it_matters():
-    """The two bounds that make an external emulator unusable here."""
+def test_the_box_takes_a_wide_h_prior_and_carries_cpl():
+    """The two bounds a forecast leaves the box through.
+
+    0.64 sits 0.03 below the Planck fiducial, close enough that a sampler with
+    a wide ``h`` prior walks out of a box that stops there.  And a parameter
+    absent from the box is a zero derivative rather than a small one.
+    """
     assert box.BOX["h"][0] < 0.64, "a wide h prior must not leave the box"
     assert "w0" in box.BOX and "wa" in box.BOX, "CPL must be a response, not a hole"
 

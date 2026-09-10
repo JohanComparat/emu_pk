@@ -116,7 +116,7 @@ EDGE_FRAC = 0.10
 #: Not rejected by the design, and reported for the same reason the
 #: quintessence corner is: it is a region the box deliberately contains and a
 #: median over a Latin hypercube says nothing about.  0.34 % of the *flat* box
-#: already sits here -- the shipped 1.0.0 weights were trained through it -- and
+#: already sits here -- the shipped weights are trained through it -- and
 #: curvature takes that to 0.78 %, almost all of it on the open side, where
 #: CLASS solves without complaining.  See :func:`emu_pk.box.sample`.
 NEGATIVE_DE = 0.0
@@ -197,7 +197,7 @@ def where_in_box(theta) -> dict:
             "omega_de": float(1.0 - d["Omega_k"] - om),
             "sum_mnu": float(d["sum_mnu"]),
             # How far the three masses are from equal, as a fraction of the
-            # sum.  0 is degenerate -- the convention 1.0.0 used and the vertex
+            # sum.  0 is degenerate -- the convention itself, and the vertex
             # of the sampled simplex, so the corner a network is least
             # constrained at and the one every published result sits on.
             "nu_spread": float((1.0 - d["nu_r1"] - d["nu_r2"]) - d["nu_r1"])}
@@ -725,9 +725,8 @@ def main(argv=None):
         out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
         if not a.no_floor:
             # The shape metric's own ruler, reported beside the number it
-            # limits.  `derivative_error` has carried its finite-difference
-            # floor since 1.0.0; the shape metric never had one, and its tail
-            # is where the difference shows.
+            # limits, the way `derivative_error` reports its finite-difference
+            # floor.  The tail is where the difference shows.
             out["shape_floor"] = interpolation_floor(
                 n=min(a.n_deriv, 8), z_nodes=z_nodes)
     if a.json:

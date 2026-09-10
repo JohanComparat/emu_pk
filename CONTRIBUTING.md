@@ -7,7 +7,9 @@ pip install -e '.[dev]'
 python -m pytest tests/ -q
 ```
 
-317 tests, about a minute and a half. Some skip without `ggah_mod`, which is
+324 tests, about three and a half minutes. Seven of them execute every fenced
+python block in the README and the docs, so a snippet that stops working fails
+here rather than in front of a reader. Some skip without `ggah_mod`, which is
 an optional peer; the tests that need `classy` are marked `slow` and skip
 without it.
 
