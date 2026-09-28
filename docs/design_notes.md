@@ -94,14 +94,17 @@ on-node *and* off-node, because the on-node case passes either way.
 
 ## $\Omega_m$ contains the neutrinos
 
-$\Omega_\nu = \Sigma m_\nu/(93.14 h^2)$, and $\Omega_m$ includes it. That is
+$\Omega_\nu = \Sigma m_\nu/(93.143 h^2)$, and $\Omega_m$ includes it. That is
 `ggah_mod`'s convention, and a table built in a different one is wrong in a way
 no test on either side can see, because each is self-consistent.
 `tests/test_conventions.py` is the seam: it asserts the two agree whenever
 `ggah_mod` is importable.
 
-The 93.14 eV denominator is itself a *convention*, 0.53 % from the exact
-Fermi-Dirac integral, and is committed to everywhere for exactly that reason.
+The denominator is the rest mass of three states at CLASS's default
+`T_ncdm = 0.71611`, the temperature every training solve used, and since
+`ggah_mod` 0.9.8 that package derives it rather than typing it. Until 2.0.1 both
+typed `93.14`, and `ggah_mod` subtracted a different rest mass from $\Omega_m$
+than the one it reported: two conventions, 0.46 % apart.
 
 ## The spectrum is interpolated with a cubic, and the metric reports its floor
 

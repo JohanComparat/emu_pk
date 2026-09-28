@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "emu_pk"
-version = "2.0.0"
+version = "2.0.1"
 description = "Differentiable linear-P(k) emulation over a nine-parameter cosmology with massive neutrinos, CPL dark energy and spatial curvature"
 authors = [{name = "Johan Comparat", email = "jcomparat@lpsc.in2p3.fr"}]
 readme = "README.md"

@@ -4,6 +4,16 @@ Notable changes to `emu_pk`. Format follows [Keep a Changelog](https://keepachan
 versioning is [semantic](https://semver.org/spec/v2.0.0.html), and from 1.0.0
 the public API is what `emu_pk.__all__` and each module's `__all__` declare.
 
+## [2.0.1]
+
+### Changed
+
+- `cosmo.NU_DENOM_EV` is `93.14338613172058`, the float `ggah_mod` 0.9.8 derives
+  for the rest mass of three states at CLASS's default `T_ncdm = 0.71611`, where
+  it was the rounded `93.14`. It reaches `omega_nu` and `f_nu`, which the
+  correction tables and the validation read; the network and its weights are
+  unchanged, so every prediction is bit for bit what 2.0.0 returns.
+
 ## [2.0.0]
 
 Three separate neutrino masses and spatial curvature, on a retrained network.

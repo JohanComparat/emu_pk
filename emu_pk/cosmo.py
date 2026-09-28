@@ -15,12 +15,18 @@ from __future__ import annotations
 __all__ = ["NU_DENOM_EV", "N_EFF", "N_NU_MASSIVE", "NCDM_UR_PER_SPECIES",
            "T_CMB", "K_PIVOT", "PLANCK18", "omega_nu", "f_nu", "class_params"]
 
-#: The 93.14 eV convention, ``Omega_nu = sum_mnu / (93.14 h^2)``.  A
-#: *convention*,
-#: 0.53 percent from the exact Fermi-Dirac integral, and committed to
-#: everywhere for exactly that reason -- mixing the two is how a density budget
-#: stops closing.
-NU_DENOM_EV = 93.14
+#: ``Omega_nu = sum_mnu / (NU_DENOM_EV h^2)``: the neutrinos' rest mass, the
+#: pressureless limit of the density CLASS integrates for three massive states
+#: at its default ``T_ncdm = 0.71611`` -- the setting every training solve used.
+#:
+#: ``ggah_mod`` derives it (``ggah_mod.cosmology.constants.NU_DENOM_EV``,
+#: 0.9.8) from CODATA and that temperature, and this is its float, restated
+#: because this package cannot import that one.  It was the rounded ``93.14``
+#: until 2.0.1, a second convention beside ``ggah_mod``'s own; the network is
+#: untouched by the change, which reaches only the tables and the validation
+#: that call :func:`omega_nu`.  ``tests/test_conventions.py`` compares the two
+#: floats exactly.
+NU_DENOM_EV = 93.14338613172058
 N_EFF = 3.044
 N_NU_MASSIVE = 3
 #: The ultra-relativistic equivalent of one massive species in CLASS's
@@ -47,7 +53,7 @@ PLANCK18 = {"Omega_m": 0.3100, "Omega_b": 0.0493, "h": 0.6736,
 
 
 def omega_nu(sum_mnu: float, h: float) -> float:
-    r""":math:`\Omega_\nu = \Sigma m_\nu / (93.14\,h^2)`."""
+    r""":math:`\Omega_\nu = \Sigma m_\nu / (93.143\,h^2)`, the rest mass."""
     return sum_mnu / (NU_DENOM_EV * h * h)
 
 

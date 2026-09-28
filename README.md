@@ -203,7 +203,8 @@ CLASS's $1/\mathrm{Mpc}$ is converted once, in `generate`, so nothing
 downstream carries an $h$.
 
 $\Omega_m$ **contains the neutrinos**, and
-$\Omega_\nu = \Sigma m_\nu/(93.14 h^2)$.
+$\Omega_\nu = \Sigma m_\nu/(93.143 h^2)$, the rest mass of three states at
+CLASS's default temperature.
 
 ## Validating it yourself
 
