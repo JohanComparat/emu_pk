@@ -44,25 +44,24 @@ from . import cosmo
 
 __all__ = ["SETTINGS", "Heating", "pair"]
 
-#: CLASS settings for the pair: CLASS's defaults, with the P(k) output
-#: sampled at 20 points a decade outside the BAO range rather than 10.
+#: CLASS settings for the pair: CLASS's own defaults.  What makes them enough
+#: is where the ratio is taken -- see :func:`pair`.
 #:
 #: Measured against a pair tightened everywhere (``ggah_mod_benchmark``
 #: ``scripts/58_kmax_extension.py``, grid to 300 h/Mpc, five redshifts) at the
-#: fiducial, 0.6 eV, a split-mass curved w0wa point and massless: the ratio is
-#: within 4e-5 of it in every window for every massive point, and within 7e-5
-#: (k < 200) and 1.8e-4 (200 < k < 300) massless.  CAMB's own precision leaves
-#: about 4e-4.
+#: fiducial, massless, 0.6 eV, omega_cdm = 0.05, closed, and a split-mass curved
+#: w0wa point: within 6e-5 in 1e-3 < k < 200 everywhere, and within 3e-5 above
+#: k = 200 except at omega_cdm = 0.05, 1.3e-4 where the suppression is 24 per
+#: cent.  CAMB's own precision leaves about 4e-4.
 #:
-#: Two cheaper choices were measured and refused.  CLASS's defaults alone put
-#: R 5.3e-4 wrong at k = 300 (the output spline, 10 points a decade, near its
-#: end); the suppression is 7 per cent there at the fiducial and 24 per cent at
-#: omega_cdm = 0.05, so an interpolation error that cancelled in the ratio
-#: below k = 200 no longer does.  And a pair loosened 2x below the defaults,
-#: which was 7.7e-5 from a default pair at six massive points below k = 200,
-#: is 6.5e-4 wrong *massless* at every k: with all 3.044 species relativistic
-#: the loosened integration does not cancel.
-SETTINGS: dict = {"k_per_decade_for_pk": 20.}
+#: Refused on the way: the same pair with the ratio taken *after* CLASS's P(k)
+#: spline (1.3e-3 above k = 200 -- two spectra of different shape interpolated
+#: between nodes 11 a decade apart); that pair with the output sampled at 20 a
+#: decade (as accurate, 2.4x the cost, because the extra nodes are the
+#: expensive high-k solves); and a pair loosened 2x below the defaults (6.5e-4
+#: massless at every k: with all 3.044 species relativistic the loosened
+#: integration does not cancel).
+SETTINGS: dict = {}
 
 
 @dataclass(frozen=True)
@@ -80,14 +79,63 @@ class Heating:
 
 
 def pair(theta: dict, z_nodes, k_h, settings: dict | None = None) -> Heating:
-    """The CLASS pair at one box point: heated and not, same settings."""
+    """The CLASS pair at one box point: heated and not, same settings.
+
+    **The ratio is taken on CLASS's own k nodes**, where its P(k) spline is
+    exact, and only the ratio -- smooth in k, with no BAO and no turnover --
+    is interpolated onto ``k_h``, in log-log.  Interpolating each spectrum
+    first and dividing after leaves each one's spline error in the ratio, and
+    above k = 200 h/Mpc the two spectra differ enough in shape for those
+    errors to stop cancelling.  The two solves share their nodes (they differ
+    only after reionization, which the k sampling does not see); that is
+    checked, not assumed.
+    """
+    from classy import Class
+    from scipy.interpolate import CubicSpline
+
     from . import grid
-    from .generate import solve
     s = dict(SETTINGS if settings is None else settings)
+    z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
+    k_h = np.asarray(k_h, dtype=float)
+    h = float(theta["h"])
     base = {**cosmo.class_params(**theta,
-                                 k_max_h=max(grid.K_MAX, float(np.max(k_h))),
-                                 z_max=max(grid.Z_MAX, float(np.max(z_nodes)))),
+                                 k_max_h=max(grid.K_MAX, float(k_h.max())),
+                                 z_max=max(grid.Z_MAX, float(z_nodes.max()))),
             **s}
-    pm1, pcb1 = solve(base, z_nodes, k_h)
-    pm0, pcb0 = solve({**base, "reio_parametrization": "reio_none"}, z_nodes, k_h)
-    return Heating(r_m=pm1 / pm0, r_cb=pcb1 / pcb0, pm_class=pm1, pcb_class=pcb1)
+    massive = bool(base.get("N_ncdm", 0))
+    knat = None
+    at_nodes = []
+    for extra in ({}, {"reio_parametrization": "reio_none"}):
+        cl = Class()
+        cl.set({**base, **extra})
+        try:
+            cl.compute()
+            _, k, _ = cl.get_pk_and_k_and_z(nonlinear=False)       # 1/Mpc
+            if knat is None:
+                knat = np.array(k, dtype=float)
+                knat[-1] *= 1.0 - 1e-12                            # inside CLASS's bound
+            elif not np.allclose(k[:-1], knat[:-1], rtol=1e-9, atol=0.0):
+                raise RuntimeError("the heated and unheated CLASS solves "
+                                   "sampled different k nodes")
+            pm = np.array([[cl.pk_lin(kk, zz) for kk in knat] for zz in z_nodes])
+            pcb = (np.array([[cl.pk_cb_lin(kk, zz) for kk in knat] for zz in z_nodes])
+                   if massive else pm)
+            if not extra:
+                # The heated spectrum itself on the caller's grid: its shape
+                # continues CAMB's below CAMB's first mode.
+                kk_h = k_h * h
+                pm_grid = np.array([[cl.pk_lin(q, zz) for q in kk_h] for zz in z_nodes]) * h ** 3
+                pcb_grid = (np.array([[cl.pk_cb_lin(q, zz) for q in kk_h] for zz in z_nodes]) * h ** 3
+                            if massive else pm_grid.copy())
+        finally:
+            cl.struct_cleanup()
+            cl.empty()
+        at_nodes.append((pm, pcb))
+    ln_kn = np.log(knat / h)
+    ln_k = np.log(k_h)
+
+    def _ratio(i):
+        lnr = np.log(at_nodes[0][i] / at_nodes[1][i])
+        return np.exp(np.array([CubicSpline(ln_kn, row)(ln_k) for row in lnr]))
+
+    return Heating(r_m=_ratio(0), r_cb=_ratio(1), pm_class=pm_grid, pcb_class=pcb_grid)
