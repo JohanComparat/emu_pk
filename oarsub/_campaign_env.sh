@@ -161,7 +161,7 @@ campaign_activate_env () {
 import os
 import sys
 
-need = {"gen": ("numpy", "jax", "classy"),
+need = {"gen": ("numpy", "jax", "classy", "camb"),
         "train": ("numpy", "jax", "optax")}[os.environ["EMU_PK_NEED"]]
 missing = []
 for m in need:
@@ -171,6 +171,14 @@ for m in need:
         missing.append(f"{m} ({type(e).__name__})")
 if missing:
     sys.exit("!! environment is missing: " + ", ".join(missing))
+# From 2.1.0 the training truth is CAMB at settings the precision scan
+# measured on 1.6.6.  An older CAMB imports fine and solves something else --
+# hod_mod carries 1.4.0 -- so the version is checked, not just the import.
+if "camb" in need:
+    import camb
+    if tuple(int(x) for x in camb.__version__.split(".")[:2]) < (1, 6):
+        sys.exit(f"!! camb {camb.__version__} < 1.6: CAMB_PRECISION was "
+                 "measured on 1.6.6; set EMU_PK_ENV to an environment with it")
 print("environment ok: " + ", ".join(need))
 PYEOF
 }

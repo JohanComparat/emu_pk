@@ -134,7 +134,7 @@ case "${FAMILY}" in
   calibrate)
     # shellcheck disable=SC2046
     oarsub --project "${PROJECT}" -t devel \
-      -l "/nodes=1/core=2,walltime=00:20:00" \
+      -l "/nodes=1/core=2,walltime=00:30:00" \
       $(log_flags cal) -S "./oarsub/run_calibrate.sh 8"
     ;;
 

@@ -127,6 +127,12 @@ class TestTheCurvatureSignIsTheSameOnBothSides:
                 "ln10A_s": float(c.ln10A_s), "sum_mnu": float(c.sum_mnu),
                 "w0": float(c.w0), "wa": float(c.wa),
                 "Omega_k": float(c.Omega_k)}
+        # The mass split, from ggah_mod's own helper: the two ratios are
+        # derived from the ordering there, and restating that derivation here
+        # would test the restatement rather than the stack.
+        if "nu_r1" in box.PARAMS:
+            r1, r2 = power._nu_ratios(c)
+            want["nu_r1"], want["nu_r2"] = float(r1), float(r2)
         for j, name in enumerate(box.PARAMS):
             assert got[j] == pytest.approx(want[name]), \
                 f"column {j} should be {name}"

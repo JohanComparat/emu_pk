@@ -10,6 +10,7 @@ of the user experience when the file is missing.
 import pathlib
 
 import numpy as np
+from conftest import patch_solver
 import pytest
 
 from emu_pk import assemble, box, cosmo, generate, grid, ratio
@@ -42,7 +43,7 @@ def fake_solve(monkeypatch):
         n_z, n_k = len(np.atleast_1d(z_nodes)), len(k_h)
         pm = np.full((n_z, n_k), 1.0 + params["h"], dtype=float)
         return pm, pm * 0.99
-    monkeypatch.setattr(generate, "solve", solve)
+    patch_solver(monkeypatch, solve)
     return solve
 
 
@@ -104,7 +105,7 @@ class TestTheCalibration:
                                                     capsys):
         generate._time_calibration(n=3)
         out = capsys.readouterr().out
-        assert "=== CLASS calibration ===" in out
+        assert f"=== {generate.SOLVER} calibration ===" in out
         assert "3 ok, 0 failed" in out
         assert "seconds/solve" in out
         assert "core-hours per 1e5 solves" in out
@@ -127,7 +128,7 @@ class TestTheCalibration:
             n_z, n_k = len(np.atleast_1d(z_nodes)), len(k_h)
             pm = np.ones((n_z, n_k))
             return pm, pm
-        monkeypatch.setattr(generate, "solve", flaky)
+        patch_solver(monkeypatch, flaky)
 
         generate._time_calibration(n=3)
         out = capsys.readouterr().out
@@ -144,7 +145,7 @@ class TestTheGenerateCommandLine:
 
     def test_time_mode_runs_the_calibration(self, tmp_path, fake_solve, capsys):
         generate.main(["--mode", "time", "--n-per-shard", "2"])
-        assert "=== CLASS calibration ===" in capsys.readouterr().out
+        assert f"=== {generate.SOLVER} calibration ===" in capsys.readouterr().out
 
 
 # ==========================================================================
@@ -631,6 +632,9 @@ class TestValidateSolvesTheCosmologyItWasAskedFor:
             pm = np.ones((n_z, n_k))
             return pm, pm * 0.5
         monkeypatch.setattr(V.generate, "solve", spy)
+        # The 2.0 path, CLASS alone.  The 2.1 CAMB path has its own test
+        # below: under it `solve` is only the heating pair's.
+        monkeypatch.setattr(V.generate, "SOLVER", "class")
 
         theta = box.sample(1, seed=4)[0]
         k = np.logspace(-3, 0, 6)
@@ -655,13 +659,40 @@ class TestValidateSolvesTheCosmologyItWasAskedFor:
         assert pm.shape == (2, len(k)) and pcb.shape == (2, len(k))
         assert np.array_equal(seen["z"], np.array([0.0, 1.0]))
 
+    def test_the_parameter_vector_reaches_camb_unpermuted(self, monkeypatch):
+        """The same seam on the 2.1 path: ``solve_camb`` gets the point by name."""
+        from emu_pk import validate as V
+
+        seen = {}
+
+        def spy(theta, z_nodes, k_h, **kw):
+            seen.update(theta=theta, kw=kw)
+            pm = np.ones((len(np.atleast_1d(z_nodes)), len(k_h)))
+            return pm, pm
+        monkeypatch.setattr(V.generate, "solve_camb", spy)
+        monkeypatch.setattr(V.generate, "SOLVER", "camb")
+        theta = box.sample(1, seed=4)[0]
+        V._class_pk(theta, [0.0], np.logspace(-3, 0, 4))
+        d = dict(zip(box.PARAMS, theta))
+        expected = {"h": d["h"], "omega_b": d["omega_b"],
+                    "omega_cdm": d["omega_cdm"], "n_s": d["n_s"],
+                    "ln10A_s": d["ln10A_s"], "sum_mnu": d["sum_mnu"],
+                    "w0": d["w0"], "wa": d["wa"], "Omega_k": d["Omega_k"],
+                    "nu_r1": d["nu_r1"], "nu_r2": d["nu_r2"]}
+        assert seen["theta"] == expected
+        # And the reference truth is the same point at CAMB's reference.
+        monkeypatch.setattr(V, "TRUTH", "reference")
+        V._class_pk(theta, [0.0], np.logspace(-3, 0, 4))
+        assert seen["theta"] == expected
+        assert seen["kw"]["precision"] == V.REFERENCE_PRECISION
+
     def test_a_scalar_redshift_is_still_one_solve_of_one_row(self, monkeypatch):
         from emu_pk import validate as V
 
         def spy(params, z_nodes, k_h):
             pm = np.ones((len(np.atleast_1d(z_nodes)), len(k_h)))
             return pm, pm
-        monkeypatch.setattr(V.generate, "solve", spy)
+        patch_solver(monkeypatch, spy)
         pm, _ = V._class_pk(box.sample(1, seed=4)[0], 0.5, np.logspace(-3, 0, 4))
         assert pm.shape == (1, 4)
 
@@ -674,7 +705,7 @@ class TestACalibrationThatRefusedEverything:
         """
         def always_refuse(*a, **kw):
             raise RuntimeError("CosmoComputationError")
-        monkeypatch.setattr(generate, "solve", always_refuse)
+        patch_solver(monkeypatch, always_refuse)
 
         generate._time_calibration(n=2)
         out = capsys.readouterr().out

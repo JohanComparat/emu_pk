@@ -159,16 +159,46 @@ HEAVY_NU = 0.30
 QUINTESSENCE_CORNER = -0.15
 
 
-def _class_pk(theta, z, k):
-    """One CLASS solve -> ``(P_m, P_cb)``, each ``(n_z, n_k)``.
+#: What a validation run scores against.
+#:
+#: ``training`` is the generator's own solve (:func:`emu_pk.generate.solve_point`
+#: at :data:`emu_pk.generate.SOLVER`): how well the network reproduces what it
+#: was trained on.  It is the only number 2.0 reported, and it cannot see an
+#: error the training solver makes everywhere -- which is what 2.0's was:
+#: default CLASS sits 0.41 % from its own converged answer in the median over
+#: this box, smooth in the parameters, and 2.0 learnt it faithfully.
+#:
+#: ``reference`` is CAMB at :data:`REFERENCE_PRECISION`, the precision scan's
+#: converged rung, times the same reionization heating: an answer neither
+#: network was trained on, which is what scores 2.0 and 2.1 on one footing.
+TRUTHS = ("training", "reference")
+TRUTH = "training"
 
-    Every redshift from one solve.  Scoring a z sweep by re-solving per
-    redshift would cost six times as much for the same numbers.
+#: ``ggah_mod_benchmark``'s ``CAMB_REF`` (``ggah_bench.precision``), 0.02 %
+#: from a rung beyond it at worst over eleven box points.  Half an hour of one
+#: core per solve, so a reference validation belongs on the cluster.
+REFERENCE_PRECISION = {"AccuracyBoost": 3.0, "lAccuracyBoost": 3.0,
+                       "accurate_massive_neutrino_transfers": True,
+                       "neutrino_q_boost": 2.0, "k_per_logint": 30,
+                       "WantCls": False}
+
+
+def _class_pk(theta, z, k):
+    """One truth solve -> ``(P_m, P_cb)``, each ``(n_z, n_k)``.
+
+    Named for what it was; it solves whatever :data:`TRUTH` selects.  Every
+    redshift from one solve: scoring a z sweep by re-solving per redshift would
+    cost six times as much for the same numbers.
     """
     z = np.atleast_1d(np.asarray(z, dtype=float))
-    return generate.solve(generate.class_params_for(
-        theta, k_max_h=grid.K_MAX,
-        z_max=max(grid.Z_MAX, float(z.max()))), z, k)
+    if TRUTH == "training":
+        return generate.solve_point(theta, z, k)
+    if TRUTH == "reference":
+        d = (dict(theta) if hasattr(theta, "keys")
+             else dict(zip(box.PARAMS, np.asarray(theta, dtype=float))))
+        return generate.solve_camb({p: float(d[p]) for p in box.PARAMS}, z, k,
+                                   precision=REFERENCE_PRECISION)
+    raise ValueError(f"unknown truth {TRUTH!r}; one of {TRUTHS}")
 
 
 def _pick(pm, pcb, which):
@@ -625,6 +655,9 @@ def _print_deriv(title, out, z_nodes, names):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--weights", default=None)
+    ap.add_argument("--truth", choices=TRUTHS, default="training",
+                    help="score against the training solver (default) or "
+                         "against CAMB at its converged reference x heating")
     ap.add_argument("--n-shape", type=int, default=32)
     ap.add_argument("--n-deriv", type=int, default=16)
     ap.add_argument("--z", type=float, nargs="+", default=list(Z_NODES),
@@ -670,10 +703,13 @@ def main(argv=None):
                          "figure retyped by hand is a validation figure that "
                          "can silently outlive the weights it describes.")
     a = ap.parse_args(argv)
+    global TRUTH
+    TRUTH = a.truth
+    print(f"truth: {TRUTH}")
     emu = PkEmulator(a.weights, check_box=False,
                      allow_narrow_box=a.allow_narrow_box)
     z_nodes = tuple(a.z)
-    out = {"z_nodes": list(z_nodes), "n_shape": a.n_shape, "n_deriv": a.n_deriv,
+    out = {"truth": TRUTH, "z_nodes": list(z_nodes), "n_shape": a.n_shape, "n_deriv": a.n_deriv,
            "k_trusted": list(K_TRUSTED), "k_lowk": list(K_LOWK),
            "k_norm": K_NORM, "negative_de": NEGATIVE_DE,
            "heavy_nu": HEAVY_NU,

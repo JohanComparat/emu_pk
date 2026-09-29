@@ -75,9 +75,16 @@ class TestTheRedshiftGrids:
 
 
 class TestTheDensityConventions:
-    def test_omega_nu_follows_the_93_14_convention(self):
+    def test_omega_nu_follows_the_derived_denominator(self):
+        """The rest mass on ggah_mod 0.9.8's derived 93.143, not 93.14.
+
+        2.0.1 moved :data:`cosmo.NU_DENOM_EV` off the rounded value and this
+        test, which still named it, failed from then on.
+        """
         h, mnu = 0.6736, 0.06
-        assert cosmo.omega_nu(mnu, h) == pytest.approx(mnu / (93.14 * h * h))
+        assert cosmo.NU_DENOM_EV == pytest.approx(93.143386, rel=1e-7)
+        assert cosmo.omega_nu(mnu, h) == pytest.approx(
+            mnu / (cosmo.NU_DENOM_EV * h * h), rel=1e-15)
 
     def test_omega_nu_is_zero_for_massless_neutrinos(self):
         assert cosmo.omega_nu(0.0, 0.7) == 0.0

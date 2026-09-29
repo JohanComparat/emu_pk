@@ -173,8 +173,14 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
             # not an error -- a shard without it is checked on width instead.
             names = ([str(x) for x in d["params"]] if "params" in d.files
                      else None)
+            # What wrote it.  Absent before 2.1.0, when every shard was
+            # CLASS at its defaults, so absence reads as exactly that.
+            truth = tuple(str(d[key]) if key in d.files else legacy
+                          for key, legacy in (("solver", "class"),
+                                              ("precision", "{}"),
+                                              ("heating", "null")))
             return (f, d["z"], d["lnk"], d["theta"], d["idx"], d["failed_idx"],
-                    np.log(d["pm"]), np.log(d["pcb"]), names)
+                    np.log(d["pm"]), np.log(d["pcb"]), names, truth)
 
     t0 = time.monotonic()
     shards = [None] * n_files
@@ -189,7 +195,17 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
 
     X, Ym, Ycb, idx, failed = [], [], [], [], []
     z = lnk = None
-    for f, z_f, lnk_f, th, idx_f, failed_f, ln_pm, ln_pcb, names in shards:
+    truth0 = shards[0][-1]
+    for f, z_f, lnk_f, th, idx_f, failed_f, ln_pm, ln_pcb, names, truth in shards:
+        # **Which truth wrote this shard.**  The same trap as the box check
+        # below: `emu_shard` skips on filename, so a directory reused across a
+        # solver or precision change holds both, and the network would learn
+        # their average without anything raising.
+        if truth != truth0:
+            raise ValueError(
+                f"{f.name} was written by solver/precision/heating {truth}; "
+                f"{shards[0][0].name} by {truth0}.  Generate into a fresh "
+                f"directory.")
         if z is None:
             z, lnk = z_f, lnk_f
         elif not (np.array_equal(z, z_f) and np.array_equal(lnk, lnk_f)):
@@ -261,6 +277,8 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
                       f"{time.monotonic() - t1:5.1f} s", flush=True)
     np.savez(out, z=z, lnk=lnk, parts=np.array(manifest),
              n_rows=np.array(len(X)),
+             **dict(zip(("solver", "precision", "heating"),
+                        map(np.array, truth0))),
              idx=np.array(sorted(idx), dtype=np.int64),
              failed_idx=np.array(sorted(set(failed)), dtype=np.int64))
     total = out.stat().st_size + sum(
@@ -271,6 +289,18 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
     print(f"wrote {out} + {len(manifest)} parts  ({total / 1e6:.1f} MB)",
           flush=True)
     return out
+
+
+def dataset_truth(dataset) -> dict:
+    """``{"solver", "precision", "heating"}`` of an assembled training set.
+
+    The 2.0 datasets predate the stamp and were CLASS at its defaults with
+    its own reionization, which is what their absence reads as.
+    """
+    with np.load(pathlib.Path(dataset)) as d:
+        return {key: (str(d[key]) if key in d.files else legacy)
+                for key, legacy in (("solver", "class"), ("precision", "{}"),
+                                    ("heating", "null"))}
 
 
 def load_training_set(dataset, workers=16):

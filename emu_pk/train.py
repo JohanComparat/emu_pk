@@ -243,10 +243,11 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
     """
     import optax
 
-    from .assemble import load_training_set
+    from .assemble import dataset_truth, load_training_set
 
     out = pathlib.Path(out)
     X, Ym, Ycb, lnk = load_training_set(dataset)
+    truth = dataset_truth(dataset)
     print(f"training set: {X.shape[0]} rows x {Ym.shape[1]} modes, "
           f"{X.shape[1]} inputs", flush=True)
     if X.shape[1] != len(COLS):
@@ -482,7 +483,10 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
             # a huge improvement and means nothing, so the number carries its
             # own definition.
             "loss_form": "lnp_mse" if weighted else "whitened_mse",
-            "k_pivot": np.float64(cosmo.K_PIVOT)}
+            "k_pivot": np.float64(cosmo.K_PIVOT),
+            # Which spectra it learnt: a network is a statement about its
+            # training truth, and 2.0 and 2.1 learnt different ones.
+            **{f"truth_{key}": np.array(val) for key, val in truth.items()}}
 
     def _readable(path):
         """Whether `path` is a checkpoint `np.load` can actually open.

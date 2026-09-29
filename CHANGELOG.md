@@ -4,6 +4,59 @@ Notable changes to `emu_pk`. Format follows [Keep a Changelog](https://keepachan
 versioning is [semantic](https://semver.org/spec/v2.0.0.html), and from 1.0.0
 the public API is what `emu_pk.__all__` and each module's `__all__` declare.
 
+## [Unreleased] -- 2.1.0, in generation
+
+A training truth that is converged, not default. The network is unchanged in
+form; what it is trained on changes, and the weights ship when the retrain has
+been validated against a reference neither version was trained on.
+
+### Why
+
+`ggah_mod_benchmark`'s precision scan (commit 516eb0a) put the 2.0 training
+set -- CLASS 3.3.4 at its defaults -- 0.41 % from CLASS's own converged answer
+in the median over this box and 0.81 % at worst, smooth in the parameters. The
+network learnt that error faithfully, and its validation, against the same
+default CLASS, could not see it: 6 to 13 times the 0.064 % it reports. No
+affordable CLASS setting fixes the heavy-neutrino end (the ncdm fluid
+approximation dominates above 0.3 eV).
+
+### Changed
+
+- **The generator solves with CAMB** (`generate.SOLVER = "camb"`) at
+  `cosmo.CAMB_PRECISION` -- `lAccuracyBoost 3`, `AccuracyBoost 2`, no late
+  radiation truncation, no Cls -- which is `ggah_mod` 0.9.8's: 0.039 % from
+  CAMB's converged reference and 0.12 % from CLASS's, the floor between the two
+  codes. `"class"` keeps the 2.0 path.
+- **Reionization heating is kept.** CAMB's linear P(k) does not heat the
+  baryons at reionization and CLASS's does (3 % at k = 200 h/Mpc at the
+  fiducial, 13 % at omega_cdm = 0.05). Each CAMB spectrum is multiplied by
+  CLASS's ratio P(reio)/P(no reio) from a loosened CLASS pair at the same point
+  (`heating.SETTINGS`, 7.7e-5 from a default pair's ratio at the box's extreme
+  points). The history is CLASS's default, z_reio = 7.6711 everywhere.
+- Below CAMB's first transfer mode (curved corners of the box, k < 1.5e-4 and
+  3.7e-4 h/Mpc) the spectrum continues with the shape of the heated CLASS
+  spectrum, pinned to CAMB's.
+
+### Added
+
+- `cosmo.camb_params`: `ggah_mod` 0.9.8's `camb_input` for the box, restated
+  (equal to 1e-16 in every field; `tests/test_camb_path.py`). The neutrinos go in
+  as each state's exact density, never as mass shares, which CAMB reads as
+  density shares.
+- `cosmo.nu_energy_factor`, and the 0.9.8 neutrino constants it needs.
+- `heating`: the CLASS pair.
+- Shards, assembled datasets and weights record which solver, precision and
+  heating wrote them; `assemble` refuses a directory holding two.
+- `validate --truth reference`: CAMB at the precision scan's converged rung,
+  times the same heating -- the footing on which 2.0 and 2.1 are compared.
+- The generation environment is checked for CAMB >= 1.6: `CAMB_PRECISION` was
+  measured on 1.6.6, and the campaign's default environment carries 1.4.0.
+
+### Fixed
+
+- Two tests stale since 2.0.1: the rest-mass denominator is the derived
+  93.143, and ggah_mod's parameter stack is checked for `nu_r1`/`nu_r2` too.
+
 ## [2.0.1]
 
 ### Changed

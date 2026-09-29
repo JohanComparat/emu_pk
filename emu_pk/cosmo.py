@@ -13,7 +13,8 @@ The one that matters is which quantity :math:`\Omega_m` names.
 from __future__ import annotations
 
 __all__ = ["NU_DENOM_EV", "N_EFF", "N_NU_MASSIVE", "NCDM_UR_PER_SPECIES",
-           "T_CMB", "K_PIVOT", "PLANCK18", "omega_nu", "f_nu", "class_params"]
+           "T_CMB", "K_PIVOT", "PLANCK18", "omega_nu", "f_nu", "class_params",
+           "CAMB_PRECISION", "nu_energy_factor", "camb_params"]
 
 #: ``Omega_nu = sum_mnu / (NU_DENOM_EV h^2)``: the neutrinos' rest mass, the
 #: pressureless limit of the density CLASS integrates for three massive states
@@ -152,3 +153,135 @@ def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
         params.update({"Omega_Lambda": 0.0, "w0_fld": float(w0),
                        "wa_fld": float(wa), "use_ppf": "yes"})
     return params
+
+
+
+# --------------------------------------------------------------------------
+# CAMB: the generator's solver from 2.1.0
+# --------------------------------------------------------------------------
+# ggah_mod_benchmark's precision scan (scripts/57_precision_scan.py, commit
+# 516eb0a) measured the shipped training set -- CLASS 3.3.4 at its defaults --
+# 0.41 % from CLASS's own converged answer in the median and 0.81 % at worst
+# over this box, smooth in the parameters, so the network learnt it and its
+# validation against the same CLASS could not see it.  No affordable CLASS
+# setting fixes the heavy-neutrino end (the ncdm fluid approximation dominates
+# above 0.3 eV); CAMB at the settings below is 0.039 % from its own reference
+# and 0.12 % from CLASS's -- the floor between the two codes -- for 2.5x the
+# old generation cost.  They are ggah_mod 0.9.8's CAMB_PRECISION, so the
+# emulator and ggah_mod's CambPk solve the same thing by construction.
+CAMB_PRECISION = {"lAccuracyBoost": 3.0, "AccuracyBoost": 2.0,
+                  "DoLateRadTruncation": False, "WantCls": False}
+
+#: The neutrino convention CLASS integrates by default and ggah_mod 0.9.8
+#: adopted: three massive states at ``T_ncdm = 0.71611 T_CMB``, each of
+#: degeneracy ``(T_ncdm/T_nu)^4`` in CAMB's spelling, and the massless
+#: remainder ``N_eff - 3 (T_ncdm/T_nu)^4 = 0.004395``.  Restated from
+#: ``ggah_mod.cosmology.constants``; ``tests/test_camb_input.py`` compares
+#: what :func:`camb_params` builds with ``ggah_mod``'s ``camb_input``.
+T_NCDM_OVER_T_GAMMA = 0.71611
+T_NU_OVER_T_GAMMA = (4.0 / 11.0) ** (1.0 / 3.0)
+N_MASSIVE_EFF = N_NU_MASSIVE * (T_NCDM_OVER_T_GAMMA / T_NU_OVER_T_GAMMA) ** 4
+N_UR_REMAINDER = N_EFF - N_MASSIVE_EFF
+K_B_EV_PER_K = 8.617333262e-5
+_SIGMA_SB, _C_M_S, _G_SI, _MPC_M = 5.670374419e-8, 299_792_458.0, 6.67430e-11, 3.0856775814913673e22
+_RHO_CRIT_100_SI = 3.0 * (1.0e5 / _MPC_M) ** 2 / (8.0 * 3.141592653589793 * _G_SI)
+OMEGA_GAMMA_H2 = 4.0 * _SIGMA_SB * T_CMB ** 4 / _C_M_S ** 3 / _RHO_CRIT_100_SI
+NU_REL_COEF = 7.0 / 8.0 * (4.0 / 11.0) ** (4.0 / 3.0)
+
+_FD_EDGES = (0.0, 0.5, 2.0, 6.0, 16.0, 40.0)
+_FD_NODES_PER_PANEL = (10, 10, 10, 12, 12)
+
+
+def _fd_rule():
+    import numpy as np
+    xs, ws = [], []
+    for a, b, n in zip(_FD_EDGES[:-1], _FD_EDGES[1:], _FD_NODES_PER_PANEL):
+        xg, wg = np.polynomial.legendre.leggauss(n)
+        xs.append(0.5 * (b - a) * (xg + 1.0) + a)
+        ws.append(0.5 * (b - a) * wg)
+    x = np.concatenate(xs)
+    wf = np.concatenate(ws) * x ** 2 / (np.exp(x) + 1.0)
+    return x, wf / np.sum(wf * x)
+
+
+def nu_energy_factor(y):
+    r"""Fermi-Dirac energy of one species relative to massless, :math:`F(y)`.
+
+    ``ggah_mod.cosmology.parameters.nu_energy_factor`` in numpy: the same
+    54-node rule, summed without the cancellation, so :math:`F(0) = 1`
+    exactly and :math:`F \to \kappa y` when cold.  ``y = m / k_B T_ncdm``.
+    """
+    import numpy as np
+    x, w = _fd_rule()
+    y = np.asarray(y, dtype=float)[..., None]
+    y2 = y * y
+    return 1.0 + np.sum(w * y2 / (np.sqrt(x * x + y2) + x), axis=-1)
+
+
+_CAMB_MATTER_KEYS = ("k_per_logint", "accurate_massive_neutrino_transfers")
+_CAMB_TOP_KEYS = ("WantCls", "DoLateRadTruncation")
+
+
+def camb_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
+                w0=-1.0, wa=0.0, Omega_k=0.0, nu_r1=1.0 / 3.0,
+                nu_r2=1.0 / 3.0, k_max_h=200.0, redshifts=(0.0,),
+                precision=None, T_cmb=T_CMB):
+    """A ``CAMBparams`` for one box point: the 2.1.0 generator's solve.
+
+    The keyword names are :data:`emu_pk.box.PARAMS`, as for
+    :func:`class_params`, and the physics is the same point: ``omch2`` is the
+    ``omega_cdm`` CLASS is given, the three masses are ``r_i * sum_mnu``, and
+    the neutrinos are CLASS's in CAMB's interface (ggah_mod 0.9.8's
+    ``camb_input``).  CAMB describes each massive state by a degeneracy and a
+    share of ``omnuh2``, the states' density *today* -- rest mass and kinetic
+    energy -- and infers each mass from its share.  So it is handed each
+    state's exact density from :func:`nu_energy_factor`, never the mass
+    shares: a mass share read as a density share put a normal ordering's
+    lightest state 20 per cent light in ggah_mod until 0.9.8.
+
+    ``precision`` is :data:`CAMB_PRECISION` when ``None`` and CAMB's own
+    defaults when ``{}``; keys are routed as ``ggah_mod`` routes them, and an
+    unknown one raises.  Dark energy is CPL through CAMB's PPF module, as the
+    CLASS path uses CLASS's; the pivot is :data:`K_PIVOT` [1/Mpc], CAMB's
+    default, stated.
+    """
+    import camb
+    import numpy as np
+
+    s = dict(CAMB_PRECISION if precision is None else precision)
+    pars = camb.CAMBparams()
+    massive = float(sum_mnu) > 0.0
+    pars.set_cosmology(H0=100.0 * float(h), ombh2=float(omega_b),
+                       omch2=float(omega_cdm), mnu=float(sum_mnu),
+                       num_massive_neutrinos=N_NU_MASSIVE if massive else 0,
+                       nnu=N_EFF, TCMB=float(T_cmb), omk=float(Omega_k))
+    if massive:
+        r = np.array([float(nu_r1), float(nu_r2), 1.0 - float(nu_r1) - float(nu_r2)])
+        m = r * float(sum_mnu)
+        y = m / (K_B_EV_PER_K * T_NCDM_OVER_T_GAMMA * float(T_cmb))
+        omega_gamma_h2 = OMEGA_GAMMA_H2 * (float(T_cmb) / T_CMB) ** 4
+        per_state_h2 = NU_REL_COEF * N_MASSIVE_EFF * omega_gamma_h2 / N_NU_MASSIVE
+        rho_h2 = per_state_h2 * nu_energy_factor(y)
+        pars.nu_mass_eigenstates = N_NU_MASSIVE
+        pars.nu_mass_numbers = [1] * N_NU_MASSIVE
+        pars.nu_mass_degeneracies = [N_MASSIVE_EFF / N_NU_MASSIVE] * N_NU_MASSIVE
+        pars.num_nu_massless = N_UR_REMAINDER
+        pars.omnuh2 = float(rho_h2.sum())
+        pars.nu_mass_fractions = list(rho_h2 / rho_h2.sum())
+    pars.InitPower.set_params(As=float(np.exp(ln10A_s)) * 1e-10, ns=float(n_s),
+                              pivot_scalar=K_PIVOT)
+    if (float(w0), float(wa)) != (-1.0, 0.0):
+        pars.set_dark_energy(w=float(w0), wa=float(wa), dark_energy_model="ppf")
+    matter = {k: s.pop(k) for k in _CAMB_MATTER_KEYS if k in s}
+    pars.set_matter_power(redshifts=sorted(map(float, redshifts), reverse=True),
+                          kmax=float(k_max_h) * 1.05 * float(h), silent=True,
+                          **matter)
+    pars.NonLinear = camb.model.NonLinear_none
+    for key in _CAMB_TOP_KEYS:
+        if key in s:
+            setattr(pars, key, bool(s.pop(key)))
+    for key, val in s.items():
+        if not hasattr(pars.Accuracy, key):
+            raise KeyError(f"{key!r} is not a CAMB accuracy parameter")
+        setattr(pars.Accuracy, key, val)
+    return pars

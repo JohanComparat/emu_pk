@@ -5,6 +5,7 @@ naming, the atomic rename, the skip-if-exists resume -- needs neither, and is
 where the failures that cost a production run actually live.
 """
 import numpy as np
+from conftest import patch_solver
 import pytest
 
 from emu_pk import assemble, box, generate, grid
@@ -17,7 +18,7 @@ def fake_solve(monkeypatch):
         n_z, n_k = len(np.atleast_1d(z_nodes)), len(k_h)
         pm = np.full((n_z, n_k), params["h"], dtype=float)
         return pm, pm * 0.99
-    monkeypatch.setattr(generate, "solve", solve)
+    patch_solver(monkeypatch, solve)
     return solve
 
 
@@ -62,7 +63,7 @@ def test_a_failing_solve_is_recorded_not_fatal(tmp_path, monkeypatch):
         n_z, n_k = len(np.atleast_1d(z_nodes)), len(k_h)
         pm = np.ones((n_z, n_k))
         return pm, pm
-    monkeypatch.setattr(generate, "solve", flaky)
+    patch_solver(monkeypatch, flaky)
 
     generate.emu_shard(0, 5, tmp_path, n_total=100, chunk=5)
     with np.load(tmp_path / "emu_00000_0000000.npz") as d:

@@ -62,3 +62,18 @@ def skip_if_shipped_weights_are_stale():
 def _needs_current_shipped_weights():
     """Skip a test that asserts something about the *shipped* network."""
     skip_if_shipped_weights_are_stale()
+
+
+def patch_solver(monkeypatch, fn):
+    """Stand ``fn(params, z_nodes, k_h)`` in for *both* generator solvers.
+
+    From 2.1.0 the generator solves through ``solve_camb`` (CAMB, then a CLASS
+    pair for the heating) rather than ``solve``, and a test that patched only
+    the latter ran two real Boltzmann codes per design point -- minutes per
+    test, and not the behaviour it meant to test.  ``fn`` is handed the point
+    as a mapping either way; both carry ``h``.
+    """
+    from emu_pk import generate
+    monkeypatch.setattr(generate, "solve", fn)
+    monkeypatch.setattr(generate, "solve_camb",
+                        lambda theta, z_nodes, k_h, **_: fn(theta, z_nodes, k_h))

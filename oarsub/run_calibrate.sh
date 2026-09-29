@@ -11,7 +11,7 @@
 # The devel partition caps at 30 minutes, which is ample: 8 solves is a minute.
 #
 #   oarsub --project "${EMU_PK_PROJECT}" -t devel \
-#          -l /nodes=1/core=2,walltime=00:20:00 -S ./oarsub/run_calibrate.sh
+#          -l /nodes=1/core=2,walltime=00:30:00 -S ./oarsub/run_calibrate.sh
 #
 # Wall-clock IS the measurement here, so pin the CPU model when comparing two
 # calibrations: Dahu's default queue is heterogeneous and a fat node is a
@@ -20,7 +20,7 @@
 
 # No `#OAR --project` directive -- see run_generate.sh.
 #OAR --name emupk_cal
-#OAR -l /nodes=1/core=2,walltime=00:20:00
+#OAR -l /nodes=1/core=2,walltime=00:30:00
 #OAR --stdout oarsub/logs/%jobid%.emupk_cal.out
 #OAR --stderr oarsub/logs/%jobid%.emupk_cal.err
 

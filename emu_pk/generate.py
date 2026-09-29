@@ -27,7 +27,14 @@ import numpy as np
 
 from . import box, cosmo, grid
 
-__all__ = ["class_params_for", "solve", "ratio_shard", "emu_shard", "main"]
+__all__ = ["class_params_for", "solve", "solve_camb", "solve_point", "SOLVER",
+           "stamp", "ratio_shard", "emu_shard", "main"]
+
+#: Which solver writes the training set.  ``"camb"`` from 2.1.0: CAMB at
+#: :data:`emu_pk.cosmo.CAMB_PRECISION`, times CLASS's reionization heating
+#: (:mod:`emu_pk.heating`).  ``"class"`` is the 2.0 path, CLASS at its own
+#: defaults, kept so a 2.0 shard can be reproduced and compared.
+SOLVER = "camb"
 
 
 def class_params_for(theta, **kw):
@@ -84,6 +91,91 @@ def solve(params: dict, z_nodes, k_h) -> tuple:
         cl.struct_cleanup()
         cl.empty()
     return pm, pcb
+
+
+def solve_camb(theta: dict, z_nodes, k_h, precision=None, heating_settings=None):
+    """One CAMB solve with CLASS's heating: ``(P_m, P_cb)`` on ``k_h`` [h/Mpc].
+
+    ``theta`` maps :data:`emu_pk.box.PARAMS` to values.  CAMB's own k sampling
+    is resampled by a cubic spline in log-log, as CLASS's ``pk_lin`` does its
+    own.  Below CAMB's first transfer mode -- 1.5e-4 h/Mpc in the open corner
+    of the box and 3.7e-4 in the closed one, against a grid that starts at
+    1e-4 -- the spectrum continues with the *shape* of the heated CLASS
+    spectrum of the heating pair, pinned to CAMB's at that mode: superhorizon
+    scales, where the two codes agree and precision does not reach.
+    """
+    import camb
+    from scipy.interpolate import CubicSpline
+
+    from . import heating
+
+    k_h = np.asarray(k_h, dtype=float)
+    z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
+    # To grid.K_MAX whatever is asked for, as the CLASS path always was: the
+    # solver's k sampling depends on its k_max, so a validation that asks for
+    # a handful of modes must solve exactly as generation did.
+    pars = cosmo.camb_params(**theta, k_max_h=max(grid.K_MAX, float(k_h.max())),
+                             redshifts=z_nodes, precision=precision)
+    res = camb.get_results(pars)
+    heat = heating.pair(theta, z_nodes, k_h, settings=heating_settings)
+    out = []
+    for var, r, shape in (("delta_tot", heat.r_m, heat.pm_class),
+                          ("delta_nonu", heat.r_cb, heat.pcb_class)):
+        kh, zs, pk = res.get_linear_matter_power_spectrum(var1=var, var2=var)
+        zs = np.asarray(zs)
+        rows = np.empty((len(z_nodes), len(k_h)))
+        for j, zz in enumerate(z_nodes):
+            i = int(np.argmin(np.abs(zs - zz)))
+            if abs(zs[i] - zz) > 1e-6:
+                raise RuntimeError(f"CAMB returned no row at z={zz}")
+            spline = CubicSpline(np.log(kh), np.log(pk[i]))
+            inside = k_h >= kh[0]
+            row = np.empty(len(k_h))
+            row[inside] = np.exp(spline(np.log(k_h[inside])))
+            if not inside.all():
+                i0 = int(np.argmax(inside))
+                row[~inside] = row[i0] * shape[j, ~inside] / shape[j, i0]
+            rows[j] = row
+        out.append(rows * r)
+    pm, pcb = out
+    if float(theta.get("sum_mnu", 0.0)) <= 0.0:
+        pcb = pm.copy()
+    return pm, pcb
+
+
+def solve_point(theta, z_nodes, k_h, solver: str | None = None):
+    """One box point through the configured solver.  ``theta`` as a mapping
+    or in :data:`emu_pk.box.PARAMS` order."""
+    solver = SOLVER if solver is None else solver
+    d = (dict(theta) if hasattr(theta, "keys")
+         else dict(zip(box.PARAMS, np.asarray(theta, dtype=float))))
+    d = {p: float(d[p]) for p in box.PARAMS}
+    if solver == "camb":
+        return solve_camb(d, z_nodes, k_h)
+    if solver == "class":
+        return solve(class_params_for(d, k_max_h=grid.K_MAX,
+                                      z_max=max(grid.Z_MAX, float(np.max(z_nodes)))),
+                     z_nodes, k_h)
+    raise ValueError(f"unknown solver {solver!r}")
+
+
+def stamp(solver: str | None = None) -> dict:
+    """What wrote a shard, as arrays ``np.savez`` can hold.
+
+    ``assemble`` refuses a directory whose shards disagree on any of these, for
+    the reason it refuses one whose shards disagree on the box: the generator
+    skips on filename, and a reused directory would otherwise train on two
+    different truths at once.
+    """
+    import json
+
+    from . import heating
+    solver = SOLVER if solver is None else solver
+    prec = cosmo.CAMB_PRECISION if solver == "camb" else {}
+    heat = heating.SETTINGS if solver == "camb" else None
+    return {"solver": np.array(solver),
+            "precision": np.array(json.dumps(prec, sort_keys=True)),
+            "heating": np.array(json.dumps(heat, sort_keys=True))}
 
 
 # ==========================================================================
@@ -205,8 +297,7 @@ def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
         for n in range(c0, c1):
             t_solve = time.time()
             try:
-                pm, pcb = solve(class_params_for(
-                    design[n], k_max_h=grid.K_MAX, z_max=grid.Z_MAX), z, k)
+                pm, pcb = solve_point(design[n], z, k)
             except Exception as e:
                 # A failure is data, not a reason to abort: CLASS refuses some
                 # corners of any wide box, and a run that dies on the first one
@@ -245,6 +336,7 @@ def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
             pcb=np.array(pcb_all, dtype=np.float32).reshape(len(keep), len(z), len(k)),
             failed_idx=np.array([f[0] for f in failed], dtype=np.int64),
             failed_why=np.array([f[1] for f in failed], dtype="U200"),
+            **stamp(),
         )
         tmp.rename(out)
         written.append(out)
@@ -304,8 +396,7 @@ def _time_calibration(n: int = 8, seed: int = 20260827):
         d = dict(zip(box.PARAMS, theta))
         t0 = time.time()
         try:
-            solve(class_params_for(theta, k_max_h=grid.K_MAX,
-                                   z_max=grid.Z_MAX), z, k)
+            solve_point(theta, z, k)
         except Exception as e:
             fails += 1
             print(f"  [{i}] FAILED {type(e).__name__}: {e}"[:160], flush=True)
@@ -316,7 +407,7 @@ def _time_calibration(n: int = 8, seed: int = 20260827):
               f"Ok={d['Omega_k']:+.3f}", flush=True)
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
     t = np.array(times)
-    print("\n=== CLASS calibration ===")
+    print(f"\n=== {SOLVER} calibration ===")
     print(f"  solves        {len(t)} ok, {fails} failed")
     if len(t):
         print(f"  seconds/solve mean {t.mean():.2f}  median {np.median(t):.2f}  "
