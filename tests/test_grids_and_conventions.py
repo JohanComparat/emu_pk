@@ -75,9 +75,13 @@ class TestTheRedshiftGrids:
 
 
 class TestTheDensityConventions:
-    def test_omega_nu_follows_the_93_14_convention(self):
+    def test_omega_nu_follows_the_derived_convention(self):
+        """The rest mass of three states at CLASS's ``T_ncdm = 0.71611``, as
+        ``ggah_mod`` 0.9.8 derives it; the rounded 93.14 until 2.0.1."""
         h, mnu = 0.6736, 0.06
-        assert cosmo.omega_nu(mnu, h) == pytest.approx(mnu / (93.14 * h * h))
+        assert cosmo.NU_DENOM_EV == 93.14338613172058
+        assert cosmo.omega_nu(mnu, h) == pytest.approx(
+            mnu / (cosmo.NU_DENOM_EV * h * h))
 
     def test_omega_nu_is_zero_for_massless_neutrinos(self):
         assert cosmo.omega_nu(0.0, 0.7) == 0.0
