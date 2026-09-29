@@ -130,6 +130,14 @@ campaign_arm "${EMU_ARM:-c}" || true
 #   campaign_activate_env              # numpy, jax, classy  (the default)
 #   campaign_activate_env train        # numpy, jax, optax
 campaign_activate_env () {
+    # Generation and training may live in different environments: from 2.1.0
+    # generation needs CAMB >= 1.6 as well as CLASS, and the environment that
+    # has it need not have optax.  EMU_PK_ENV_GEN / EMU_PK_ENV_TRAIN override
+    # EMU_PK_ENV for one kind of job; unset, everything is as before.
+    case "${1:-gen}" in
+        gen)   [ -n "${EMU_PK_ENV_GEN:-}" ] && CONDA_ENV="${EMU_PK_ENV_GEN}" ;;
+        train) [ -n "${EMU_PK_ENV_TRAIN:-}" ] && CONDA_ENV="${EMU_PK_ENV_TRAIN}" ;;
+    esac
     # Two clusters, two package managers, and neither is a migration of the
     # other -- both are live.  Dahu has a personal miniforge in $HOME; bigfoot
     # has no mamba, no conda and no nix on PATH at all, and offers the site
