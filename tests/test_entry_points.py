@@ -671,6 +671,8 @@ class TestValidateSolvesTheCosmologyItWasAskedFor:
             return pm, pm
         monkeypatch.setattr(V.generate, "solve_camb", spy)
         monkeypatch.setattr(V.generate, "SOLVER", "camb")
+        # What `main` leaves behind from scoring another network.
+        monkeypatch.setattr(V, "TRAINED_ON", None)
         theta = box.sample(1, seed=4)[0]
         V._class_pk(theta, [0.0], np.logspace(-3, 0, 4))
         d = dict(zip(box.PARAMS, theta))

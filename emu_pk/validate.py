@@ -95,6 +95,16 @@ K_TRUSTED = (1e-3, 10.0)
 #: scored.
 K_LOWK = (1e-4, 1e-3)
 
+#: The small-scale tail, 10 h/Mpc to the top of the network's own grid.
+#: Scored from 2.1.0, when the grid reached 300 and the training spectra
+#: gained CLASS's reionization heating: the suppression it carries is 3 per
+#: cent at k = 200 and 7 to 24 per cent at 300, every sigma(M) quadrature at
+#: low mass integrates it, and the headline band stops at 10.  As for the
+#: low-k band, :data:`K_NORM` lies outside it, so the number to read is
+#: ``total``.  The top is the network's grid, not this package's: a 2.0
+#: network ends at 200, and scoring it beyond would score an extrapolation.
+K_TAIL_MIN = 10.0
+
 #: Where the shape comparison is renormalised, in h/Mpc.  Distinct from
 #: :data:`emu_pk.cosmo.K_PIVOT`, which is the *primordial* pivot in 1/Mpc and a
 #: property of the cosmology rather than of this measurement.  They are not the
@@ -717,6 +727,9 @@ def main(argv=None):
                          "says how much of the tail is the network and how "
                          "much is linear interpolation across the acoustic "
                          "wiggles")
+    ap.add_argument("--no-tail", action="store_true",
+                    help="skip the 10 h/Mpc to k_max band (see K_TAIL_MIN), "
+                         "which costs one more truth pass over the same design")
     ap.add_argument("--no-lowk", action="store_true",
                     help="skip the k < 1e-3 diagnostic band, which costs one "
                          "more CLASS pass over the same design")
@@ -809,6 +822,14 @@ def main(argv=None):
         if not a.no_lowk:
             out["shape_lowk"] = shape_error(emu, a.n_shape, z_nodes,
                                             band=K_LOWK, label="low-k band")
+        if not a.no_tail:
+            lnk = getattr(emu, "lnk", None)
+            k_top = (float(np.exp(np.max(np.asarray(lnk)))) if lnk is not None
+                     else grid.K_MAX)
+            out["k_tail"] = [K_TAIL_MIN, k_top]
+            out["shape_tail"] = shape_error(emu, a.n_shape, z_nodes,
+                                            band=(K_TAIL_MIN, k_top),
+                                            label="small-scale tail")
         out["derivative"] = derivative_error(
             emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
         out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
