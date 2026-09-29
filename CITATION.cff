@@ -11,7 +11,7 @@ repository-code: "https://github.com/JohanComparat/emu_pk"
 url: "https://emu-pk.readthedocs.io/en/stable/"
 license: BSD-3-Clause
 version: 2.0.1
-date-released: "2026-08-31"
+date-released: "2026-09-29"
 abstract: >-
   emu_pk emulates the linear matter power spectrum over an eight-parameter
   cosmology, including the summed neutrino mass and CPL dark energy, to

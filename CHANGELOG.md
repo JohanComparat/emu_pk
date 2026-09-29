@@ -114,6 +114,7 @@ wider box** -- 0.064 % median shape error against 0.111 %.
 
 First public release.
 
-[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/JohanComparat/emu_pk/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/JohanComparat/emu_pk/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/JohanComparat/emu_pk/releases/tag/v1.0.0
