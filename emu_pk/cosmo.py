@@ -70,7 +70,7 @@ def f_nu(sum_mnu: float, h: float, Omega_m: float) -> float:
 
 def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
                  w0=-1.0, wa=0.0, Omega_k=0.0, nu_r1=1.0 / 3.0,
-                 nu_r2=1.0 / 3.0, k_max_h=200.0, z_max=5.0, T_cmb=T_CMB):
+                 nu_r2=1.0 / 3.0, k_max_h=300.0, z_max=5.0, T_cmb=T_CMB):
     """The CLASS input dict, mirroring ``ggah_mod.cosmology.power.ClassPk``.
 
     Physical densities in, so nothing here has to decide what ``Omega_m``
@@ -224,7 +224,7 @@ _CAMB_TOP_KEYS = ("WantCls", "DoLateRadTruncation")
 
 def camb_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
                 w0=-1.0, wa=0.0, Omega_k=0.0, nu_r1=1.0 / 3.0,
-                nu_r2=1.0 / 3.0, k_max_h=200.0, redshifts=(0.0,),
+                nu_r2=1.0 / 3.0, k_max_h=300.0, redshifts=(0.0,),
                 precision=None, T_cmb=T_CMB):
     """A ``CAMBparams`` for one box point: the 2.1.0 generator's solve.
 

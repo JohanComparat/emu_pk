@@ -44,18 +44,25 @@ from . import cosmo
 
 __all__ = ["SETTINGS", "Heating", "pair"]
 
-#: CLASS settings for the pair: ``ggah_mod_benchmark``'s ``fast`` rung, about
-#: 2x looser than CLASS's defaults everywhere, and 5 per cent wrong in P(k)
-#: itself.  In the ratio that cancels.  Measured at six extreme box points (the
-#: fiducial; omega_cdm = 0.05; h = 0.85 with omega_b = 0.028; 0.6 eV;
-#: Omega_k = -0.15; w0 = -0.5) against R from a default pair, over
-#: 1 < k < 200 h/Mpc and six redshifts, the worst error on R is 7.7e-5 -- five
-#: times inside the 4e-4 CAMB's own precision leaves -- for 0.69x a default
-#: pair's cost.  Coarsening the k sampling as well was 2-3x faster and 1-2e-3
-#: wrong near k = 175, which is not.
-SETTINGS: dict = {"tol_perturbations_integration": 1e-4, "k_step_sub": 0.1,
-                  "l_max_ncdm": 10, "l_max_ur": 10,
-                  "tol_ncdm_synchronous": 1e-2, "q_linstep": 0.8}
+#: CLASS settings for the pair: CLASS's defaults, with the P(k) output
+#: sampled at 20 points a decade outside the BAO range rather than 10.
+#:
+#: Measured against a pair tightened everywhere (``ggah_mod_benchmark``
+#: ``scripts/58_kmax_extension.py``, grid to 300 h/Mpc, five redshifts) at the
+#: fiducial, 0.6 eV, a split-mass curved w0wa point and massless: the ratio is
+#: within 4e-5 of it in every window for every massive point, and within 7e-5
+#: (k < 200) and 1.8e-4 (200 < k < 300) massless.  CAMB's own precision leaves
+#: about 4e-4.
+#:
+#: Two cheaper choices were measured and refused.  CLASS's defaults alone put
+#: R 5.3e-4 wrong at k = 300 (the output spline, 10 points a decade, near its
+#: end); the suppression is 7 per cent there at the fiducial and 24 per cent at
+#: omega_cdm = 0.05, so an interpolation error that cancelled in the ratio
+#: below k = 200 no longer does.  And a pair loosened 2x below the defaults,
+#: which was 7.7e-5 from a default pair at six massive points below k = 200,
+#: is 6.5e-4 wrong *massless* at every k: with all 3.044 species relativistic
+#: the loosened integration does not cancel.
+SETTINGS: dict = {"k_per_decade_for_pk": 20.}
 
 
 @dataclass(frozen=True)

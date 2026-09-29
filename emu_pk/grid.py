@@ -21,15 +21,20 @@ __all__ = ["K_MIN", "K_MAX", "N_K", "k_grid", "lnk_grid",
 # --------------------------------------------------------------------------
 # Wavenumbers
 # --------------------------------------------------------------------------
-#: h/Mpc.  The top of the range is what the consumer needs.  ``ggah_mod``'s
-#: FAST backend quadratures sigma(M) out to k = 200 h/Mpc.  An emulator that stops
-#: short of that leaves ``jnp.interp`` clamping silently above its last mode,
-#: which returns a flat tail where the spectrum should be falling and puts
-#: P(200) orders of magnitude high with nothing raising.  Generating to 200
-#: means the emulator covers what its consumer integrates.
+#: h/Mpc.  The top of the range is what the consumer needs.  An emulator that
+#: stops short of it leaves ``jnp.interp`` clamping silently above its last
+#: mode, which returns a flat tail where the spectrum should be falling and
+#: puts P(k_max) orders of magnitude high with nothing raising.
+#:
+#: 300 from 2.1.0, where it was 200.  ``ggah_mod``'s Boltzmann backends tabulate
+#: to 300 and its two flavours integrate to 200; an emulator that stopped at
+#: 200 pinned the differentiable flavour there, and one that reaches 300 lets
+#: both flavours move together.  ``N_K`` keeps 2.0's density, 63.5 points a
+#: decade.  The precision above 200 was measured before the grid moved
+#: (``ggah_mod_benchmark`` ``scripts/58_kmax_extension.py``).
 K_MIN = 1e-4
-K_MAX = 200.0
-N_K = 400
+K_MAX = 300.0
+N_K = 411
 
 
 def k_grid(n_k: int = N_K) -> np.ndarray:
