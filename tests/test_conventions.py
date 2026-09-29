@@ -114,19 +114,26 @@ class TestTheCurvatureSignIsTheSameOnBothSides:
 
         from emu_pk import box
         backend = object.__new__(power.GgahEmuPk)
-        c = params.Cosmology.create(Omega_k=0.03, sum_mnu=0.09, w0=-0.9, wa=0.2)
+        # A normal ordering, named rather than inherited: the three masses are
+        # unequal, so `nu_r1` and `nu_r2` differ and swapping them is caught.
+        c = params.Cosmology.create(Omega_k=0.03, sum_mnu=0.09, w0=-0.9, wa=0.2,
+                                    nu_hierarchy="normal")
         got = np.asarray(backend._params(c))
         if got.size != len(box.PARAMS):
             pytest.skip(
                 f"ggah_mod stacks {got.size} parameters and this box has "
                 f"{len(box.PARAMS)}; the two are released in lockstep and this "
                 "checkout is mid-flight.")
+        m = np.asarray(c.nu_masses)
         want = {"omega_b": float(c.Omega_b) * float(c.h) ** 2,
                 "omega_cdm": float(c.Omega_cdm) * float(c.h) ** 2,
                 "h": float(c.h), "n_s": float(c.n_s),
                 "ln10A_s": float(c.ln10A_s), "sum_mnu": float(c.sum_mnu),
                 "w0": float(c.w0), "wa": float(c.wa),
-                "Omega_k": float(c.Omega_k)}
+                "Omega_k": float(c.Omega_k),
+                "nu_r1": float(m[0]) / float(c.sum_mnu),
+                "nu_r2": float(m[1]) / float(c.sum_mnu)}
+        assert set(want) == set(box.PARAMS)
         for j, name in enumerate(box.PARAMS):
             assert got[j] == pytest.approx(want[name]), \
                 f"column {j} should be {name}"
