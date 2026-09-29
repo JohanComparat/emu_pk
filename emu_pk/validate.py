@@ -173,6 +173,10 @@ QUINTESSENCE_CORNER = -0.15
 #: network was trained on, which is what scores 2.0 and 2.1 on one footing.
 TRUTHS = ("training", "reference")
 TRUTH = "training"
+#: The solver the scored network learnt, for the ``training`` truth; ``None``
+#: is :data:`emu_pk.generate.SOLVER`.  Set by :func:`main` from the weights'
+#: stamp, never by rebinding the generator's own setting.
+TRAINED_ON = None
 
 #: ``ggah_mod_benchmark``'s ``CAMB_REF`` (``ggah_bench.precision``), 0.02 %
 #: from a rung beyond it at worst over eleven box points.  Half an hour of one
@@ -191,14 +195,51 @@ def _class_pk(theta, z, k):
     cost six times as much for the same numbers.
     """
     z = np.atleast_1d(np.asarray(z, dtype=float))
+    if TRUTH not in TRUTHS:
+        raise ValueError(f"unknown truth {TRUTH!r}; one of {TRUTHS}")
+    cached = _cache_path(theta, z, k)
+    if cached is not None and cached.exists():
+        with np.load(cached) as c:
+            return c["pm"], c["pcb"]
     if TRUTH == "training":
-        return generate.solve_point(theta, z, k)
-    if TRUTH == "reference":
+        pm, pcb = generate.solve_point(theta, z, k, solver=TRAINED_ON)
+    else:
         d = (dict(theta) if hasattr(theta, "keys")
              else dict(zip(box.PARAMS, np.asarray(theta, dtype=float))))
-        return generate.solve_camb({p: float(d[p]) for p in box.PARAMS}, z, k,
-                                   precision=REFERENCE_PRECISION)
-    raise ValueError(f"unknown truth {TRUTH!r}; one of {TRUTHS}")
+        pm, pcb = generate.solve_camb({p: float(d[p]) for p in box.PARAMS}, z, k,
+                                      precision=REFERENCE_PRECISION)
+    if cached is not None:
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cached.with_name(cached.stem + ".part.npz")
+        np.savez(tmp, pm=pm, pcb=pcb)
+        tmp.rename(cached)
+    return pm, pcb
+
+
+#: Where truth solves are kept between runs, or ``None``.  The reference is
+#: half an hour of one core per point, and the comparison it exists for scores
+#: two networks on the same design -- so it is solved once.  Keyed on the
+#: truth, the solver behind it, the point, the grid and the settings, so a
+#: changed setting is a miss rather than a stale hit.
+CACHE_DIR = None
+
+
+def _cache_path(theta, z, k):
+    if CACHE_DIR is None:
+        return None
+    import hashlib
+    import json
+    import pathlib
+
+    from . import heating
+    d = (dict(theta) if hasattr(theta, "keys")
+         else dict(zip(box.PARAMS, np.asarray(theta, dtype=float))))
+    key = json.dumps([TRUTH, TRAINED_ON or generate.SOLVER,
+                      [float(d[p]) for p in box.PARAMS],
+                      np.asarray(z, float).tolist(), np.asarray(k, float).tolist(),
+                      REFERENCE_PRECISION, cosmo.CAMB_PRECISION, heating.SETTINGS],
+                     sort_keys=True)
+    return pathlib.Path(CACHE_DIR) / f"{TRUTH}_{hashlib.sha256(key.encode()).hexdigest()[:24]}.npz"
 
 
 def _pick(pm, pcb, which):
@@ -656,8 +697,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--weights", default=None)
     ap.add_argument("--truth", choices=TRUTHS, default="training",
-                    help="score against the training solver (default) or "
-                         "against CAMB at its converged reference x heating")
+                    help="score against the solver the network was trained on "
+                         "(default) or against CAMB at its converged reference "
+                         "x heating")
+    ap.add_argument("--cache", default=None,
+                    help="directory to keep truth solves in, so a second "
+                         "network is scored against the same solves for free")
     ap.add_argument("--n-shape", type=int, default=32)
     ap.add_argument("--n-deriv", type=int, default=16)
     ap.add_argument("--z", type=float, nargs="+", default=list(Z_NODES),
@@ -703,13 +748,21 @@ def main(argv=None):
                          "figure retyped by hand is a validation figure that "
                          "can silently outlive the weights it describes.")
     a = ap.parse_args(argv)
-    global TRUTH
+    global TRUTH, CACHE_DIR, TRAINED_ON
     TRUTH = a.truth
-    print(f"truth: {TRUTH}")
+    CACHE_DIR = a.cache
     emu = PkEmulator(a.weights, check_box=False,
                      allow_narrow_box=a.allow_narrow_box)
+    # The training truth is the one *this network* learnt, which its weights
+    # record from 2.1.0: a 2.0 network scored against CAMB would report the
+    # difference between two solvers as emulation error.  Unstamped weights
+    # are 2.0's, CLASS at its defaults.
+    trained_on = str(emu.w.get("truth_solver", "class")) if hasattr(emu, "w") else "class"
+    TRAINED_ON = trained_on
+    print(f"truth: {TRUTH}  (network trained on {trained_on}; "
+          f"solving {'CAMB reference x heating' if TRUTH == 'reference' else trained_on})")
     z_nodes = tuple(a.z)
-    out = {"truth": TRUTH, "z_nodes": list(z_nodes), "n_shape": a.n_shape, "n_deriv": a.n_deriv,
+    out = {"truth": TRUTH, "trained_on": trained_on, "z_nodes": list(z_nodes), "n_shape": a.n_shape, "n_deriv": a.n_deriv,
            "k_trusted": list(K_TRUSTED), "k_lowk": list(K_LOWK),
            "k_norm": K_NORM, "negative_de": NEGATIVE_DE,
            "heavy_nu": HEAVY_NU,

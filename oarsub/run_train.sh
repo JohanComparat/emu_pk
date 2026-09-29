@@ -127,7 +127,12 @@ if [ "${EPOCHS}" -lt 10 ]; then
 else
     VAL_ARGS=""
 fi
-if python -c "import classy" 2>/dev/null; then
+# Scored in the generation environment: from 2.1.0 the truth is CAMB >= 1.6,
+# which the training environment need not carry (on Dahu, hod_mod has 1.4.0,
+# which imports fine and solves something else).  A no-op when one environment
+# serves both.
+campaign_activate_env gen || echo "-- no generation environment here"
+if python -c "import classy, camb" 2>/dev/null; then
     # shellcheck disable=SC2086
     python -u -m emu_pk.validate --weights "${OUT}" \
            --json "${OUT%.npz}.validation.json" ${VAL_ARGS} ${ARM_VAL_ARGS} || \
