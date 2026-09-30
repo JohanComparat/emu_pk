@@ -244,7 +244,11 @@ def _cache_path(theta, z, k):
     from . import heating
     d = (dict(theta) if hasattr(theta, "keys")
          else dict(zip(box.PARAMS, np.asarray(theta, dtype=float))))
-    key = json.dumps([TRUTH, TRAINED_ON or generate.SOLVER,
+    # The solver behind the truth: the network's own for ``training``, and
+    # none of the network's business for ``reference`` -- which is what lets
+    # two networks trained on different solvers share one reference solve.
+    solver = (TRAINED_ON or generate.SOLVER) if TRUTH == "training" else "camb-ref"
+    key = json.dumps([TRUTH, solver,
                       [float(d[p]) for p in box.PARAMS],
                       np.asarray(z, float).tolist(), np.asarray(k, float).tolist(),
                       REFERENCE_PRECISION, cosmo.CAMB_PRECISION, heating.SETTINGS],
@@ -752,6 +756,9 @@ def main(argv=None):
                          "network is meaningful only at Omega_k = 0.  "
                          "Scoring it on a curved design divides by that and "
                          "returns numbers that mean nothing.")
+    ap.add_argument("--no-deriv", action="store_true",
+                    help="skip the derivative scores; for --truth reference, "
+                         "whose solves are too dear to difference")
     ap.add_argument("--no-convergence", action="store_true",
                     help="skip the step-size check that measures the metric's "
                          "own noise floor; halves the CLASS solves")
@@ -824,15 +831,19 @@ def main(argv=None):
                                             band=K_LOWK, label="low-k band")
         if not a.no_tail:
             lnk = getattr(emu, "lnk", None)
-            k_top = (float(np.exp(np.max(np.asarray(lnk)))) if lnk is not None
-                     else grid.K_MAX)
+            # Six figures: the grid's top as a number (200, 300), not as the
+            # float64 or float32 its log round-trips to -- it is part of the
+            # truth cache's key, and prefill_reference.py names it too.
+            k_top = (float(f"{np.exp(np.max(np.asarray(lnk))):.6g}")
+                     if lnk is not None else grid.K_MAX)
             out["k_tail"] = [K_TAIL_MIN, k_top]
             out["shape_tail"] = shape_error(emu, a.n_shape, z_nodes,
                                             band=(K_TAIL_MIN, k_top),
                                             label="small-scale tail")
-        out["derivative"] = derivative_error(
-            emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
-        out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
+        if not a.no_deriv:
+            out["derivative"] = derivative_error(
+                emu, a.n_deriv, z_nodes, convergence=not a.no_convergence)
+            out["derivative_z"] = redshift_derivative_error(emu, a.n_deriv, z_nodes)
         if not a.no_floor:
             # The shape metric's own ruler, reported beside the number it
             # limits, the way `derivative_error` reports its finite-difference
