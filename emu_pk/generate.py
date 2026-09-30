@@ -263,7 +263,7 @@ SLOW_SOLVE_S = 20.0
 
 def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
               seed: int = 20260827, chunk: int = CHUNK,
-              pin: dict | None = None) -> list:
+              pin: dict | None = None, only_chunk: int | None = None) -> list:
     """Solve design points ``[index*n : (index+1)*n)``, writing one file per chunk.
 
     The design is regenerated from the seed rather than read from a file, so a
@@ -285,7 +285,16 @@ def emu_shard(index: int, n_per_shard: int, out_dir, n_total: int,
 
     k, z = grid.k_grid(), grid.Z_NODES_EMU
     written = []
-    for c0 in range(lo, hi, chunk):
+    starts = list(range(lo, hi, chunk))
+    # One chunk only: the unit a short job can finish.  Named exactly as the
+    # whole shard would name it, so a short job and a shard job that meet on
+    # the same points write the same file, and each skips what the other did.
+    if only_chunk is not None:
+        if only_chunk not in starts:
+            raise ValueError(f"{only_chunk} is not a chunk start of shard {index} "
+                             f"({n_per_shard} per shard, chunks of {chunk})")
+        starts = [only_chunk]
+    for c0 in starts:
         c1 = min(c0 + chunk, hi)
         out = out_dir / f"emu_{index:05d}_{c0:07d}.npz"
         if out.exists():
@@ -354,6 +363,9 @@ def main(argv=None):
                     help="size of the emu design (ignored for --mode ratio)")
     ap.add_argument("--out", default="shards")
     ap.add_argument("--seed", type=int, default=20260827)
+    ap.add_argument("--chunk-start", type=int, default=None,
+                    help="solve only the chunk starting at this design index "
+                         "(a chunk start of --shard); for short jobs")
     ap.add_argument("--chunk", type=int, default=CHUNK,
                     help="solves per output file; caps what a besteffort kill loses")
     ap.add_argument("--pin", action="append", default=None, metavar="NAME=VALUE",
@@ -372,6 +384,7 @@ def main(argv=None):
         if pin:
             print(f"pinned: {pin}")
         emu_shard(a.shard, a.n_per_shard, a.out, a.n_total, a.seed, a.chunk,
+                  only_chunk=a.chunk_start,
                   pin=pin or None)
     else:
         _time_calibration(a.n_per_shard, a.seed)

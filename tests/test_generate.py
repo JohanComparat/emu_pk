@@ -282,3 +282,20 @@ def test_a_solve_without_massive_neutrinos_copies_p_m_into_p_cb(monkeypatch):
     pm, pcb = generate.solve({"h": 0.7}, [0.0], np.array([0.1, 1.0]))
     assert np.array_equal(pm, pcb)
     assert pm.shape == (1, 2)
+
+
+def test_one_chunk_writes_the_file_the_whole_shard_would(tmp_path, fake_solve):
+    """`--chunk-start` is how a short job takes one chunk of a shard.
+
+    It has to land under the very name the whole shard gives that chunk, or a
+    short job and a shard job meeting on the same points would both keep them.
+    """
+    whole, one = tmp_path / "whole", tmp_path / "one"
+    generate.emu_shard(1, 20, whole, n_total=100, chunk=10)
+    generate.emu_shard(1, 20, one, n_total=100, chunk=10, only_chunk=30)
+    assert sorted(p.name for p in one.glob("*.npz")) == ["emu_00001_0000030.npz"]
+    with np.load(whole / "emu_00001_0000030.npz") as a, \
+            np.load(one / "emu_00001_0000030.npz") as b:
+        assert np.array_equal(a["idx"], b["idx"]) and np.array_equal(a["pm"], b["pm"])
+    with pytest.raises(ValueError, match="not a chunk start"):
+        generate.emu_shard(1, 20, one, n_total=100, chunk=10, only_chunk=35)

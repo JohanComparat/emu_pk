@@ -240,6 +240,19 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
         Ycb.append(ln_pcb.reshape(n * len(z), len(lnk)))
         idx.extend(idx_f.tolist())
 
+    # **A design index may land once.**  Shards of one campaign are cut on
+    # common chunk boundaries so that jobs of different sizes write the same
+    # file for the same points; a directory written under two cuttings would
+    # hold some points twice, and a network trains perfectly well on a point
+    # counted twice -- it just weighs it double.
+    seen, dup = set(), set()
+    for i in idx:
+        (dup if i in seen else seen).add(i)
+    if dup:
+        raise ValueError(
+            f"{len(dup)} design indices appear in more than one shard (first: "
+            f"{sorted(dup)[:5]}); the directory mixes two chunk layouts.  Keep "
+            f"one file per point and assemble again.")
     X = np.concatenate(X).astype(dtype)
     Ym = np.concatenate(Ym).astype(dtype)
     Ycb = np.concatenate(Ycb).astype(dtype)

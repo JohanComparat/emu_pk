@@ -218,3 +218,12 @@ class TestTheCorrectionTable:
     def test_no_shards_says_so(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="no ratio_"):
             assemble.build_ratio(tmp_path, tmp_path / "tab.npz", verbose=False)
+
+
+def test_a_point_written_twice_is_refused(tmp_path):
+    """Two chunk layouts in one directory hold some points twice."""
+    z, lnk = grid.Z_NODES_EMU[:3], grid.lnk_grid(5)
+    _shard(tmp_path / "emu_00000_0000000.npz", [0, 1, 2], z, lnk)
+    _shard(tmp_path / "emu_00001_0000002.npz", [2, 3], z, lnk)
+    with pytest.raises(ValueError, match="more than one shard"):
+        assemble.build_training_set(tmp_path, tmp_path / "ds.npz", parts=1)
