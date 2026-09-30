@@ -226,6 +226,14 @@ def _class_pk(theta, z, k):
     return pm, pcb
 
 
+def _truth_name() -> str:
+    """What the scores are against, for the printed tables."""
+    if TRUTH == "reference":
+        return "CAMB reference x heating"
+    solver = TRAINED_ON or generate.SOLVER
+    return "CLASS" if solver == "class" else "CAMB x heating"
+
+
 #: Where truth solves are kept between runs, or ``None``.  The reference is
 #: half an hour of one core per point, and the comparison it exists for scores
 #: two networks on the same design -- so it is solved once.  Keyed on the
@@ -483,7 +491,7 @@ def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                 s["total"] = _summary(tots[w][float(zz)], where, n)
     if verbose:
         for w in which:
-            print(f"{label} vs CLASS, P_{w}, k in "
+            print(f"{label} vs {_truth_name()}, P_{w}, k in "
                   f"[{band[0]:g}, {band[1]:g}], {len(where)}/{n} held-out "
                   f"points:")
             print(f"  {'z':>5}  {'median':>9} {'90th':>9} {'max':>9}   "
@@ -601,7 +609,7 @@ def derivative_error(emu, n: int = 16, z_nodes=Z_NODES, seed: int = 991,
                 "n_scored": len(r)}
 
     if verbose:
-        _print_deriv(f"derivative error vs CLASS finite differences, P_{which}",
+        _print_deriv(f"derivative error vs {_truth_name()} finite differences, P_{which}",
                      out, z_nodes, box.PARAMS)
     return out
 
@@ -683,7 +691,7 @@ def redshift_derivative_error(emu, n: int = 16, z_nodes=Z_NODES,
                        if floor[float(zz)] else None,
                        "n_scored": len(rel[float(zz)])} for zz in z_nodes}
     if verbose:
-        print(f"dlnP/dz vs CLASS finite differences, P_{which} "
+        print(f"dlnP/dz vs {_truth_name()} finite differences, P_{which} "
               f"({len(where)}/{n} points):")
         for zz in z_nodes:
             s = out[f"{zz:g}"]
