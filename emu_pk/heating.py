@@ -42,7 +42,7 @@ import numpy as np
 
 from . import cosmo
 
-__all__ = ["SETTINGS", "Heating", "pair"]
+__all__ = ["SETTINGS", "RETRY", "Heating", "pair"]
 
 #: CLASS settings for the pair: CLASS's own defaults.  What makes them enough
 #: is where the ratio is taken -- see :func:`pair`.
@@ -78,7 +78,28 @@ class Heating:
     pcb_class: np.ndarray
 
 
+#: What :func:`pair` retries with when CLASS refuses a point.  At the grid's
+#: new top (P_k_max = 315 h/Mpc) CLASS's stiff integrator loses its step size
+#: on the last k modes at some points near the quintessence corner
+#: (w0 + wa -> 0) that it solved at 2.0's P_k_max = 210 -- two in the first
+#: 600 of the pilot.  A thousandfold tighter tolerance than the default's 1e-5
+#: solves both, at 1.5x the cost; raising P_k_max does not.  Both solves of the
+#: pair are retried together, so the ratio still comes from one setting.
+RETRY: dict = {"tol_perturbations_integration": 1e-6}
+
+
 def pair(theta: dict, z_nodes, k_h, settings: dict | None = None) -> Heating:
+    """:func:`_pair`, retried once at :data:`RETRY` if CLASS refuses the point."""
+    s = dict(SETTINGS if settings is None else settings)
+    try:
+        return _pair(theta, z_nodes, k_h, s)
+    except Exception as first:
+        if not type(first).__name__.startswith("Cosmo"):
+            raise
+        return _pair(theta, z_nodes, k_h, {**s, **RETRY})
+
+
+def _pair(theta: dict, z_nodes, k_h, settings: dict) -> Heating:
     """The CLASS pair at one box point: heated and not, same settings.
 
     **The ratio is taken on CLASS's own k nodes**, where its P(k) spline is
@@ -94,7 +115,7 @@ def pair(theta: dict, z_nodes, k_h, settings: dict | None = None) -> Heating:
     from scipy.interpolate import CubicSpline
 
     from . import grid
-    s = dict(SETTINGS if settings is None else settings)
+    s = dict(settings)
     z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
     k_h = np.asarray(k_h, dtype=float)
     h = float(theta["h"])
