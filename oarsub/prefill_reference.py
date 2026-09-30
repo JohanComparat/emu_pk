@@ -18,10 +18,15 @@ The design is ``validate``'s ``box.sample(n, seed)``.
 from __future__ import annotations
 
 import argparse
+import pathlib
 import sys
 import time
 
 import numpy as np
+
+# Run as a script from the repository, not installed: the package is the
+# directory above this one, which a script's own sys.path does not include.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 
 def main(argv=None) -> int:
