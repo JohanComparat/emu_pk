@@ -255,8 +255,15 @@ it.
 
 ### Bigfoot — GPU, conda from `/applis`
 
+**Since Bigfoot moved to Debian 13 (October 2026), `/applis` no longer
+exists**, so the recipe below can no longer create an environment. The one it
+built survives under `~/.conda/envs/emu_pk` and still works (jax 0.10.2 with
+the CUDA 12 plugin, optax 0.2.8, numpy 2.4.6): `campaign_activate_env` puts its
+`bin/` first on `PATH` when neither mamba nor the site conda is there. Building
+a new one needs a personal installer (miniforge in `$HOME`) on that machine.
+
 Bigfoot has **no** `conda`, `mamba`, `nix` or `guix` on `PATH`, and no
-`~/miniforge3`. The site installation is sourced instead:
+`~/miniforge3`. The site installation was sourced instead:
 
 ```bash
 # on bigfoot.ciment

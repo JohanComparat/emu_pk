@@ -157,8 +157,17 @@ campaign_activate_env () {
         # shellcheck disable=SC1091
         source /applis/environments/conda.sh
         conda activate "${CONDA_ENV}"
+    elif [ -x "${HOME}/.conda/envs/${CONDA_ENV}/bin/python" ]; then
+        # Bigfoot since its move to Debian 13 (2026-10): /applis is gone, and
+        # with it the site conda the environment was built from.  The
+        # environment itself survives under ~/.conda/envs and runs without
+        # conda: its pip wheels carry their own CUDA, so putting its bin first
+        # on PATH is the whole activation.
+        export PATH="${HOME}/.conda/envs/${CONDA_ENV}/bin:${PATH}"
+        export CONDA_PREFIX="${HOME}/.conda/envs/${CONDA_ENV}"
     else
-        echo "!! no mamba at ${mamba_exe} and no /applis/environments/conda.sh." >&2
+        echo "!! no mamba at ${mamba_exe}, no /applis/environments/conda.sh and" >&2
+        echo "   no ~/.conda/envs/${CONDA_ENV}." >&2
         echo "   Set MAMBA_EXE, or build the env per oarsub/README.md." >&2
         exit 1
     fi
