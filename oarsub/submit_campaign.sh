@@ -238,9 +238,15 @@ case "${FAMILY}" in
         -l "/nodes=1/gpu=1,walltime=00:30:00" \
         $(log_flags train_gpu_devel) -S "./oarsub/run_train.sh ${TRAIN_ARGS}"
     else
+      # GPU_MODEL picks the card (Bigfoot: V100 32 GB, A100 40 GB; its MI210s
+      # are AMD and the environment is CUDA).  The 150 000-point design's
+      # training split is 13.5 GiB on the device, so the default is the A100;
+      # GPU_MODEL= (empty) takes any NVIDIA card.
+      GPU_MODEL="${GPU_MODEL-A100}"
       oarsub --project "${PROJECT}" \
         -t besteffort -t idempotent \
         -l "/nodes=1/gpu=1,walltime=12:00:00" \
+        ${GPU_MODEL:+-p "gpumodel='${GPU_MODEL}'"} \
         $(log_flags train_gpu) -S "./oarsub/run_train.sh ${TRAIN_ARGS}"
     fi
     ;;

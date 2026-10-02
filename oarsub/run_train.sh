@@ -66,6 +66,13 @@ cd "${REPO}"
 mkdir -p oarsub/logs
 campaign_activate_env train
 NCORES="$(campaign_threads)"
+# On a GPU the whole training split lives on the device (train.py moves Xtr and
+# Ttr there once), and at 150 000 cosmologies the targets alone are 13.5 GiB.
+# JAX reserves 75 % of the card by default, which a 32 GB V100 cannot spare
+# for that and the step's own buffers (job 93896 died on it); take 95 %.
+if command -v nvidia-smi >/dev/null 2>&1; then
+    export XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.95}"
+fi
 echo "host=$(hostname)  job=${OAR_JOB_ID:-local}  cores=${NCORES}  tag=${TAG}" \
      " arm=${EMU_PK_ARM}  epochs=${EPOCHS}  flags='$*'  out=${OUT}" \
      " start=$(date -Is)"
