@@ -93,6 +93,10 @@ fi
 
 python -u -m emu_pk.train --dataset "${EMU_PK_DATASET}" \
        --out "${OUT}" --epochs "${EPOCHS}" "$@"
+# Training is over.  The weights file exists from the first epoch on (best so
+# far), so its presence says nothing; this marker is what a waiter on another
+# cluster reads before it scores the network (oarsub/after_training.sh).
+touch "${OUT%.npz}.trained"
 
 # Score it here, while the environment that trained it is still loaded, and
 # write the numbers to a file beside the weights.  A validation figure retyped
