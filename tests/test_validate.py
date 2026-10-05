@@ -540,3 +540,31 @@ class TestTheNeutrinoStrataAreReported:
         d = box.sample(4000, seed=11)
         frac = np.mean(d[:, box.PARAMS.index("sum_mnu")] > V.HEAVY_NU)
         assert 0.4 < frac < 0.6, f"{frac:.2f} of the design is heavy"
+
+
+class TestTheTruthCacheIsSharedAcrossMachines:
+    """A cache filled on one machine must serve another.
+
+    The reference truth is half an hour of one core per point, filled on Dahu
+    and read wherever the scoring runs.  The scoring wavenumbers come out of
+    `exp`, which numpy rounds differently with and without AVX-512, so the two
+    machines' k differ in the last bit -- and a key built on exact floats
+    missed every point.
+    """
+
+    def test_a_last_bit_change_in_k_is_the_same_key(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(V, "CACHE_DIR", str(tmp_path))
+        theta = box.sample(1, seed=3)[0]
+        z = np.array([0.0, 0.5, 1.0])
+        k = np.logspace(-3, 1, 300)
+        nudged = np.nextafter(k, np.inf)
+        assert np.any(nudged != k)
+        assert V._cache_path(theta, z, k) == V._cache_path(theta, z, nudged)
+
+    def test_a_different_point_is_a_different_key(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(V, "CACHE_DIR", str(tmp_path))
+        theta = box.sample(2, seed=3)
+        z = np.array([0.0, 0.5])
+        k = np.logspace(-3, 1, 300)
+        assert V._cache_path(theta[0], z, k) != V._cache_path(theta[1], z, k)
+        assert V._cache_path(theta[0], z, k) != V._cache_path(theta[0], z, k[:-1])

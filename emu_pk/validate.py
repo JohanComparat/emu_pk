@@ -256,9 +256,17 @@ def _cache_path(theta, z, k):
     # none of the network's business for ``reference`` -- which is what lets
     # two networks trained on different solvers share one reference solve.
     solver = (TRAINED_ON or generate.SOLVER) if TRUTH == "training" else "camb-ref"
+    # Rounded, not exact.  The k grid comes out of `exp`, and numpy rounds
+    # `exp` differently on an AVX-512 node and on a laptop without it: 21 of
+    # the 300 scoring wavenumbers differed in the last bit between Dahu and an
+    # Arrow Lake laptop running the same numpy, so every key missed and a cache
+    # filled on one machine was useless on the other.  The same solve differs
+    # by ~1e-16; ln k to 1e-9 and everything else to 1e-10 cannot tell that
+    # apart, and the cache is shared across machines on purpose.
+    r = lambda a, n=10: np.round(np.asarray(a, dtype=float), n).tolist()
     key = json.dumps([TRUTH, solver,
-                      [float(d[p]) for p in box.PARAMS],
-                      np.asarray(z, float).tolist(), np.asarray(k, float).tolist(),
+                      r([float(d[p]) for p in box.PARAMS]),
+                      r(z), r(np.log(np.asarray(k, dtype=float)), 9),
                       REFERENCE_PRECISION, cosmo.CAMB_PRECISION, heating.SETTINGS],
                      sort_keys=True)
     return pathlib.Path(CACHE_DIR) / f"{TRUTH}_{hashlib.sha256(key.encode()).hexdigest()[:24]}.npz"
