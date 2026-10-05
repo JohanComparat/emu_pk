@@ -89,16 +89,30 @@ More of this kind of thing, with the reasons, is in `docs/design_notes.md`.
 1. Update `CHANGELOG.md`.
 2. Bump the version in **three** places — `pyproject.toml`,
    `emu_pk/__init__.py`, `CITATION.cff`. CI checks they agree.
-3. If the weights changed, re-run `python -m emu_pk.validate --json
-   emu_pk/data/validation.json` **locally**, with no `--weights`. Run on the
-   cluster it records the path it scored, and the shipped record must say
-   `"shipped"`; a test asserts it.
-4. Update every number quoted from that file. They live in `README.md`,
-   `docs/index.md`, `docs/tutorial/02_accuracy.md`, `docs/tutorial/01_spectrum.md`,
+3. If the weights changed, regenerate **both** records with no `--weights`,
+   against the solver versions the weights were trained on (2.1: CAMB 1.6.6,
+   CLASS 3.3.4; CAMB 2.0.4 is off by up to 4.4e-4 in $\ln P$):
+
+   ```bash
+   python -m emu_pk.validate --cache CACHE --json emu_pk/data/validation.json
+   python -m emu_pk.validate --truth reference --cache CACHE \
+          --no-floor --no-lowk --no-flat-slice --no-deriv --no-convergence \
+          --json emu_pk/data/validation_reference.json
+   ```
+
+   With `--weights` a record names the path it scored, and the shipped records
+   must say `"shipped"`. Each carries the checksum of the file scored, and a
+   test asserts that both match the shipped weights. The reference is half an
+   hour of one core a point; fill the cache in parallel
+   (`oarsub/prefill_reference.py`) and it serves any machine.
+4. Update every number quoted from those files. They live in `README.md`,
+   `CHANGELOG.md`, `docs/index.md`, `docs/tutorial/02_accuracy.md`,
+   `docs/tutorial/01_spectrum.md`, `docs/tutorial/03_derivatives.md`,
    `docs/design_notes.md` and `docs/reproducing.md`; grep for `%` in a table.
    A number that appears twice is a number that will disagree with itself.
 5. Regenerate the figures: `python docs/make_figures.py`, which needs `[gen]`
-   and about two minutes. They are committed artefacts because ReadTheDocs
+   and, since 2.1, thirteen CAMB solves at the training precision: under an
+   hour on one machine. They are committed artefacts because ReadTheDocs
    cannot compile CLASS. Deterministic against unchanged weights, so a stale
    figure shows up as a diff.
 6. Tag, and let the publish workflow build and upload.

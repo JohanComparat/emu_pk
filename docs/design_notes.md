@@ -108,12 +108,12 @@ than the one it reported: two conventions, 0.46 % apart.
 
 ## The spectrum is interpolated with a cubic, and the metric reports its floor
 
-`shape_error` asks CLASS at 300 fresh log points while the network predicts on
-`grid.k_grid`'s 400 nodes, so whatever happens *between* the nodes is scored as
-network error. At six nodes per acoustic period in $\ln k$, linear
+`shape_error` asks the truth at 300 fresh log points while the network predicts
+on `grid.k_grid`'s nodes (400 in 2.0, 411 since 2.1, at the same density), so
+whatever happens *between* the nodes is scored as network error. At six nodes per acoustic period in $\ln k$, linear
 interpolation is an $O(h^2)$ error large enough to be the whole score.
 
-Pushing a CLASS spectrum through the identical path — solve on the native grid,
+Pushing a truth spectrum through the identical path — solve on the native grid,
 interpolate to the scoring points, renormalise at `K_NORM`, max over $k$ — with
 no network involved:
 
@@ -302,7 +302,7 @@ This is what CosmoPower's own released linear-matter model does, and they
 report having tested PCA against it and preferring the direct form. The reason
 it matters here is not compression — the PCA residual is 7.6e-6, four orders
 below the error — but that a basis makes every coefficient error *non-local in
-k*. One bad coefficient is a wiggle across all 400 wavenumbers, and the metric
+k*. One bad coefficient is a wiggle across all 411 wavenumbers, and the metric
 is the **max** fractional error over `k`.
 
 Both forms are supported; the checkpoint declares which it is in
@@ -323,10 +323,10 @@ rewinds the schedule to its peak.
 
 ## The extras split is load-bearing
 
-`import emu_pk` in an environment with no `classy` and no `optax` must work,
-and `tests/` asserts it. That is what lets a downstream package depend on this
-one without inheriting a Boltzmann solver or a training stack. Generation and
-validation are `[gen]`; training is `[train]`.
+`import emu_pk` in an environment with no CAMB, no `classy` and no `optax` must
+work, and `tests/` and CI assert it. That is what lets a downstream package
+depend on this one without inheriting a Boltzmann solver or a training stack.
+Generation and validation are `[gen]`, both solvers; training is `[train]`.
 
 ## `load_weights` is cached on the file's identity, not its path
 
@@ -338,5 +338,79 @@ previous network. The cache key includes mtime and size.
 
 `jnp.interp` clamps at the edges, and a clamped linear spectrum is *flat* above
 the last mode instead of falling as $k^{-3}\ln^2 k$. The grid reaches
-200 h/Mpc, which is what the consumer integrates to, so the tail is a safety net
+300 h/Mpc, which is what the consumer integrates to, so the tail is a safety net
 rather than a load-bearing extrapolation — but it is a net, not a cliff.
+
+## The training truth is CAMB, and CLASS only supplies the heating
+
+2.0 trained on CLASS 3.3.4 at its defaults. `ggah_mod_benchmark`'s precision
+scan put that 0.41 % from CLASS's own converged answer in the median over this
+box, 0.81 % at worst, smoothly in the parameters, and a network learns its truth
+faithfully, error included. No affordable CLASS setting closes the gap at the
+heavy-neutrino end, where the ncdm fluid approximation dominates above 0.3 eV.
+CAMB at `ggah_mod` 0.9.8's precision is 0.039 % from its own converged rung.
+
+CAMB's linear $P(k)$ does not heat the baryons at reionization and CLASS's
+does: 3 % at $k = 200\ h\,\mathrm{Mpc}^{-1}$ at the fiducial, 13 % at
+`omega_cdm = 0.05`. So each CAMB spectrum is multiplied by CLASS's ratio
+$P(\text{reio})/P(\text{no reio})$ from a pair at the same point. A ratio
+cancels most of what a loose setting gets wrong, which is why the pair can run
+at CLASS's own defaults: taken on CLASS's own $k$ nodes it is within 6e-5 of a
+pair tightened everywhere. Taken after CLASS's $P(k)$ spline it was 1.3e-3 off
+above 200, two spectra of different shape interpolated between nodes eleven a
+decade apart.
+
+## A validation against the training truth cannot see the truth's error
+
+2.0's validation reported 0.064 % against the same default CLASS it was trained
+on, while the network sat 0.35 % from a converged answer. Both numbers were
+true; only one was the accuracy of the spectrum. So 2.1 ships two records:
+`validation.json` against the training truth, which measures the network alone
+and carries the derivatives, and `validation_reference.json` against CAMB at a
+converged rung, which neither version was trained on and on which they compare.
+The reference is half an hour of one core per point, so it scores the shape
+and the tail only.
+
+## A validation record carries the checksum of the weights it scored
+
+`"weights": "shipped"` names whichever file is shipped *now*. 2.1's weights
+went in beside 2.0's `validation.json` with every consistency test passing,
+because both networks stopped at epoch 237 and nothing else in the record pins
+down the bytes. Each record carries `weights_sha256`, and a test compares it
+with the shipped file.
+
+## The truth cache is keyed on rounded values
+
+A reference solve is half an hour; the cache is what makes scoring a second
+network cheap, and it was filled on Dahu to be read elsewhere. Its keys hashed
+the scoring wavenumbers exactly, and those come out of `exp`, which numpy
+rounds differently with and without AVX-512: 21 of 300 differed in the last bit
+between Dahu and an Arrow Lake laptop on the same numpy, and every key missed.
+The keys now hash $\ln k$ to 1e-9 and the rest to 1e-10, far above that noise
+and far below any difference that would be a different solve.
+
+## CAMB is asked for each redshift once
+
+CLASS evaluates $P(k)$ at any list of redshifts. CAMB integrates the transfer
+functions to each requested redshift in turn, and a repeated one is a
+zero-length step its integrator refuses with a DVERK error. `validate`'s
+$\partial\ln P/\partial z$ stencils ask for $z = 0$ and $0.05$ at both step
+sizes, so under CAMB every one of its 16 points was skipped and the redshift
+derivative went unscored, with nothing louder than a count of zero.
+`generate.solve_camb` passes the unique redshifts and matches rows back by $z$.
+
+## Training on a GPU is at full float32
+
+On an A100, JAX multiplies float32 matrices in TF32, ten mantissa bits, unless
+told otherwise. A run with the same data, seed and schedule as a CPU run tracked
+it to 0.2 % for the first epochs and then stopped at a val loss of 5.9e-7
+against 3.7e-7, its *train* loss as high: a worse fit, not overfitting. With
+`JAX_DEFAULT_MATMUL_PRECISION=highest` the first epochs agree with the CPU's to
+four digits. The shipped 2.1 network was trained at full float32 throughout.
+
+`--host-targets` exists for the same campaign: the 150k set's targets are
+13.5 GiB, and moving them onto a device takes twice that for a moment. Kept in
+host memory and sent a batch at a time, the run is the same run bit for bit,
+and on a 16 GB laptop card it is as fast as the A100, because a 4×512 network is
+limited by per-step overhead rather than arithmetic.
+

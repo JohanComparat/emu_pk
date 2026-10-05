@@ -309,10 +309,34 @@ Verified: numpy 2.4.6, jax 0.10.2 with `jax-cuda12-plugin` 0.10.2 and
 
 ### Is Bigfoot worth it?
 
-Measured, not assumed: **37 s/epoch on 32 Dahu cores**, so 240 epochs is 2.5 h
-and a four-arm ablation is about ten. That fits the CPU queue. The GPU path is
-documented for wider networks, not because throughput requires it at this size.
-Smoke it with `--devel` before trusting the resource line.
+Measured, not assumed, at 2.1's 150 000 cosmologies:
+
+| where | per epoch | 240 epochs |
+|---|---|---|
+| 32 Dahu cores | 154 s | ~10 h, over a besteffort queue |
+| one A100, full float32 | 14.4 s | ~1 h |
+| a 16 GB laptop GPU, `--host-targets` | 12 s | ~50 min |
+
+At the 16k pilot it was 37 s/epoch on Dahu and the CPU queue was enough; at
+150k it is not, and a GPU is ten times faster. The network is small enough that
+a step is limited by per-step overhead rather than arithmetic, so a laptop card
+keeps up with the A100.
+
+**`run_train.sh` sets `JAX_DEFAULT_MATMUL_PRECISION=highest` on a GPU**, and
+logs it beside the device. Without it JAX multiplies float32 matrices in TF32
+on an A100: p150kbf, the same data, seed and schedule as Dahu's p150k, stopped
+at a val loss of 5.9e-7 against 3.7e-7, worst-case error 1.6x higher.
+
+The 150k set's targets are 13.5 GiB on the device, and a 32 GB V100 cannot
+take them (job 93896): the A100 is the default (`GPU_MODEL`). On a smaller card
+pass `--host-targets`, which keeps them in host memory and sends each batch
+over, with the same result bit for bit.
+
+A besteffort GPU job is preempted like any other and resumes from its
+checkpoint. A checkpoint can also be finished elsewhere: copy
+`<weights>.npz` and `<weights>.resume.npz` under a new tag, and the trainer
+continues from the last epoch. The shipped 2.1 network ran 183 epochs on
+Bigfoot and the last 57 on a laptop GPU.
 
 ## OAR dialect
 

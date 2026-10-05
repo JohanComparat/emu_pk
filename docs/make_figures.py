@@ -2,11 +2,12 @@
 
 Run this locally and **commit the output**.  ReadTheDocs installs the core
 package only -- it cannot compile CLASS -- so the figures cannot be generated at
-build time.  Anything comparing against CLASS needs ``pip install
-'emu_pk[gen]'``; the rest needs only the core install and matplotlib.
+build time.  Anything comparing against the training truth (CAMB times CLASS's
+heating, since 2.1) needs ``pip install 'emu_pk[gen]'``; the rest needs only
+the core install and matplotlib.
 
     python docs/make_figures.py            # everything it can
-    python docs/make_figures.py --fast     # skip the CLASS comparisons
+    python docs/make_figures.py --fast     # skip the solver comparisons
 
 Each figure prints the package version it was made with.  The figures are
 deterministic -- rerunning this against unchanged weights reproduces them byte
@@ -62,7 +63,7 @@ def _save(fig, name):
 
 # ---------------------------------------------------------------- core only
 def fig_spectrum(plt, emu):
-    """P(k, z), and the same curves' residual against CLASS.
+    """P(k, z), and the same curves' residual against the training truth.
 
     Needs `[gen]`: the right panel is the emulator against the solver it is
     distilled from, on the same lines as the left, which is the comparison a
@@ -74,7 +75,7 @@ def fig_spectrum(plt, emu):
     k = np.logspace(-4, np.log10(grid.K_MAX), 400)
     fig, (a, b) = plt.subplots(1, 2, figsize=(9.4, 3.6))
 
-    # One CLASS solve returns every redshift.
+    # One truth solve returns every redshift.
     ref = V._class_pk(PLANCK, np.array(zs), k)[0]
     got = np.asarray(emu.pk(k, np.array(zs), PLANCK))
 
@@ -92,8 +93,8 @@ def fig_spectrum(plt, emu):
     b.axvspan(V.K_TRUSTED[0], V.K_TRUSTED[1], color="0.85", alpha=0.45,
               zorder=0, label="scored range")
     b.set(xlabel=r"$k\ [h\,\mathrm{Mpc}^{-1}]$",
-          ylabel=r"$P_{\rm emu}/P_{\rm CLASS} - 1$ [%]",
-          title="residual against CLASS, same curves")
+          ylabel=r"$P_{\rm emu}/P_{\rm truth} - 1$ [%]",
+          title=f"residual against {V._truth_name()}, same curves")
     b.legend(frameon=False, fontsize=7, ncol=2)
     return _save(fig, "01_spectrum")
 
@@ -229,7 +230,8 @@ def fig_validation(plt):
     a.plot(x, mx, "^:", label="max")
     floor = [v["shape_floor"][z]["median"] * 100 for z in zs]
     a.plot(x, floor, "-.", color="C3", lw=1.2, label="the metric's own floor")
-    a.set(xlabel="$z$", ylabel="shape error vs CLASS [%]",
+    truth = "CLASS" if v.get("trained_on", "class") == "class" else "CAMB x heating"
+    a.set(xlabel="$z$", ylabel=f"shape error vs {truth} [%]",
           title=f"held-out, {v['shape']['m'][zs[0]]['n_scored']} cosmologies")
     a.legend(frameon=False, fontsize=8)
 
@@ -255,7 +257,7 @@ def fig_validation(plt):
 
 # ------------------------------------------------------------- needs classy
 def fig_against_class(plt, emu):
-    """Residual against CLASS for held-out cosmologies."""
+    """Residual against the training truth for held-out cosmologies."""
     from emu_pk import validate as V
 
     k = np.logspace(-3, 1, 300)
@@ -275,7 +277,7 @@ def fig_against_class(plt, emu):
     ax.axhspan(-med, med, color="C3", alpha=0.12,
                label=f"median shape error, {med:.3f} %")
     ax.set(xlabel=r"$k\ [h\,\mathrm{Mpc}^{-1}]$",
-           ylabel="fractional residual vs CLASS [%]",
+           ylabel=f"fractional residual vs {V._truth_name()} [%]",
            title="Twelve held-out cosmologies at $z=0$, renormalised at "
                  rf"$k={V.K_NORM}$")
     ax.legend(frameon=False, fontsize=8)
@@ -285,7 +287,7 @@ def fig_against_class(plt, emu):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--fast", action="store_true",
-                    help="skip figures that need CLASS")
+                    help="skip figures that need the solvers")
     a = ap.parse_args(argv)
 
     plt = _style()
@@ -299,14 +301,14 @@ def main(argv=None):
     except Exception as e:                       # the table is optional data
         print(f"  skipped 05_correction: {type(e).__name__}: {e}")
     if a.fast:
-        print("  --fast: skipping the figures that need CLASS "
+        print("  --fast: skipping the figures that need the solvers "
               "(01_spectrum, 02_residuals)")
         return
     try:
         fig_spectrum(plt, emu)
         fig_against_class(plt, emu)
     except ImportError:
-        print("  skipped the CLASS figures: needs `pip install 'emu_pk[gen]'`")
+        print("  skipped the solver figures: needs `pip install 'emu_pk[gen]'`")
 
 
 if __name__ == "__main__":

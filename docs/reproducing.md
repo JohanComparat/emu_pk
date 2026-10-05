@@ -8,9 +8,10 @@ needs the same machinery.
 ## The short version
 
 ```bash
-pip install 'emu_pk[gen,train]'
+pip install 'emu_pk[gen,train]' camb==1.6.6
 
-# One shard of CLASS solves.  The design is regenerated from the seed, so a
+# One shard of solves: CAMB at the training precision, times the CLASS
+# heating pair.  The design is regenerated from the seed, so a
 # shard is reproducible from its indices alone.
 python -m emu_pk.generate --mode emu --shard 0 --n-per-shard 100 \
        --n-total 150000 --out shards
@@ -19,6 +20,7 @@ python -m emu_pk.generate --mode emu --shard 0 --n-per-shard 100 \
 python -m emu_pk.assemble --mode emu --shards shards --out training_set.npz
 python -m emu_pk.train --dataset training_set.npz --out weights.npz
 python -m emu_pk.validate --weights weights.npz --json validation.json
+python -m emu_pk.validate --weights weights.npz --truth reference --json reference.json
 ```
 
 **A shard directory belongs to one box.** `emu_shard` skips a chunk whose
@@ -32,40 +34,63 @@ also catches a *permuted* column. Generate into a fresh directory.
 **The flat control.** `--pin Omega_k=0` holds a design column fixed after the
 draw, giving a design identical to the curved one in its other ten columns.
 It separates "the wider box is worse" from "this design
-is smaller than the one that scored 0.064 %" — at any size below production
+is smaller than the production one" — at any size below production
 both are true, and only the control tells them apart. A network trained on a
 pinned column has near-zero `x_std` along it and is meaningful only at
 `Omega_k = 0`; score it with `validate --flat-only`.
 
 ## What it costs
 
-Measured, not estimated:
+Measured, not estimated, for 2.1:
 
 | | |
 |---|---|
-| CLASS solves in the design | 150 000 |
-| seconds per solve, production settings | ~8.7 |
-| **core-hours** | **~360** |
-| training rows (31 redshifts per solve) | ~4.6 million |
-| training, 240 epochs on 32 CPU cores | ~2.5 hours |
-| assembled training set on disk | ~9 GB |
+| solves in the design | 150 000 |
+| seconds per solve, two Dahu cores | ~160 |
+| **core-hours** | **~13 000** |
+| training rows (31 redshifts per solve) | ~4.65 million |
+| assembled training set on disk | ~15 GB, in 32 parts |
+| training, 240 epochs, 32 Dahu CPU cores | ~10 hours (154 s/epoch) |
+| training, 240 epochs, one A100, full float32 | ~1 hour (14.4 s/epoch) |
+| training, 240 epochs, a 16 GB laptop GPU | ~50 minutes (12 s/epoch) |
+| validation against the training truth | ~840 solves |
 
-Two measurements set the per-solve figure. **Curvature is free**: 2.7–3.0 s
-flat and at $\Omega_k = \pm0.15$ on the same machine, statistically identical.
-**Three separate neutrino species cost 1.34×**: 2.81 s degenerate against
-3.76 s at `N_ncdm=3`, at production settings. The overhead amortises over the
-expensive high-$k$ solve rather than tripling anything. On the cluster's slower
-cores that 1.34× applies to 6.5 s.
+A solve is CAMB at `lAccuracyBoost 3`, `AccuracyBoost 2`, plus a CLASS pair for
+the heating ratio, to $k = 300$: about 37 times the core time of 2.0's CLASS
+solve at its defaults, ~8.7 s. That is the price of a training
+truth 0.039 % from converged instead of 0.41 %.
 
-Generation is embarrassingly parallel across shards and is the only part that
-needs a cluster — and it genuinely needs one. Measured on a mobile i9 (8
-physical cores behind 16 threads): 2.75 s/solve solo on a cool machine, and
-**0.44 solves/s in aggregate at any worker count** once it is hot, because the
-cores drop to 1.1 GHz at 100 °C and sixteen concurrent CLASS instances thrash a
-24 MiB shared L3. A rate taken from a burst is off by an order of magnitude
-from what a sustained run delivers, which is what the `calibrate` gate exists
-to prevent. Training is a 4×512 network and fits comfortably on a CPU
-node; a GPU is not required.
+Generation is embarrassingly parallel across shards and is the part that needs
+a cluster. Measured on a mobile i9 (8 physical cores behind 16 threads), for
+2.0's CLASS solves: 2.75 s/solve solo on a cool machine, and **0.44 solves/s
+in aggregate at any worker count** once it is hot, because the cores drop to
+1.1 GHz at 100 °C and sixteen concurrent solver instances thrash a 24 MiB shared
+L3. A rate taken from a burst is off by an order of magnitude from what a
+sustained run delivers, which is what the `calibrate` gate exists to prevent.
+
+## Training on a GPU
+
+The network is 4×512, so a step is limited by its overhead rather than by
+arithmetic, and a GPU is fast for that reason rather than for its FLOPs: the
+laptop card above is as quick as the A100. Two settings matter, and both fail
+quietly:
+
+- **Full float32 matrix products.** On an A100, JAX multiplies float32 matrices
+  in TF32 unless told otherwise. The same data, seed and schedule as a CPU run
+  tracked it for the first epochs and then stopped at a val loss of 5.9e-7
+  against 3.7e-7, with a worst-case error 1.6 times higher. Set
+  `JAX_DEFAULT_MATMUL_PRECISION=highest` for training; `oarsub/run_train.sh`
+  does. Evaluating the shipped network on a GPU was unaffected on the laptop
+  card above: it agreed with the CPU to 2e-5 in $\ln P$ at either setting.
+- **`--host-targets` on a card smaller than the training set.** The 150k set's
+  targets are 13.5 GiB, and putting them on the device takes twice that for a
+  moment, which a 16 GB card cannot do. The option keeps them in host memory
+  and sends each batch over: same batches, same order, same weights bit for bit.
+
+```bash
+JAX_DEFAULT_MATMUL_PRECISION=highest python -m emu_pk.train \
+    --dataset training_set.npz --out weights.npz --epochs 240 --host-targets
+```
 
 ## The properties that make it restartable
 
@@ -79,15 +104,18 @@ Three, and every one of them is load-bearing on a preemptible queue:
   learning-rate schedule's position, so a preempted run resumes where it was
   rather than reinitialising Adam and rewinding the schedule to its peak.
 
-## Where CLASS refuses
+## Where the solvers refuse
 
-About 0.02 % of solves fail, all `CosmoComputationError` out of
-`perturbations_solve`, and they are not scattered: they sit in the corner where
-`w0` is near $-0.5$ and `wa` is positive, so `w(a)` climbs toward zero at early
-times and dark energy behaves like matter before recombination.
+The 2.1 generator refused 25 of the 150 000 points, 0.017 %. Twenty-two of
+them sit where `w0 + wa` approaches zero, so `w(a)` climbs toward zero at early
+times and dark energy behaves like matter before recombination; the other three
+are on the phantom side, at `w0 + wa` near $-1.5$. CLASS refused about 0.02 % of
+2.0's solves, in the same corner. Its half of the heating pair is retried once
+at a thousandfold tighter tolerance before a point counts as refused, which is
+what rescued the two points the grid's new top lost.
 
 **Curvature adds no new refusals inside the box**, and that is what fixes its
-width. Measured on the closed side at the low-density corner
+width. Measured with CLASS on the closed side at the low-density corner
 (`omega_cdm = 0.05`, `h = 0.85`, $\Omega_m = 0.108$), CLASS fails from
 $\Omega_k = -0.275$ onward; at $\Omega_m = 0.261$ it survives to $-0.40$. At
 $|\Omega_k| \le 0.15$ nothing in the box refuses. The open side never refuses
@@ -96,20 +124,30 @@ has a *stated* bound rather than a discovered one.
 
 `assemble.build_training_set` **reports the missing design indices rather than
 filling them**. A training set with silent gaps trains perfectly well and is
-wrong exactly where CLASS refused, which is the part of the box a forecast is
-most likely to wander into.
+wrong exactly where the solver refused, which is the part of the box a forecast
+is most likely to wander into.
 
 ## Reproducibility and the solver version
 
-Everything here is reproducible from a seed and an index **given the same CLASS
-version**. CLASS changes; its precision settings and its `pk_lin` interpolation
-change with it, so two runs of the commands above against different `classy`
-builds are not guaranteed to agree at the accuracy this package is scored at.
+Everything here is reproducible from a seed and an index **given the same
+solver versions**. Shards, datasets and weights record which solver, which
+precision settings and which heating wrote them, and `assemble` refuses a
+directory that mixes two. They do not record the solver *version*, which is
+the one input to this pipeline a seed and an index do not capture.
 
-The shipped weights were trained against **CLASS v3.3.4**. That version is not
-stamped into the `.npz` files, so it cannot be recovered from them: if you
-regenerate, record the `classy` version alongside your own weights. It is the
-one input to this pipeline that a seed and an index do not capture.
+The shipped weights were trained on **CAMB 1.6.6** and **CLASS v3.3.4**. The
+version matters at the accuracy this package is scored at. Re-solving six
+training cosmologies with CAMB 2.0.4 differs from the stored rows by up to
+4.4e-4 in $\ln P$, at $k \approx 0.1\ h\,\mathrm{Mpc}^{-1}$ and low redshift,
+against a network error of about 6e-4. With CAMB 1.6.6 on a different machine,
+CPU and compiler, the same six reproduce to 6.6e-7, which is the float32 the
+rows are stored in. Pin CAMB to validate the shipped weights, and record both
+versions beside your own.
+
+`validate --cache` keeps truth solves between runs. Its keys hash the point, the
+redshifts and the wavenumbers rounded well above machine noise, so a cache
+filled on one machine serves another: the scoring wavenumbers come out of
+`exp`, and numpy rounds that differently with and without AVX-512.
 
 ## Cluster scripts
 

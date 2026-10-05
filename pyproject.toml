@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "emu_pk"
-version = "2.0.1"
-description = "Differentiable linear-P(k) emulation over a nine-parameter cosmology with massive neutrinos, CPL dark energy and spatial curvature"
+version = "2.1.0"
+description = "Differentiable linear-P(k) emulation to k = 300 h/Mpc over an eleven-parameter cosmology with three neutrino masses, CPL dark energy and spatial curvature, trained on high-precision CAMB"
 authors = [{name = "Johan Comparat", email = "jcomparat@lpsc.in2p3.fr"}]
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -36,8 +36,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Generating training data and rebuilding the correction table: needs CLASS.
-gen   = ["classy"]
+# Generating training data, validating, and rebuilding the correction table.
+# Since 2.1 the training truth is CAMB times CLASS's reionization heating, so
+# both solvers.  The shipped weights were trained and validated on CAMB 1.6.6;
+# CAMB 2.0.4 differs from it by up to 4.4e-4 in ln P near k = 0.1 h/Mpc, which
+# is a visible fraction of the network's own error -- see docs/reproducing.md.
+gen   = ["classy", "camb>=1.6"]
 # Training the network.
 train = ["optax"]
 # `optax` is here because ~25 tests exercise the trainer, and the trainer

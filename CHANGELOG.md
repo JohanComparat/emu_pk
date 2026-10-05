@@ -4,11 +4,25 @@ Notable changes to `emu_pk`. Format follows [Keep a Changelog](https://keepachan
 versioning is [semantic](https://semver.org/spec/v2.0.0.html), and from 1.0.0
 the public API is what `emu_pk.__all__` and each module's `__all__` declare.
 
-## [Unreleased] -- 2.1.0, in generation
+## [2.1.0]
 
-A training truth that is converged, not default. The network is unchanged in
-form; what it is trained on changes, and the weights ship when the retrain has
-been validated against a reference neither version was trained on.
+A training truth that is converged, not default, and a grid that reaches
+300 h/Mpc. The network is unchanged in form; what it is trained on changes, and
+the weights are scored against a reference neither version was trained on --
+CAMB at its converged rung, times the same reionization heating
+(`emu_pk/data/validation_reference.json`). Total error in $P_m$ at $z = 0$,
+32 held-out cosmologies:
+
+| against the converged reference | median | 90th | max |
+|---|---|---|---|
+| 2.0.1, $k \in [10^{-3}, 10]$ | 0.351 % | 0.580 % | 1.358 % |
+| **2.1.0**, $k \in [10^{-3}, 10]$ | **0.063 %** | 0.130 % | 0.190 % |
+| 2.0.1, tail to its 200 h/Mpc | 0.494 % | 0.565 % | 0.629 % |
+| **2.1.0**, tail to 300 h/Mpc | **0.044 %** | 0.069 % | 0.086 % |
+
+Against its own training truth, which is what `validation.json` records, 2.1.0
+scores <!-- NUMBERS-PENDING --> in the median; 2.0.1 scored 0.066 % against
+*its* truth, which was itself 0.41 % from converged.
 
 ### Why
 
@@ -16,7 +30,7 @@ been validated against a reference neither version was trained on.
 set -- CLASS 3.3.4 at its defaults -- 0.41 % from CLASS's own converged answer
 in the median over this box and 0.81 % at worst, smooth in the parameters. The
 network learnt that error faithfully, and its validation, against the same
-default CLASS, could not see it: 6 to 13 times the 0.064 % it reports. No
+default CLASS, could not see it: 6 to 13 times the 0.064 % it reported. No
 affordable CLASS setting fixes the heavy-neutrino end (the ncdm fluid
 approximation dominates above 0.3 eV).
 
@@ -30,12 +44,23 @@ approximation dominates above 0.3 eV).
 - **Reionization heating is kept.** CAMB's linear P(k) does not heat the
   baryons at reionization and CLASS's does (3 % at k = 200 h/Mpc at the
   fiducial, 13 % at omega_cdm = 0.05). Each CAMB spectrum is multiplied by
-  CLASS's ratio P(reio)/P(no reio) from a loosened CLASS pair at the same point
-  (`heating.SETTINGS`, 7.7e-5 from a default pair's ratio at the box's extreme
-  points). The history is CLASS's default, z_reio = 7.6711 everywhere.
+  CLASS's ratio P(reio)/P(no reio) from a CLASS pair at the same point, at
+  CLASS's own defaults with the ratio taken on CLASS's own k nodes: within
+  6e-5 of a pair tightened everywhere, 1.3e-4 at omega_cdm = 0.05 above
+  200 h/Mpc. A point CLASS refuses is retried once at a thousandfold tighter
+  tolerance. The history is CLASS's default, z_reio = 7.6711 everywhere.
 - Below CAMB's first transfer mode (curved corners of the box, k < 1.5e-4 and
   3.7e-4 h/Mpc) the spectrum continues with the shape of the heated CLASS
   spectrum, pinned to CAMB's.
+- **The grid reaches 300 h/Mpc**, 411 nodes at 2.0's density, where it stopped
+  at 200 with 400. `ggah_mod`'s Boltzmann backends tabulate to 300.
+- **`validate` scores against the truth the network learnt**, read from the
+  weights (`--truth training`, the default), and names it in every table;
+  `--truth reference` scores against the converged rung. The small-scale tail,
+  10 h/Mpc to the network's own k_max, is scored as its own band.
+- `[gen]` installs CAMB beside `classy`. The shipped weights were trained and
+  validated on CAMB 1.6.6; CAMB 2.0.4 differs from it by up to 4.4e-4 in ln P
+  near k = 0.1 h/Mpc, a visible fraction of the network's own error.
 
 ### Added
 
@@ -47,15 +72,37 @@ approximation dominates above 0.3 eV).
 - `heating`: the CLASS pair.
 - Shards, assembled datasets and weights record which solver, precision and
   heating wrote them; `assemble` refuses a directory holding two.
-- `validate --truth reference`: CAMB at the precision scan's converged rung,
-  times the same heating -- the footing on which 2.0 and 2.1 are compared.
+- `emu_pk/data/validation_reference.json`: the shipped weights against the
+  converged reference.
+- Validation records carry `weights_sha256`, the checksum of the file scored,
+  and a test ties both shipped records to the shipped weights by it.
+- `validate --cache`: truth solves are kept between runs and shared between
+  machines, and `oarsub/prefill_reference.py` fills the cache as parallel short
+  jobs.
+- `train --host-targets` keeps the training targets in host memory and sends
+  each batch to the device, for a card smaller than the training set: the 150k
+  set's targets are 13.5 GiB. Same batches, same order, same weights.
+- The cluster campaign trains on a GPU (`submit_campaign.sh train-gpu`, Bigfoot)
+  and scores on Dahu; generation runs many shards inside one job.
 - The generation environment is checked for CAMB >= 1.6: `CAMB_PRECISION` was
   measured on 1.6.6, and the campaign's default environment carries 1.4.0.
 
 ### Fixed
 
-- Two tests stale since 2.0.1: the rest-mass denominator is the derived
-  93.143, and ggah_mod's parameter stack is checked for `nu_r1`/`nu_r2` too.
+- **CAMB was asked for the same redshift twice and refused.** `validate`'s
+  $\partial\ln P/\partial z$ stencils need z = 0 and 0.05 at both step sizes,
+  and a repeated redshift is a zero-length step for CAMB's integrator (DVERK
+  error): every one of the 16 points was skipped, and the redshift derivative
+  went unscored. `generate.solve_camb` now asks for each redshift once.
+- **A truth cache filled on one machine missed on every other.** Its keys
+  hashed the scoring wavenumbers exactly, and numpy's `exp` rounds differently
+  with and without AVX-512: 21 of 300 differed in the last bit between Dahu and
+  a laptop on the same numpy. Keys now hash rounded values.
+- **GPU training in TF32.** On an A100, JAX multiplies float32 matrices in TF32
+  unless told otherwise; the same data, seed and schedule stopped at a val loss
+  of 5.9e-7 against the CPU's 3.7e-7, its worst-case error 1.6x higher.
+  `run_train.sh` sets `JAX_DEFAULT_MATMUL_PRECISION=highest` on a GPU, and the
+  shipped network was trained at full float32.
 
 ## [2.0.1]
 
@@ -167,7 +214,8 @@ wider box** -- 0.064 % median shape error against 0.111 %.
 
 First public release.
 
-[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/JohanComparat/emu_pk/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/JohanComparat/emu_pk/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/JohanComparat/emu_pk/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/JohanComparat/emu_pk/releases/tag/v1.0.0

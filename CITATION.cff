@@ -10,16 +10,19 @@ authors:
 repository-code: "https://github.com/JohanComparat/emu_pk"
 url: "https://emu-pk.readthedocs.io/en/stable/"
 license: BSD-3-Clause
-version: 2.0.1
+version: 2.1.0
 date-released: "2026-09-29"
 abstract: >-
-  emu_pk emulates the linear matter power spectrum over an eight-parameter
-  cosmology, including the summed neutrino mass and CPL dark energy, to
-  k = 200 h/Mpc and z = 5. It is written in JAX and is differentiable, so
-  derivatives with respect to cosmological parameters come from automatic
-  differentiation rather than finite differences. Two of those derivatives are
-  exact by construction, because the primordial power law is divided out of the
-  training target and restored analytically.
+  emu_pk emulates the linear matter power spectrum over an eleven-parameter
+  cosmology, with three separate neutrino masses, CPL dark energy and spatial
+  curvature, to k = 300 h/Mpc and z = 5. It is written in JAX and is
+  differentiable, so derivatives with respect to cosmological parameters come
+  from automatic differentiation rather than finite differences. Two of those
+  derivatives are exact by construction, because the primordial power law is
+  divided out of the training target and restored analytically. Since 2.1 the
+  training truth is CAMB at high precision with CLASS's reionization heating,
+  and the shipped network is scored against a converged reference neither
+  version was trained on.
 references:
   - type: article
     title: >-
@@ -64,7 +67,31 @@ references:
     start: 034
     year: 2011
     doi: 10.1088/1475-7516/2011/07/034
-    notes: "Every training spectrum and every validation reference is a CLASS solve."
+    notes: >-
+      Every training spectrum carries CLASS's reionization heating, as the
+      ratio of a CLASS pair with and without it, and the correction table in
+      emu_pk.ratio is distilled from CLASS directly. Until 2.0 every training
+      spectrum was a CLASS solve.
+  - type: article
+    title: "Efficient computation of CMB anisotropies in closed FRW models"
+    authors:
+      - family-names: Lewis
+        given-names: Antony
+      - family-names: Challinor
+        given-names: Anthony
+      - family-names: Lasenby
+        given-names: Anthony
+    journal: "The Astrophysical Journal"
+    volume: 538
+    start: 473
+    end: 476
+    year: 2000
+    doi: 10.1086/309179
+    url: "https://arxiv.org/abs/astro-ph/9911177"
+    notes: >-
+      CAMB. Since 2.1 every training spectrum and every validation truth is a
+      CAMB solve, at ggah_mod 0.9.8's precision for training and at a converged
+      setting for the reference.
   - type: article
     title: >-
       CSST cosmological emulator I: Matter power spectrum emulation with one

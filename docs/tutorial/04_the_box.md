@@ -20,7 +20,7 @@ The bounds are closed and inclusive, and these are the values themselves:
 | `Omega_k` | −0.1500 … 0.1500 |
 | `nu_r1` | 0.0000 … 0.3333 |
 | `nu_r2` | 0.0000 … 0.5000 |
-| $k$ [$h\,\mathrm{Mpc}^{-1}$] | $10^{-4}$ … 200 |
+| $k$ [$h\,\mathrm{Mpc}^{-1}$] | $10^{-4}$ … 300 |
 | $z$ | 0 … 5 |
 
 The parameter rows are `box.BOX`; the wavenumber and redshift rows are
@@ -88,22 +88,22 @@ Two rejections apply, and neither is a matter of taste.
 
 **`w0 + wa >= 0` is redrawn.** The CPL dark-energy density then grows without
 bound towards early times, dark energy dominates before recombination, and
-CLASS either refuses or returns a spectrum that is not a cosmology anyone means
-to train on.
+the solver either refuses or returns a spectrum that is not a cosmology anyone
+means to train on.
 
-**Mass ratios outside the ordered simplex are redrawn.** CLASS sums the three
-species' contributions and cannot tell them apart, so the six permutations of
+**Mass ratios outside the ordered simplex are redrawn.** A Boltzmann solver sums
+the three species' contributions and cannot tell them apart, so the six permutations of
 one mass vector are the same cosmology; ordering them is what stops the network
 spending capacity on an exact symmetry instead of the physics. `nu_r1` cannot
 exceed 1/3 under that constraint, which is where its bound comes from.
 
 Curvature is *not* rejected anywhere. $\pm0.15$ is the widest interval over
-which CLASS solves the whole box: at the low-density corner it begins refusing
-near $\Omega_k = -0.275$, and on the open side it never refuses at all. Open
-curvature can drive the closure $\Omega_{\rm de} = 1 - \Omega_m - \Omega_r -
-\Omega_k$ negative, and those solve without complaint — a strange universe, not
-an ill-posed one. `validate` reports the region as its own stratum rather than
-carving it out.
+which CLASS solves the whole box, measured when the box was set: at the
+low-density corner it begins refusing near $\Omega_k = -0.275$, and on the
+open side it never refuses at all. Open curvature can drive the closure
+$\Omega_{\rm de} = 1 - \Omega_m - \Omega_r - \Omega_k$ negative, and those
+solve without complaint — a strange universe, not an ill-posed one.
+`validate` reports the region as its own stratum rather than carving it out.
 
 ## Where it is thinnest
 
@@ -121,8 +121,9 @@ a mass spread is non-negative. It is also where every result published before
 version 2 sits, so it gets its own stratum.
 
 **The extreme-quintessence corner.** With `w0` near $-0.5$ and `wa` positive,
-`w(a)` climbs toward zero at early times. CLASS refused about 0.02 % of the
-training solves there, all of them in that one corner, so the training set has
+`w(a)` climbs toward zero at early times. The 2.1 generator refused 25 of the
+150 000 training solves, 22 of them where `w0 + wa` approaches zero (CLASS
+refused about 0.02 % for 2.0, in the same corner), so the training set has
 a small hole exactly where a forecast is most likely to wander. The generator
 records failures rather than filling them, because a set with silent gaps
 trains perfectly well and is wrong in a place nothing points at.

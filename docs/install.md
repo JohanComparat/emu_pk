@@ -41,7 +41,19 @@ and carries a commented block per extra.
 
 ## A note on `[gen]`
 
-`classy` compiles CLASS from source, so it needs a C compiler. It is also the
+`[gen]` is CAMB and `classy`. Since 2.1 the training truth is CAMB at high
+precision, times CLASS's reionization heating, so generation and validation
+need both. The shipped weights were trained and validated on **CAMB 1.6.6**;
+CAMB 2.0.4 differs from it by up to 4.4e-4 in $\ln P$ near
+$k = 0.1\ h\,\mathrm{Mpc}^{-1}$, which is a visible fraction of the network's
+own error. To reproduce the shipped validation, pin it:
+
+```bash
+pip install 'emu_pk[gen]' camb==1.6.6
+```
+
+CAMB installs as a wheel. `classy` compiles CLASS from source, so it needs a C
+compiler. It is also the
 one part of this that can fail for environmental reasons: CLASS's `setup.py`
 invokes `make` with an unbounded `-j`, which on a memory-capped machine gets
 the compiler killed —
@@ -51,8 +63,8 @@ g++: fatal error: Killed signal terminated program cc1plus
 ```
 
 If you hit that, build on a machine without a per-user memory cap, or install
-`classy` separately with a bounded parallelism. Note that **training does not
-need CLASS**; only generation and validation do.
+`classy` separately with a bounded parallelism. Note that **training needs
+neither solver**; only generation and validation do.
 
 ## Supported versions
 

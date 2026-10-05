@@ -2,13 +2,15 @@
 
 Differentiable emulation of the **linear matter power spectrum**, over an
 eleven-parameter cosmology with three separate neutrino masses, CPL dark
-energy and spatial curvature, out to $k = 200\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
+energy and spatial curvature, out to $k = 300\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-Against held-out CLASS solves it reproduces $P(k)$ to a median 0.066 %, and
-the derivatives $\partial\ln P/\partial\theta$ to between 0.046 % and 5.58 %
-depending on the parameter. {doc}`tutorial/02_accuracy` carries the
-per-parameter figures, the redshift dependence and the floor of each
-comparison.
+It is trained on CAMB at high precision with CLASS's reionization heating.
+Against a *converged* CAMB reference it reproduces $P(k)$ to a median 0.063 %,
+where 2.0, trained on CLASS at its defaults, was 0.351 % off. Against its own
+training truth it reproduces $P(k)$ to a median <!-- NUMBERS-PENDING --> …, and
+the derivatives $\partial\ln P/\partial\theta$ to between … and … depending on
+the parameter. {doc}`tutorial/02_accuracy` carries the per-parameter figures,
+the redshift dependence and the floor of each comparison.
 
 It is written in JAX, so those derivatives come from automatic differentiation.
 Two of them are analytic: the primordial power law is divided out of the
@@ -34,13 +36,17 @@ values.
 - The box carries `sum_mnu`, `w0`, `wa`, `Omega_k` and two neutrino mass ratios.
   An emulator without a parameter returns a zero derivative for it, which in a
   Fisher matrix is a flat direction.
-- `emu_pk.validate` measures autodiff against central differences of CLASS, per
-  parameter and per redshift, and reports the floor of its own comparison. An
+- `emu_pk.validate` measures autodiff against central differences of the
+  training truth, per parameter and per redshift, and reports the floor of its
+  own comparison. An
   emulator can reproduce $P(k)$ to a tenth of a percent and still get
   $\partial\ln P/\partial\theta$ wrong, because the error surface is smooth in
   $k$ and rough in $\theta$.
-- It reaches $k = 200\ h\,\mathrm{Mpc}^{-1}$, which a halo-model $\sigma(M)$
+- It reaches $k = 300\ h\,\mathrm{Mpc}^{-1}$, which a halo-model $\sigma(M)$
   integral needs.
+- Its accuracy is stated against a converged solver, not only against the
+  setting it was trained on: a validation against its own training truth
+  cannot see the error of that truth.
 
 ```{toctree}
 :maxdepth: 2
@@ -73,7 +79,7 @@ reproducing
 
 Please cite `emu_pk` itself through its
 [`CITATION.cff`](https://github.com/JohanComparat/emu_pk/blob/main/CITATION.cff),
-and the two works it is built on.
+and the three works it is built on.
 
 ### CosmoPower
 
@@ -95,11 +101,27 @@ dependency: `emu_pk` neither imports nor vendors it.
   · [ADS](https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.1771S)
 - Code: [github.com/alessiospuriomancini/cosmopower](https://github.com/alessiospuriomancini/cosmopower)
 
+### CAMB
+
+Since 2.1 every training spectrum and every validation truth is a CAMB solve,
+at `ggah_mod` 0.9.8's precision for training and at a converged setting for the
+reference.
+
+> Lewis, A., Challinor, A. & Lasenby, A.,
+> *Efficient computation of CMB anisotropies in closed FRW models*,
+> **ApJ 538** (2000) 473–476.
+
+- Paper: [doi:10.1086/309179](https://doi.org/10.1086/309179)
+  · [arXiv:astro-ph/9911177](https://arxiv.org/abs/astro-ph/9911177)
+- Code: [github.com/cmbant/CAMB](https://github.com/cmbant/CAMB)
+
 ### CLASS
 
-Every training spectrum and every validation reference is a CLASS solve, and
-the correction table in `emu_pk.ratio` is distilled from CLASS directly. Its
-authors ask that any use cite at least the *Approximation schemes* paper.
+Every training spectrum carries CLASS's reionization heating, as the ratio of a
+CLASS pair with and without it, and the correction table in `emu_pk.ratio` is
+distilled from CLASS directly. Until 2.0 every training spectrum was a CLASS
+solve. Its authors ask that any use cite at least the *Approximation schemes*
+paper.
 
 > Blas, D., Lesgourgues, J. & Tram, T.,
 > *The Cosmic Linear Anisotropy Solving System (CLASS). Part II: Approximation

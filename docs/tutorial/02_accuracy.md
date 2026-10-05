@@ -1,10 +1,49 @@
 # Accuracy
 
-Every number on this page is written by `python -m emu_pk.validate` into
-`emu_pk/data/validation.json`, so it describes the weights that ship beside it.
-The scores come from held-out CLASS solves, on a Latin hypercube drawn from a
-different seed than the training design. Three quantities are measured: the
-amplitude of the spectrum, its shape, and its derivatives.
+Every number on this page is written by `python -m emu_pk.validate` into one of
+two records that ship beside the weights, and both carry the checksum of the
+weights file they scored. The scores come from held-out cosmologies, on a Latin
+hypercube drawn from a different seed than the training design.
+
+- `emu_pk/data/validation_reference.json` scores against **a converged
+  reference**: CAMB at its converged precision rung, times the same reionization
+  heating. Neither 2.0 nor 2.1 was trained on it, so it is the comparison
+  between them, and the error it measures includes the error of the training
+  truth itself.
+- `emu_pk/data/validation.json` scores against **the training truth**: CAMB at
+  the precision the network learnt, times the heating. It measures the network
+  alone, and it is where the derivatives, the lowest decade and the floor of
+  each comparison are.
+
+## Against a converged reference
+
+Total error in $P_m$, 32 held-out cosmologies, at $z = 0$:
+
+| | median | 90th | max |
+|---|---|---|---|
+| $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$ | **0.063 %** | 0.130 % | 0.190 % |
+| tail, $k \in [10, 300]\ h\,\mathrm{Mpc}^{-1}$ | **0.044 %** | 0.069 % | 0.086 % |
+| *2.0.1, $k \in [10^{-3}, 10]$* | *0.351 %* | *0.580 %* | *1.358 %* |
+| *2.0.1, tail to its own 200* | *0.494 %* | *0.565 %* | *0.629 %* |
+
+From $z = 0$ to 5 the median stays between 0.051 % and 0.063 % and the worst
+point at or below 0.198 %; the cold spectrum $P_{cb}$ scores 0.063 % at $z = 0$.
+In the tail the median runs from 0.025 % to 0.052 %.
+
+2.0 was 0.35 % off everywhere, smoothly: it was trained on CLASS at its
+defaults, which `ggah_mod_benchmark`'s precision scan put 0.41 % from CLASS's
+own converged answer, and a network learns its truth faithfully, error
+included. Its validation was against the same default CLASS and could not see
+it. The heavy-neutrino half of the box was worst, at 0.325 % in the median and
+1.0 % at worst, where the ncdm fluid approximation dominates above 0.3 eV.
+
+The converged reference costs half an hour of one core per point, so it is
+scored on the shape and the tail only:
+`python -m emu_pk.validate --truth reference`.
+
+## The training truth
+
+<!-- NUMBERS-PENDING: every number from here down is 2.0's until validation.json is regenerated -->
 
 ![Shape error and derivative error](../_static/figures/02_accuracy.png)
 
@@ -29,7 +68,7 @@ every shape summary.
 
 ## 2. Shape, normalised at $k = 0.05$
 
-Shape error is the largest fractional departure from CLASS over
+Shape error is the largest fractional departure from the truth over
 $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$, after both spectra are
 renormalised at $k = 0.05\ h\,\mathrm{Mpc}^{-1}$, which makes it independent of
 the amplitude above.
@@ -48,18 +87,19 @@ redshift range, and the cold spectrum $P_{cb}$ scores 0.063 % at $z = 0$.
 **0.066 %** is the single number to quote for $P(k)$; the amplitude is an order
 of magnitude better, so the shape sets the total.
 
-The floor row is the metric's own: a CLASS spectrum pushed through the
+The floor row is the metric's own: a truth spectrum pushed through the
 emulator's interpolation with no network involved. The network predicts on a
-fixed 400-node $\ln k$ grid while the metric asks CLASS at 300 other
+fixed 411-node $\ln k$ grid while the metric asks the solver at 300 other
 wavenumbers, so what happens between the nodes is scored as network error. A
 linear interpolant gives 0.11 % there, above the number it bounds, so
 `model._interp_lnk` is a fixed four-point cubic. See {doc}`../design_notes`.
 
-The scored range stops at $k = 10\ h\,\mathrm{Mpc}^{-1}$. The emulator is
-trained to 200 to feed a halo-model $\sigma(M)$ integral; below 10 is where a
-*linear* spectrum is the quantity an analysis uses directly.
+The headline range stops at $k = 10\ h\,\mathrm{Mpc}^{-1}$, below which a
+*linear* spectrum is the quantity an analysis uses directly. The emulator is
+trained to 300 to feed a halo-model $\sigma(M)$ integral, and `validate` scores
+that tail, $k \in [10, 300]$, as its own band.
 
-![Residuals against CLASS](../_static/figures/02_residuals.png)
+![Residuals against the training truth](../_static/figures/02_residuals.png)
 
 Twelve held-out cosmologies at $z = 0$, renormalised at
 $k = 0.05\ h\,\mathrm{Mpc}^{-1}$. The shaded band is the median shape error
@@ -88,11 +128,11 @@ at $10^{-4}$.
 Derivative error is the median over $k$ of
 
 $$\frac{\left|\partial\ln P/\partial\theta\ \text{(emulator)} -
-        \partial\ln P/\partial\theta\ \text{(CLASS)}\right|}
-       {\left|\partial\ln P/\partial\theta\ \text{(CLASS)}\right|},$$
+        \partial\ln P/\partial\theta\ \text{(truth)}\right|}
+       {\left|\partial\ln P/\partial\theta\ \text{(truth)}\right|},$$
 
-the emulator side from automatic differentiation, the CLASS side from central
-differences. The ratio is taken against CLASS's own derivative, so an axis the
+the emulator side from automatic differentiation, the truth side from central
+differences. The ratio is taken against the truth's own derivative, so an axis the
 emulator responds to weakly scores near 100 % rather than near zero.
 
 At $z = 0$, with the comparison's own floor beside each:
@@ -110,7 +150,7 @@ At $z = 0$, with the comparison's own floor beside each:
 divided out of the training target and restored in closed form, so neither is a
 network input and the two derivatives are $1$ and $\ln(kh/k_\ast)$. They score
 $2\times10^{-14}$ and $8\times10^{-6}$, which is what the float32 forward pass
-and CLASS's own finite difference leave behind. A Fisher matrix built on this
+and the solver's own finite difference leave behind. A Fisher matrix built on this
 network is exact in two of its eleven directions.
 
 The two mass ratios are the weakest axes at 5 %, and the ones with the least
@@ -136,7 +176,7 @@ endpoint in slope and the $z < 0$ side is outside the trained range.
 
 ### The floor
 
-The reference is a central difference of CLASS, which carries a truncation term
+The reference is a central difference of the truth, which carries a truncation term
 and a solver-noise term of its own. `validate` recomputes it at half the step
 and reports the difference as a **floor**, the smallest error the comparison
 can resolve. At $z = 0$ that floor runs from 0.007 % for `Omega_k` to 0.261 %
