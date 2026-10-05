@@ -219,6 +219,24 @@ class TestTrainingShipsItsBestEpoch:
             assert int(r["epoch"]) == 6
         assert last == 4
 
+    def test_host_targets_train_the_same_network(self, tmp_path):
+        """Keeping the targets on the host is a memory layout, not a choice
+        about the fit: the same batches in the same order give the same
+        weights, bit for bit.  Only the val loss is summed differently."""
+        from emu_pk import train as T
+        ds = self._dataset(tmp_path)
+        kw = dict(n_comp=4, hidden=(8, 8), epochs=3, batch=16, resume=False,
+                  val_frac=0.25)
+        T.train(ds, tmp_path / "dev.npz", **kw)
+        T.train(ds, tmp_path / "host.npz", host_targets=True, **kw)
+        with np.load(tmp_path / "dev.resume.npz") as a, \
+                np.load(tmp_path / "host.resume.npz") as b:
+            for n in a.files:
+                if n.startswith(("W", "b", "beta", "gamma")) and a[n].ndim:
+                    np.testing.assert_array_equal(a[n], b[n], err_msg=n)
+            assert float(b["val_loss"]) == pytest.approx(float(a["val_loss"]),
+                                                         rel=1e-5)
+
 
 class TestTheShippedWeightsAreTheOnesValidated:
     """The file and the claim about it must not drift apart.
@@ -264,6 +282,19 @@ class TestTheShippedWeightsAreTheOnesValidated:
         # a different claim and the file records which.
         s = self._shape_m(v)
         assert s["n_scored"] == s["n_requested"]
+
+    def test_the_validation_scored_these_bytes(self):
+        """`"shipped"` names whichever file is shipped *now*.  2.1's weights
+        went in beside 2.0's validation.json, both at epoch 237, and every
+        assertion above still passed; the checksum is what tells them apart."""
+        import hashlib
+        import pathlib
+        _, v = self._both()
+        f = (pathlib.Path(__file__).resolve().parent.parent
+             / "emu_pk" / "data" / "emu_pk_mlp.npz")
+        assert v.get("weights_sha256") == hashlib.sha256(f.read_bytes()).hexdigest(), (
+            "validation.json was not produced against the shipped weights; "
+            "re-run `python -m emu_pk.validate --json emu_pk/data/validation.json`")
 
     def test_the_validation_agrees_about_what_the_network_predicts(self):
         skip_if_shipped_weights_are_stale()
