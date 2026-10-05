@@ -205,7 +205,7 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
           batch=1024, lr=1e-3, seed=0, resume=True, val_frac=0.05,
           reduced=True, weighted=True, schedule=True, warmup_epochs=2,
           lr_end=1e-5, direct=True, staged=False, stages=STAGES,
-          z_var="log10_1pz"):
+          z_var="log10_1pz", host_targets=False):
     r"""Train both heads at once and write ``out``.
 
     One network with two heads rather than two networks: ``P_m`` and ``P_cb``
@@ -240,6 +240,14 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
         what to feed the redshift column as; see :data:`emu_pk.model.Z_VARS`.
         ``log10_1pz`` is the variable :math:`\ln P` is nearly linear in, which
         is where the network's freedom to bend at :math:`z=0` comes from.
+
+    And one that is not a choice about the fit at all:
+
+    ``host_targets``
+        keep the training targets in host memory and send each batch to the
+        device, instead of putting the whole split there once.  For a card
+        smaller than the training set; the batches are the same rows in the
+        same order, so the run is the same run.
     """
     import optax
 
@@ -629,8 +637,43 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
 
     step = _make_step(opt)
 
-    Xtr, Ttr = jnp.asarray(Xn[tr]), jnp.asarray(T[tr])
-    Xva, Tva = jnp.asarray(Xn[val]), jnp.asarray(T[val])
+    # Where the targets live.  By default the whole split goes on the device
+    # once and every batch is a gather there, which is what every cluster run
+    # has done.  At 150 000 cosmologies the training targets are 13.5 GiB, and
+    # putting them there takes twice that for a moment: a 16 GB laptop card
+    # cannot, and neither could Bigfoot's 32 GB V100 (job 93896).
+    # `host_targets` leaves them in host memory and sends each batch over --
+    # 3.4 MB of it -- and scores validation in chunks.  Same rows, same order;
+    # only the summation order of the val loss differs, in its last digits.
+    # Measured at the 150k shapes on an RTX PRO 4000 laptop card: 2.6 ms a
+    # step, where the A100 with everything on it took 3.3.
+    Xtr, Xva = jnp.asarray(Xn[tr]), jnp.asarray(Xn[val])
+    if host_targets:
+        loss_jit = jax.jit(loss)
+        chunk = 32_768
+
+        def batch_targets(sl):
+            # `T[tr[sl]]`, not a copy of `T[tr]` taken up front: that would be
+            # a second 13.5 GiB on the host, for nothing.
+            return jax.device_put(T[tr[sl]])
+
+        def val_loss(p):
+            tot = 0.0
+            for c in range(0, len(val), chunk):
+                rows = val[c:c + chunk]
+                tot += float(loss_jit(p, Xva[c:c + chunk],
+                                      jax.device_put(T[rows]))) * len(rows)
+            return tot / len(val)
+    else:
+        Ttr, Tva = jnp.asarray(T[tr]), jnp.asarray(T[val])
+
+        def batch_targets(sl):
+            return Ttr[sl]
+
+        def val_loss(p):
+            return float(loss(p, Xva, Tva))
+    print("  targets: " + ("in host memory, sent a batch at a time"
+                           if host_targets else "on the device"), flush=True)
 
     for si in range(stage, len(plan)):
         slr, patience, smax = plan[si]
@@ -665,9 +708,10 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
             tot = 0.0
             for b in range(n_batch):
                 sl = order[b * batch:(b + 1) * batch]
-                params, state, l = step(params, state, Xtr[sl], Ttr[sl])
+                params, state, l = step(params, state, Xtr[sl],
+                                        batch_targets(sl))
                 tot += float(l)
-            vl = float(loss(params, Xva, Tva))
+            vl = val_loss(params)
             tl = tot / n_batch
             # With the weighted loss the number has units: it is the mean
             # squared error in ln P, so its root is the RMS fractional error in
@@ -812,13 +856,18 @@ def main(argv=None):
                          "this quantity and what this package ships; a basis "
                          "makes every coefficient error non-local in k, and "
                          "the metric is the max over k")
+    ap.add_argument("--host-targets", action="store_true",
+                    help="keep the training targets in host memory and send "
+                         "each batch to the device, for a card smaller than "
+                         "the training set (the 150k set's targets are "
+                         "13.5 GiB).  Same batches, same order")
     a = ap.parse_args(argv)
     train(a.dataset, a.out, n_comp=a.n_comp, epochs=a.epochs, batch=a.batch,
           lr=a.lr, resume=not a.no_resume, hidden=tuple(a.hidden),
           reduced=not a.no_reduced, weighted=not a.no_weighted,
           schedule=not a.no_schedule, warmup_epochs=a.warmup_epochs,
           lr_end=a.lr_end, direct=not a.no_direct, staged=a.staged,
-          z_var=a.z_var)
+          z_var=a.z_var, host_targets=a.host_targets)
 
 
 if __name__ == "__main__":  # pragma: no cover
