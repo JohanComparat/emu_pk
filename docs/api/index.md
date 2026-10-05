@@ -13,6 +13,7 @@ cosmo
 ratio
 interp
 generate
+heating
 assemble
 train
 validate
@@ -26,6 +27,7 @@ validate
 | {py:func}`emu_pk.primordial_ln_pk <emu_pk.model.primordial_ln_pk>` | the closed-form part of $\ln P$ |
 | {py:mod}`emu_pk.box` | the training hypercube and the guard |
 | {py:mod}`emu_pk.grid` | the wavenumber and redshift grids |
-| {py:mod}`emu_pk.cosmo` | density conventions and the CLASS input dict |
+| {py:mod}`emu_pk.cosmo` | density conventions, and the CAMB and CLASS inputs |
 | {py:mod}`emu_pk.ratio` | the massive-ν and CPL correction table |
-| {py:mod}`emu_pk.validate` | shape and derivative error against CLASS |
+| {py:mod}`emu_pk.heating` | the CLASS pair that carries reionization heating |
+| {py:mod}`emu_pk.validate` | shape and derivative error, against the training truth or a converged reference |

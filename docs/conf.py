@@ -51,7 +51,7 @@ autodoc_default_options = {
 autodoc_typehints = "description"
 # `classy` and `optax` are extras; autodoc must not need them to document the
 # modules that use them.
-autodoc_mock_imports = ["classy", "optax"]
+autodoc_mock_imports = ["camb", "classy", "optax"]
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
