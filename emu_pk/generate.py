@@ -114,8 +114,13 @@ def solve_camb(theta: dict, z_nodes, k_h, precision=None, heating_settings=None)
     # To grid.K_MAX whatever is asked for, as the CLASS path always was: the
     # solver's k sampling depends on its k_max, so a validation that asks for
     # a handful of modes must solve exactly as generation did.
+    # Each redshift once.  CAMB integrates the transfer functions to every
+    # requested redshift in turn, and a repeated one is a zero-length step its
+    # integrator refuses ("DVERK error").  `validate`'s dlnP/dz asks for z = 0
+    # and 0.05 twice, from its two step sizes, and so scored 0 of 16 points
+    # against CAMB.  The rows are matched back by z below, duplicates included.
     pars = cosmo.camb_params(**theta, k_max_h=max(grid.K_MAX, float(k_h.max())),
-                             redshifts=z_nodes, precision=precision)
+                             redshifts=np.unique(z_nodes), precision=precision)
     res = camb.get_results(pars)
     heat = heating.pair(theta, z_nodes, k_h, settings=heating_settings)
     out = []

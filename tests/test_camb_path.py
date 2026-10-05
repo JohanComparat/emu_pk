@@ -85,6 +85,30 @@ def _shard(path, idx, z, lnk, truth=None):
                         **(truth or {}))
 
 
+class TestCambIsAskedForEachRedshiftOnce:
+    def test_duplicate_redshifts_reach_camb_once(self, monkeypatch):
+        """`validate`'s dlnP/dz asks for z = 0 and 0.05 twice (two step
+        sizes).  CAMB integrates to each requested redshift in turn and a
+        repeat is a zero-length step: DVERK error, and 0 of 16 points scored.
+        The rows are matched back by z, so the solver need only see each once.
+        """
+        pytest.importorskip("camb")
+        seen = {}
+
+        class Asked(Exception):
+            pass
+
+        def capture(**kw):
+            seen["z"] = np.asarray(kw["redshifts"], dtype=float)
+            raise Asked
+
+        monkeypatch.setattr(cosmo, "camb_params", capture)
+        with pytest.raises(Asked):
+            generate.solve_camb(FID, [0.0, 0.05, 0.1, 0.0, 0.025, 0.05],
+                                np.logspace(-3, 1, 20))
+        assert len(seen["z"]) == len(np.unique(seen["z"])) == 4
+
+
 class TestAShardSaysWhichTruthWroteIt:
     def test_the_stamp_names_the_solver_and_its_settings(self):
         s = generate.stamp()
