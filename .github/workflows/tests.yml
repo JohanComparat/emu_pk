@@ -9,7 +9,7 @@ on:
 jobs:
   core:
     # The install a user actually gets: numpy + jax and nothing else.  If this
-    # ever needs `classy` or `optax` the extras split has broken, which is the
+    # ever needs CAMB, `classy` or `optax` the extras split has broken, which is the
     # property that lets another package depend on this one without inheriting
     # a Boltzmann solver.
     name: core install, py${{ matrix.python }}
@@ -33,7 +33,7 @@ jobs:
           import sys
           import emu_pk
           from emu_pk import PkEmulator
-          bad = [m for m in ("classy", "optax") if m in sys.modules]
+          bad = [m for m in ("camb", "classy", "optax") if m in sys.modules]
           assert not bad, f"core import pulled in {bad}"
           print("emu_pk", emu_pk.__version__, "-> clean core import")
           PY
