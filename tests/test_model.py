@@ -296,6 +296,22 @@ class TestTheShippedWeightsAreTheOnesValidated:
             "validation.json was not produced against the shipped weights; "
             "re-run `python -m emu_pk.validate --json emu_pk/data/validation.json`")
 
+    def test_the_reference_record_scored_these_bytes(self):
+        """The comparison against the converged reference is the claim 2.1 is
+        released on, so it is held to the same standard."""
+        import hashlib
+        import json
+        import pathlib
+        d = pathlib.Path(__file__).resolve().parent.parent / "emu_pk" / "data"
+        v = json.loads((d / "validation_reference.json").read_text())
+        assert v["truth"] == "reference" and v["weights"] == "shipped"
+        assert v.get("weights_sha256") == hashlib.sha256(
+            (d / "emu_pk_mlp.npz").read_bytes()).hexdigest(), (
+            "validation_reference.json was not produced against the shipped "
+            "weights; see CONTRIBUTING.md, Releasing")
+        s = v["shape"]["m"]["0"]
+        assert s["n_scored"] == s["n_requested"]
+
     def test_the_validation_agrees_about_what_the_network_predicts(self):
         skip_if_shipped_weights_are_stale()
         """A `reduced` file scored by a run that thought it was `raw` would
