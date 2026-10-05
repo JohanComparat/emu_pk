@@ -70,15 +70,22 @@ NCORES="$(campaign_threads)"
 # Ttr there once), and at 150 000 cosmologies the targets alone are 13.5 GiB.
 # JAX reserves 75 % of the card by default, which a 32 GB V100 cannot spare
 # for that and the step's own buffers (job 93896 died on it); take 95 %.
+#
+# And JAX multiplies float32 matrices in TF32 on an A100 unless told otherwise:
+# ten mantissa bits.  p150kbf, the same data, seed and schedule as Dahu's p150k,
+# tracked it to 0.2 % for the first epochs and then stopped at a val loss of
+# 5.9e-7 against the CPU's 3.7e-7, its train loss as high -- a worse fit, not
+# overfitting.  `highest` is full float32, which is what the CPU computes.
 if command -v nvidia-smi >/dev/null 2>&1; then
     export XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.95}"
+    export JAX_DEFAULT_MATMUL_PRECISION="${JAX_DEFAULT_MATMUL_PRECISION:-highest}"
 fi
 echo "host=$(hostname)  job=${OAR_JOB_ID:-local}  cores=${NCORES}  tag=${TAG}" \
      " arm=${EMU_PK_ARM}  epochs=${EPOCHS}  flags='$*'  out=${OUT}" \
      " start=$(date -Is)"
 # Say which device JAX actually took.  A GPU job that quietly ran on the CPU is
 # indistinguishable from a slow GPU in every other line of this log.
-python -c "import jax; print('jax devices:', jax.devices())" || true
+python -c "import jax; print('jax devices:', jax.devices(), ' matmul precision:', jax.config.jax_default_matmul_precision)" || true
 
 # Assemble only if the dataset is missing or older than the newest shard.
 # Rebuild also when the dataset has no part layout: a manifest without `parts`
