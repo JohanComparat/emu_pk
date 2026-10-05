@@ -7,9 +7,9 @@ energy and spatial curvature, out to $k = 300\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$
 It is trained on CAMB at high precision with CLASS's reionization heating.
 Against a *converged* CAMB reference it reproduces $P(k)$ to a median 0.063 %,
 where 2.0, trained on CLASS at its defaults, was 0.351 % off. Against its own
-training truth it reproduces $P(k)$ to a median <!-- NUMBERS-PENDING --> …, and
-the derivatives $\partial\ln P/\partial\theta$ to between … and … depending on
-the parameter. {doc}`tutorial/02_accuracy` carries the per-parameter figures,
+training truth it reproduces $P(k)$ to a median 0.064 %, and the derivatives
+$\partial\ln P/\partial\theta$ to between 0.048 % and 4.46 % depending on the
+parameter. {doc}`tutorial/02_accuracy` carries the per-parameter figures,
 the redshift dependence and the floor of each comparison.
 
 It is written in JAX, so those derivatives come from automatic differentiation.

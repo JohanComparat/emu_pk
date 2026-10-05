@@ -21,8 +21,9 @@ CAMB at its converged rung, times the same reionization heating
 | **2.1.0**, tail to 300 h/Mpc | **0.044 %** | 0.069 % | 0.086 % |
 
 Against its own training truth, which is what `validation.json` records, 2.1.0
-scores <!-- NUMBERS-PENDING --> in the median; 2.0.1 scored 0.066 % against
-*its* truth, which was itself 0.41 % from converged.
+scores 0.064 % in the median; 2.0.1 scored 0.066 % against *its* truth, which
+was itself 0.41 % from converged. The mass-ratio derivatives improve from 5 % to
+4 %, and $\partial\ln P/\partial z$ is scored again, 16 of 16 points.
 
 ### Why
 

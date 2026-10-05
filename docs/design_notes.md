@@ -65,7 +65,7 @@ A factorised table — a neutrino factor times a dark-energy factor — is far
 cheaper: 2² and 2³ derivative arrays over small cubes against 2⁴ over a
 1.8-million-element one. `assemble.build_ratio` builds the full grid and
 measures the cross term a factorisation would discard, storing it as
-`resid_max`. It reaches 1.61 % where the emulator's own shape error is 0.064 %,
+`resid_max`. It reaches 1.61 % where the emulator's own shape error is 0.070 %,
 which is why the table ships whole: the number is measured rather than
 assumed.
 

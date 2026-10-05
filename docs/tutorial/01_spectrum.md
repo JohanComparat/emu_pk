@@ -26,7 +26,8 @@ CLASS's reionization heating. The shaded band is the range the accuracy claims
 are scored over, $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$.
 
 Two things to read off it. The residual is well under a tenth of a percent
-across six decades of $k$ and the whole redshift range, and its structure is
+from $k = 10^{-3}$ to 300 and across the whole redshift range, reaching 0.2 %
+only in the decade below, which is scored on its own; and its structure is
 concentrated at the acoustic scale, $k \approx 0.1$–$0.5\
 h\,\mathrm{Mpc}^{-1}$, where the spectrum has the most features per decade and
 where any emulator works hardest.

@@ -77,13 +77,12 @@ renormalised there, and the two combined. Shape error is the largest fractional
 departure from the truth over $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$.
 Medians are over the held-out cosmologies, at $z = 0$.
 
-<!-- NUMBERS-PENDING -->
 | at $z = 0$ | median | 90th | max |
 |---|---|---|---|
-| amplitude at $k = 0.05$ | … | … | … |
-| shape, renormalised | **…** | … | … |
-| **total, absolute** | **…** | … | … |
-| *the metric's own floor* | *…* | *…* | *…* |
+| amplitude at $k = 0.05$ | 0.009 % | 0.026 % | 0.079 % |
+| shape, renormalised | **0.070 %** | 0.143 % | 0.155 % |
+| **total, absolute** | **0.064 %** | 0.131 % | 0.177 % |
+| *the metric's own floor* | *0.021 %* | *0.033 %* | *0.034 %* |
 
 The floor row is the metric's own. The network predicts on a 411-node grid and
 the comparison asks the solver at 300 other wavenumbers, so the interpolation
@@ -93,15 +92,14 @@ pushed through the same path.
 A Fisher forecast consumes derivatives rather than spectra. Against central
 differences of the training truth, at $z = 0$:
 
-<!-- NUMBERS-PENDING -->
 | parameter | error | floor | | parameter | error | floor |
 |---|---|---|---|---|---|---|
-| `ln10A_s` | **exact** | — | | `sum_mnu` | … | … |
-| `n_s` | **exact** | — | | `wa` | … | … |
-| `omega_cdm` | … | … | | `Omega_k` | … | … |
-| `h` | … | … | | `nu_r1` | … | … |
-| `w0` | … | … | | `nu_r2` | … | … |
-| `omega_b` | … | … | | | | |
+| `ln10A_s` | **exact** | — | | `sum_mnu` | 0.234 % | 0.010 % |
+| `n_s` | **exact** | — | | `wa` | 0.295 % | 0.040 % |
+| `omega_cdm` | 0.048 % | 0.038 % | | `Omega_k` | 0.168 % | 0.002 % |
+| `h` | 0.064 % | 0.005 % | | `nu_r1` | 3.93 % | 0.248 % |
+| `w0` | 0.135 % | 0.036 % | | `nu_r2` | 4.46 % | 0.179 % |
+| `omega_b` | 0.124 % | 0.006 % | | | | |
 
 The two mass ratios are the weakest axes. Their effect on $P(k)$ is 0.32 % at
 $\Sigma m_\nu = 0.10$ eV and under 0.012 % above 0.25 eV, so there is little
@@ -109,11 +107,12 @@ signal to fit; an axis the network ignored would score near 100 %.
 
 And with respect to redshift, which $f\sigma_8$ is built from:
 
-<!-- NUMBERS-PENDING -->
 | | z = 0 | z = 0.5 | z = 1 | z = 2 |
 |---|---|---|---|---|
-| $\partial\ln P/\partial z$ | … | … | … | … |
-| *the measurement's own floor* | *…* | *…* | *…* | *…* |
+| $\partial\ln P/\partial z$ | 0.112 % | 0.022 % | 0.025 % | 0.018 % |
+| *the measurement's own floor* | *0.040 %* | *0.009 %* | *0.007 %* | *0.006 %* |
+
+These sit within a factor of two to four of what the comparison can resolve.
 
 ## The box
 
@@ -260,13 +259,14 @@ pip install 'emu_pk[dev]'
 python -m pytest tests/ -q
 ```
 
-357 tests. <!-- NUMBERS-PENDING: coverage --> Every statement in `emu_pk` is executed by the suite and 99 % of
-its branches. `[dev]` installs everything the suite needs, including `optax`,
-since the tests that exercise the trainer import it. Neither solver is needed: each is
-replaced by a stub wherever a test wants a spectrum rather than a *correct*
-one, and the few tests that do want a real solver skip without it. The tests
-that compare conventions against the consuming package skip when it is not
-importable.
+357 tests, executing 96 % of the statements in `emu_pk` and 93 % of its
+branches. What they leave is mostly the real-solver paths in `generate`,
+`heating` and `validate`, which a stub stands in for. `[dev]` installs
+everything the suite needs, including `optax`, since the tests that exercise
+the trainer import it. Neither solver is needed: each is replaced by a stub
+wherever a test wants a spectrum rather than a *correct* one, and the few tests
+that do want a real solver skip without it. The tests that compare conventions
+against the consuming package skip when it is not importable.
 
 ## Documentation
 

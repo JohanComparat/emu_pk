@@ -89,8 +89,8 @@ model.
 
 The derivative errors in the validation record are *medians over $k$*, at the
 fiducial redshift grid. They are small, but they are not zero, and they are not
-flat in redshift: `w0` runs from 0.097 % at $z = 0$ to 1.50 % at $z = 5$ and
-`wa` from 0.353 % to 1.76 %, where the CPL parameterisation has least leverage.
+flat in redshift: `w0` runs from 0.135 % at $z = 0$ to 1.39 % at $z = 5$ and
+`wa` from 0.295 % to 2.49 %, where the CPL parameterisation has least leverage.
 Most other axes are flat or improve. If your forecast is dominated by one
 parameter at one redshift, score that configuration rather than trusting the
 $z = 0$ number — `emu_pk.validate` takes `--z` and will do it.

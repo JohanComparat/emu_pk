@@ -5,19 +5,18 @@ must work with the **core install only** -- numpy and jax.  Nothing here may
 import `classy` or `optax`, and every tutorial figure is a committed artefact
 produced by `docs/make_figures.py` rather than generated at build time.
 """
-import importlib.metadata
 
 project = "emu_pk"
 author = "Johan Comparat"
 copyright = "2026, Johan Comparat"
-try:
-    release = importlib.metadata.version("emu_pk")
-except importlib.metadata.PackageNotFoundError:  # building from a source tree
-    import re
-    import pathlib
-    release = re.search(r'__version__ = "([^"]+)"',
-                        (pathlib.Path(__file__).parent.parent
-                         / "emu_pk" / "__init__.py").read_text()).group(1)
+# From the source tree, not the installed metadata.  An editable install keeps
+# the version it was installed at, so a checkout bumped to 2.1.0 built pages
+# titled 2.0.1.  CI asserts that `__init__`, `pyproject` and CITATION agree.
+import re
+import pathlib
+release = re.search(r'__version__ = "([^"]+)"',
+                    (pathlib.Path(__file__).parent.parent
+                     / "emu_pk" / "__init__.py").read_text()).group(1)
 version = release
 
 extensions = [
