@@ -264,6 +264,16 @@ def _cache_path(theta, z, k):
     return pathlib.Path(CACHE_DIR) / f"{TRUTH}_{hashlib.sha256(key.encode()).hexdigest()[:24]}.npz"
 
 
+def _sha256(weights) -> str:
+    """Checksum of the weights file scored: ``weights``, or the shipped one."""
+    import hashlib
+
+    from .model import DEFAULT_WEIGHTS
+    p = DEFAULT_WEIGHTS if weights is None else weights
+    with open(p, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
 def _pick(pm, pcb, which):
     return pm if which == "m" else pcb
 
@@ -809,7 +819,11 @@ def main(argv=None):
            "z_var": emu._z_var,
            "loss_form": str(emu.w.get("loss_form", "whitened_mse")),
            "epoch": int(emu.w.get("epoch", -1)),
-           "weights": str(a.weights or "shipped")}
+           "weights": str(a.weights or "shipped"),
+           # The bytes scored, which none of the above pins down: 2.1's
+           # network stopped at epoch 237 as 2.0's did, and `"shipped"`
+           # describes whichever file happens to be shipped.
+           "weights_sha256": _sha256(a.weights)}
     # A control arm is one number, and asking it for any other is asking a
     # network about a direction it was never shown.
     pin_score = dict(kv.split("=", 1) for kv in (a.pin_score or []))
