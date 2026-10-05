@@ -436,7 +436,10 @@ class TestValidateSurvivesARefusedCorner:
         out = V.shape_error(_FakeEmu(), n=2, z_nodes=(0.0, 1.0), verbose=True)
         text = capsys.readouterr().out
         assert "CLASS refused a validation point" in text
-        assert "shape error vs CLASS" in text, "the header still prints"
+        # The header names the truth in force (e0be74b), which since 2.1 is
+        # CAMB x heating, not CLASS.
+        assert f"shape error vs {V._truth_name()}" in text, \
+            "the header still prints"
         for zz in ("0", "1"):
             assert not out["m"][zz].get("n_scored")
 
