@@ -33,15 +33,15 @@ also catches a *permuted* column. Generate into a fresh directory.
 
 **The flat control.** `--pin Omega_k=0` holds a design column fixed after the
 draw, giving a design identical to the curved one in its other ten columns.
-It separates "the wider box is worse" from "this design
-is smaller than the production one" — at any size below production
-both are true, and only the control tells them apart. A network trained on a
+It separates "curvature costs accuracy" from "this design is smaller than the
+production one" — at any size below production both are true, and only the
+control tells them apart. A network trained on a
 pinned column has near-zero `x_std` along it and is meaningful only at
 `Omega_k = 0`; score it with `validate --flat-only`.
 
 ## What it costs
 
-Measured, not estimated, for 2.1:
+Measured, not estimated:
 
 | | |
 |---|---|
@@ -55,14 +55,16 @@ Measured, not estimated, for 2.1:
 | training, 240 epochs, a 16 GB laptop GPU | ~50 minutes (12 s/epoch) |
 | validation against the training truth | ~840 solves |
 
-A solve is CAMB at `lAccuracyBoost 3`, `AccuracyBoost 2`, plus a CLASS pair for
-the heating ratio, to $k = 300$: about 37 times the core time of 2.0's CLASS
-solve at its defaults, ~8.7 s. That is the price of a training
-truth 0.039 % from converged instead of 0.41 %.
+A solve is CAMB at `lAccuracyBoost = 3`, `AccuracyBoost = 2` and no late
+radiation truncation, plus a CLASS pair at CLASS's defaults for the heating
+ratio, to $k = 300$. The raised precision is most of the cost, and it is what
+puts the training truth 0.039 % from CAMB's converged answer in the median
+over this box; CLASS at its own defaults sits 0.41 % from its converged answer
+over the same box, more than six times the network's error.
 
 Generation is embarrassingly parallel across shards and is the part that needs
-a cluster. Measured on a mobile i9 (8 physical cores behind 16 threads), for
-2.0's CLASS solves: 2.75 s/solve solo on a cool machine, and **0.44 solves/s
+a cluster. Measured on a mobile i9 (8 physical cores behind 16 threads), with
+CLASS at its defaults: 2.75 s/solve solo on a cool machine, and **0.44 solves/s
 in aggregate at any worker count** once it is hot, because the cores drop to
 1.1 GHz at 100 °C and sixteen concurrent solver instances thrash a 24 MiB shared
 L3. A rate taken from a burst is off by an order of magnitude from what a
@@ -76,12 +78,12 @@ laptop card above is as quick as the A100. Two settings matter, and both fail
 quietly:
 
 - **Full float32 matrix products.** On an A100, JAX multiplies float32 matrices
-  in TF32 unless told otherwise. The same data, seed and schedule as a CPU run
-  tracked it for the first epochs and then stopped at a val loss of 5.9e-7
-  against 3.7e-7, with a worst-case error 1.6 times higher. Set
+  in TF32 unless told otherwise. With the same data, seed and schedule, a TF32
+  run tracks a CPU run for the first epochs and then stops at a validation loss
+  of 5.9e-7 against 3.7e-7, with a worst-case error 1.6 times higher. Set
   `JAX_DEFAULT_MATMUL_PRECISION=highest` for training; `oarsub/run_train.sh`
-  does. Evaluating the shipped network on a GPU was unaffected on the laptop
-  card above: it agreed with the CPU to 2e-5 in $\ln P$ at either setting.
+  does. Evaluating the shipped network on a GPU is unaffected on the laptop
+  card above: it agrees with the CPU to 2e-5 in $\ln P$ at either setting.
 - **`--host-targets` on a card smaller than the training set.** The 150k set's
   targets are 13.5 GiB, and putting them on the device takes twice that for a
   moment, which a 16 GB card cannot do. The option keeps them in host memory
@@ -106,13 +108,14 @@ Three, and every one of them is load-bearing on a preemptible queue:
 
 ## Where the solvers refuse
 
-The 2.1 generator refused 25 of the 150 000 points, 0.017 %. Twenty-two of
-them sit where `w0 + wa` approaches zero, so `w(a)` climbs toward zero at early
+The generator refuses 25 of the 150 000 points, 0.017 %. Twenty-two of them
+sit where `w0 + wa` approaches zero, so `w(a)` climbs toward zero at early
 times and dark energy behaves like matter before recombination; the other three
-are on the phantom side, at `w0 + wa` near $-1.5$. CLASS refused about 0.02 % of
-2.0's solves, in the same corner. Its half of the heating pair is retried once
-at a thousandfold tighter tolerance before a point counts as refused, which is
-what rescued the two points the grid's new top lost.
+are on the phantom side, at `w0 + wa` near $-1.5$. The CLASS half of the
+heating pair is retried once at a thousandfold tighter tolerance before a point
+counts as refused: near the quintessence corner CLASS's stiff integrator can
+lose its step size on the last modes below $k = 300$, and the tighter tolerance
+solves them.
 
 **Curvature adds no new refusals inside the box**, and that is what fixes its
 width. Measured with CLASS on the closed side at the low-density corner

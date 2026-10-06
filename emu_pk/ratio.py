@@ -24,18 +24,18 @@ gradient the whole differentiable path exists to provide.
 
 Factorisation
 -------------
-The correction ships as **two factors**, neutrinos and dark energy,
+The correction ships as the **full cube** over :math:`(f_\nu, w_0, w_a, z, k)`,
+interpolated with every mixed partial, and not as two factors,
 
-.. math::  r(k,z;\,f_\nu,w_0,w_a) \simeq r^{\nu}(k,z;f_\nu)\,r^{\rm DE}(k,z;w_0,w_a)
+.. math::  r(k,z;\,f_\nu,w_0,w_a) \simeq r^{\nu}(k,z;f_\nu)\,r^{\rm DE}(k,z;w_0,w_a).
 
-because the full five-axis cube needs 16 derivative arrays for a tensor-product
-Hermite and the factors need 4 and 8 over much smaller cubes -- megabytes
-against hundreds.  Whether that is *allowed* is not assumed:
-:func:`~emu_pk.assemble.build_ratio` runs
-the full grid regardless, measures the largest residual of the factorisation
-against it, and stores the number in the table as ``resid_max``.  If it is not
-comfortably below the emulator's own shape error the factorisation is the wrong
-call, and the number is there to say so rather than to be trusted.
+The factors would need 4 and 8 derivative arrays over much smaller cubes,
+against 16 over the full one, and would be far cheaper.  Whether that is
+*allowed* is not assumed: :func:`~emu_pk.assemble.build_ratio` solves the full
+grid, measures the largest residual of the factorisation against it, and stores
+the number in the table as ``resid_max``.  It is 1.61 %, against an emulator
+shape error of 0.07 %, so the factorisation is the wrong call and the full cube
+ships.
 
 Validity
 --------

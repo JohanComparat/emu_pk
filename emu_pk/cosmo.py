@@ -18,15 +18,14 @@ __all__ = ["NU_DENOM_EV", "N_EFF", "N_NU_MASSIVE", "NCDM_UR_PER_SPECIES",
 
 #: ``Omega_nu = sum_mnu / (NU_DENOM_EV h^2)``: the neutrinos' rest mass, the
 #: pressureless limit of the density CLASS integrates for three massive states
-#: at its default ``T_ncdm = 0.71611`` -- the setting every training solve used.
+#: at its default ``T_ncdm = 0.71611`` -- the temperature the training solves
+#: use.
 #:
 #: ``ggah_mod`` derives it (``ggah_mod.cosmology.constants.NU_DENOM_EV``,
 #: 0.9.8) from CODATA and that temperature, and this is its float, restated
-#: because this package cannot import that one.  It was the rounded ``93.14``
-#: until 2.0.1, a second convention beside ``ggah_mod``'s own; the network is
-#: untouched by the change, which reaches only the tables and the validation
-#: that call :func:`omega_nu`.  ``tests/test_conventions.py`` compares the two
-#: floats exactly.
+#: because this package cannot import that one.  It reaches the correction
+#: tables and the validation, which call :func:`omega_nu`; the network does not
+#: read it.  ``tests/test_conventions.py`` compares the two floats exactly.
 NU_DENOM_EV = 93.14338613172058
 N_EFF = 3.044
 N_NU_MASSIVE = 3
@@ -37,15 +36,15 @@ N_NU_MASSIVE = 3
 NCDM_UR_PER_SPECIES = 1.0132
 T_CMB = 2.7255
 
-#: Primordial pivot, in **1/Mpc** -- CLASS's unit, not this package's h/Mpc.
+#: Primordial pivot, in **1/Mpc** -- the solvers' unit, not this package's h/Mpc.
 #:
-#: It is CLASS's own default value, but the training target is ``ln P`` with
-#: the primordial power law divided out (see :func:`emu_pk.train.reduce_target`),
-#: which puts the pivot in the *inference* path, and a pivot there cannot be a
-#: default: change CLASS's and every shipped weight file silently means a
-#: different spectrum, with nothing raising.  So it is stated here, passed to
-#: CLASS explicitly, and written into the ``.npz`` beside the weights trained
-#: against it.
+#: It is CAMB's and CLASS's own default value, but the training target is
+#: ``ln P`` with the primordial power law divided out (see
+#: :func:`emu_pk.train.reduce_target`), which puts the pivot in the *inference*
+#: path, and a pivot there cannot be a default: change a solver's and every
+#: shipped weight file silently means a different spectrum, with nothing
+#: raising.  So it is stated here, passed to both solvers explicitly, and
+#: written into the ``.npz`` beside the weights trained against it.
 K_PIVOT = 0.05
 
 #: Planck 2018 TT,TE,EE+lowE+lensing, the fiducial the correction is built at.
@@ -80,9 +79,9 @@ def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
     is a statement:
 
     * ``Omega_k``.  A *sampled* parameter, passed through rather than assumed.
-      It is stated rather than left to CLASS's default for the same reason it
-      always was: a default here is a cosmology nobody wrote down.  Positive is
-      open, CLASS's convention and ``ggah_mod``'s.
+      It is stated rather than left to CLASS's default because a default
+      here is a cosmology nobody wrote down.  Positive is open, CLASS's
+      convention, CAMB's and ``ggah_mod``'s.
 
       What follows from it is the thing to know.  CLASS closes the budget with
       whichever dark-energy component is left free -- ``Omega_Lambda`` in the
@@ -96,7 +95,7 @@ def class_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
       three, because the oscillation experiments say the masses are not equal
       and the difference is not always negligible: measured against CLASS, the
       degenerate approximation is wrong by 0.32 % in ``P(k)`` at
-      ``sum_mnu = 0.10`` eV in an inverted ordering -- three times the
+      ``sum_mnu = 0.10`` eV in an inverted ordering -- five times the
       emulator's own median error -- and by under 0.012 % above 0.25 eV, where
       the masses really are nearly equal.  It is a good approximation exactly
       where it does not matter.
@@ -226,7 +225,7 @@ def camb_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
                 w0=-1.0, wa=0.0, Omega_k=0.0, nu_r1=1.0 / 3.0,
                 nu_r2=1.0 / 3.0, k_max_h=300.0, redshifts=(0.0,),
                 precision=None, T_cmb=T_CMB):
-    """A ``CAMBparams`` for one box point: the 2.1.0 generator's solve.
+    """A ``CAMBparams`` for one box point: the generator's solve.
 
     The keyword names are :data:`emu_pk.box.PARAMS`, as for
     :func:`class_params`, and the physics is the same point: ``omch2`` is the
@@ -236,8 +235,8 @@ def camb_params(*, h, omega_b, omega_cdm, n_s, ln10A_s, sum_mnu=0.0,
     share of ``omnuh2``, the states' density *today* -- rest mass and kinetic
     energy -- and infers each mass from its share.  So it is handed each
     state's exact density from :func:`nu_energy_factor`, never the mass
-    shares: a mass share read as a density share put a normal ordering's
-    lightest state 20 per cent light in ggah_mod until 0.9.8.
+    shares: a mass share read as a density share puts a normal ordering's
+    lightest state 20 per cent light.
 
     ``precision`` is :data:`CAMB_PRECISION` when ``None`` and CAMB's own
     defaults when ``{}``; keys are routed as ``ggah_mod`` routes them, and an

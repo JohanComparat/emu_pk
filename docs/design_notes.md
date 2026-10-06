@@ -23,9 +23,10 @@ In linear theory with a power-law primordial spectrum,
 
 $$\ln P(k,z) = \ln 10A_s + (n_s - 1)\ln\!\big(kh/k_*\big) + \ln T^2(k,z),$$
 
-exactly: the transfer function does not know what $A_s$ or $n_s$ are, and
-CLASS's `pk_lin` is that product. The network is given the second term only and
-the first is added back by `model.primordial_ln_pk`.
+exactly: the transfer function does not know what $A_s$ or $n_s$ are, and both
+solvers' linear spectra are that product; the heating ratio, taken between two
+spectra with the same primordial power, cancels it. The network is given the
+second term only and the first is added back by `model.primordial_ln_pk`.
 
 Two consequences, and the second is the larger one. The derivatives
 $\partial\ln P/\partial \ln 10A_s = 1$ and
@@ -35,22 +36,23 @@ directions. And amplitude and tilt are the two largest variance directions in
 the target over this box, so removing them is capacity the network gets back
 for the transfer function, the BAO and the neutrino suppression.
 
-That `pk_lin` really does factorise this way is asserted against CLASS itself
-in `tests/test_generate.py`, not assumed. If it were false, every spectrum
-would be wrong by a smooth power law that nothing else in the suite could see.
+That a solver's linear spectrum really does factorise this way is asserted
+against CLASS itself in `tests/test_generate.py`, not assumed. If it were
+false, every spectrum would be wrong by a smooth power law that nothing else in
+the suite could see.
 
-## `k_pivot` is stated, not left to CLASS's default
+## `k_pivot` is stated, not left to a solver's default
 
-It is CLASS's default value, but the training target is `ln P` with the
+It is the solvers' default value, but the training target is `ln P` with the
 primordial power law divided out, which puts the pivot in the *inference* path,
-and a pivot there cannot be a default: change CLASS's and every shipped weight
-file silently means a different spectrum, with nothing raising. It is passed
-to CLASS explicitly and written into the `.npz` beside the weights trained
-against it.
+and a pivot there cannot be a default: change a solver's and every shipped
+weight file silently means a different spectrum, with nothing raising. It is
+passed to CAMB (`pivot_scalar`) and to CLASS (`k_pivot`) explicitly, and written
+into the `.npz` beside the weights trained against it.
 
-Note the units: `k_pivot` is in **1/Mpc**, CLASS's convention, while everything
-else in this package is in **h/Mpc**. The two meet in exactly one expression,
-in `primordial_ln_pk`, which is where the factor of `h` lives.
+Note the units: `k_pivot` is in **1/Mpc**, the solvers' convention, while
+everything else in this package is in **h/Mpc**. The two meet in exactly one
+expression, in `primordial_ln_pk`, which is where the factor of `h` lives.
 
 ## `validate.K_NORM` and `cosmo.K_PIVOT` are different things
 
@@ -101,16 +103,15 @@ no test on either side can see, because each is self-consistent.
 `ggah_mod` is importable.
 
 The denominator is the rest mass of three states at CLASS's default
-`T_ncdm = 0.71611`, the temperature every training solve used, and since
-`ggah_mod` 0.9.8 that package derives it rather than typing it. Until 2.0.1 both
-typed `93.14`, and `ggah_mod` subtracted a different rest mass from $\Omega_m$
-than the one it reported: two conventions, 0.46 % apart.
+`T_ncdm = 0.71611`, derived rather than typed, exactly as `ggah_mod` 0.9.8
+derives it. A rounded `93.14` typed on one side would leave two packages
+subtracting different rest masses from $\Omega_m$ while each reports its own.
 
 ## The spectrum is interpolated with a cubic, and the metric reports its floor
 
 `shape_error` asks the truth at 300 fresh log points while the network predicts
-on `grid.k_grid`'s nodes (400 in 2.0, 411 since 2.1, at the same density), so
-whatever happens *between* the nodes is scored as network error. At six nodes per acoustic period in $\ln k$, linear
+on `grid.k_grid`'s 411 nodes, so whatever happens *between* the nodes is scored
+as network error. At six nodes per acoustic period in $\ln k$, linear
 interpolation is an $O(h^2)$ error large enough to be the whole score.
 
 Pushing a truth spectrum through the identical path — solve on the native grid,
@@ -119,17 +120,17 @@ no network involved:
 
 | interpolant | median | p90 | max |
 |---|---|---|---|
-| linear | 0.1124 % | 0.2337 % | 0.3068 % |
-| **four-point cubic** | **0.0199 %** | 0.0311 % | 0.0324 % |
+| linear | 0.1045 % | 0.2253 % | 0.2483 % |
+| **four-point cubic** | **0.0209 %** | 0.0333 % | 0.0342 % |
 
-A ruler that reads 0.11 % cannot resolve a network at 0.06 %: under linear
+A ruler that reads 0.10 % cannot resolve a network at 0.06 %: under linear
 interpolation the reported median would be the metric measuring itself, and no
 quantity of design points or capacity could move it. A cubic on the same nodes
 is $O(h^4)$ and puts the floor at a third of the network's error, which is where
 a ruler belongs.
 
-**Not the monotone cubic in `interp.py`**, though it was written for this shape
-of problem. Its Fritsch–Carlson limiter branches on the data, and here the data
+**Not the monotone cubic in `interp.py`**, though it suits this shape of
+problem. Its Fritsch–Carlson limiter branches on the data, and here the data
 is the network's own output — so the branch moves with $\theta$ and puts a kink
 in $\partial P/\partial\theta$ at whatever cosmology it happens to switch.
 That is the defect `model.activation` exists to avoid, and reintroducing it one
@@ -147,15 +148,16 @@ instead, and can land *above* the error it exists to bound.
 ## The validation split holds out whole cosmologies
 
 Rows are `(cosmology, redshift)` pairs and `assemble` writes all 31 redshifts of
-a solve consecutively, so a random 5 % *row* split put nearly every cosmology on
-both sides. `val_loss` then measured interpolation in $z$ within cosmologies the
-network had already seen, not generalisation to new ones.
+a solve consecutively, so a random 5 % *row* split would put nearly every
+cosmology on both sides. `val_loss` would then measure interpolation in $z$
+within cosmologies the network has already seen, not generalisation to new
+ones.
 
-The consequence was worse than an optimistic number. `oarsub/README.md` tells
-the reader to decide data-limited versus capacity-limited from the train/val
-gap, and that is what the campaign steers on — but with the split leaking, train
-and val track each other whichever is true. The diagnostic could not answer the
-question it was written for.
+The consequence would be worse than an optimistic number. `oarsub/README.md`
+tells the reader to decide data-limited versus capacity-limited from the
+train/val gap, and that is what a campaign steers on — but with the split
+leaking, train and val track each other whichever is true, and the diagnostic
+cannot answer the question it is there for.
 
 The redshift axis has to *tile* — the first block of unique $z$ values repeating
 exactly — rather than merely divide the row count, because a fixture that gives
@@ -184,7 +186,7 @@ $k_{\rm curv} = \sqrt{|\Omega_k|}\,H_0/c$, which at the edge of the box
 ($|\Omega_k| = 0.15$) is $1.29\times10^{-4}$. The grid reaches below it.
 
 That matters because curvature is otherwise the cheapest axis in the box.
-Measured against CLASS, above $k \approx 10^{-2}$ the response is a
+Measured with CLASS, above $k \approx 10^{-2}$ the response is a
 *k-independent growth rescaling*: $\partial\ln P/\partial\Omega_k = -1.81$
 across the box, flat in $k$ to better than 0.5 % over four decades. The
 transfer function is fixed long before curvature matters, so $\Omega_k$ moves
@@ -220,13 +222,13 @@ package already carries a test for.
 
 So the band is **scored instead**. `validate.K_LOWK` reports
 $k \in [10^{-4}, 10^{-3}]$ separately from `K_TRUSTED`, and the headline
-numbers keep their existing definition. Sixteen per cent of the network's
+numbers keep their definition. Sixteen per cent of the network's
 outputs live in that band, and scoring it is what makes the accuracy there a
 stated limitation rather than an unchecked claim.
 
 There is deliberately **no per-band weight in the trainer**. From the shipped
-`feat_std_m`, the band is 64 of 400 modes carrying 16.9 % of
-$\sum\mathrm{feat\_std}^2$; the curvature response takes that to about 19 %.
+`feat_std_m`, the band is 64 of 411 modes carrying 18.6 % of
+$\sum\mathrm{feat\_std}^2$, the curvature response included.
 Per-wavenumber standardisation absorbs it, so a weight would be a knob with no
 measured justification, and it would stop `val_loss` being the mean squared
 error in $\ln P$ — which is the property that makes $\sqrt{\mathrm{val\_loss}}$
@@ -235,27 +237,26 @@ readable as an RMS fractional error at all.
 ## A checkpoint must feed every sampled parameter, not merely name known ones
 
 `__init__` refuses a checkpoint naming an input this package does not know.
-That is the easy direction and it was the only one checked. The dangerous
-direction is the other: a checkpoint written against a *narrower* box names
-nothing unknown, so it loads, `_in_idx` comes out bit-identical, and it
-predicts a spectrum that silently ignores whatever axis has been added since.
+That is the easy direction. The dangerous direction is the other: a checkpoint
+written against a *narrower* box names nothing unknown, so it loads, `_in_idx`
+comes out bit-identical, and it predicts a spectrum that silently ignores
+whatever axis the box has and the checkpoint lacks.
 
-Growing the box is when that fires, and
-it fires on the file the package itself ships. So the absent case is refused
-too, with `ANALYTIC` — `ln10A_s` and `n_s`, which the reduced target restores
-in closed form — as the one legitimate exemption. `ANALYTIC` therefore lives in
-`model`, where the inference path can see it, and `train` re-exports it: the
-trainer must drop exactly the inputs the predictor is willing to find missing.
+Growing the box is when that fires, on the very file the package ships. So the
+absent case is refused too, with `ANALYTIC` — `ln10A_s` and `n_s`, which the
+reduced target restores in closed form — as the one legitimate exemption.
+`ANALYTIC` therefore lives in `model`, where the inference path can see it, and
+`train` re-exports it: the trainer must drop exactly the inputs the predictor
+is willing to find missing.
 
 ## A short `theta` is refused explicitly, because JAX will not refuse it
 
 `_forward` reads its inputs with `p[self._in_idx]`. JAX does not raise on an
 out-of-range index — it clamps — and a name-by-name check cannot catch a short
 vector either, because zipping `box.PARAMS` against `params` stops at the
-shorter. Without an explicit length check a `theta` one element short takes some
-other parameter's value in the missing slot and returns a spectrum that is
-finite, smooth and wrong. Measured against the shipped weights, a vector one
-element short moves $P(0.05)$ by 10.3 %.
+shorter. Without an explicit length check a `theta` one element short takes
+some other parameter's value in the missing slot and returns a spectrum that is
+finite, smooth and wrong.
 
 The failure is quiet in the worst way: a caller written against a narrower box
 gives `Omega_k` whatever `wa` holds, and since `wa = 0` is the common case the
@@ -282,15 +283,15 @@ a statement about a bit pattern instead.
 
 $\mathrm{d}\ln P/\mathrm{d}\log_{10}(1+z) = -2\ln(10)\,f(z)$ with the growth
 rate $f$ bounded in roughly $[0.5, 1]$, so `ln P` is nearly linear in this
-variable with a bounded, monotonic slope. Measured against CLASS over
+variable with a bounded, monotonic slope. Measured with CLASS over
 $z \in [0,5]$: departure from a straight line is 0.196 in $\log_{10}(1+z)$,
 0.359 in $z$ and 0.782 in $a = 1/(1+z)$.
 
 It matters because $z = 0$ is a node in *value* and an endpoint in *slope* —
 nothing on the $z<0$ side constrains it — and a nearly straight function gives
 a network very little reason to bend there. In this variable
-$\partial\ln P/\partial z$ at $z=0$ is accurate to 0.155 %, against a
-finite-difference floor of 0.049 %, and to better than 0.02 % everywhere else
+$\partial\ln P/\partial z$ at $z=0$ is accurate to 0.112 %, against a
+finite-difference floor of 0.040 %, and to better than 0.05 % everywhere else
 in the range. $z=0$ remains the worst node, because it is the endpoint.
 
 The transform is internal. `pk(k, z, ...)` takes a redshift and `jax.grad` of
@@ -343,12 +344,14 @@ rather than a load-bearing extrapolation — but it is a net, not a cliff.
 
 ## The training truth is CAMB, and CLASS only supplies the heating
 
-2.0 trained on CLASS 3.3.4 at its defaults. `ggah_mod_benchmark`'s precision
-scan put that 0.41 % from CLASS's own converged answer in the median over this
-box, 0.81 % at worst, smoothly in the parameters, and a network learns its truth
-faithfully, error included. No affordable CLASS setting closes the gap at the
-heavy-neutrino end, where the ncdm fluid approximation dominates above 0.3 eV.
-CAMB at `ggah_mod` 0.9.8's precision is 0.039 % from its own converged rung.
+A network learns its training truth faithfully, error included, so the truth
+has to be closer to converged than the network is to it. CLASS 3.3.4 at its
+defaults is 0.41 % from its own converged answer in the median over this box,
+0.81 % at worst, smoothly in the parameters, and no affordable CLASS setting
+closes that at the heavy-neutrino end, where its ncdm fluid approximation
+dominates above 0.3 eV. CAMB at `lAccuracyBoost = 3`, `AccuracyBoost = 2` and
+no late radiation truncation — `ggah_mod` 0.9.8's setting — is 0.039 % from its
+own converged rung. That is the training truth.
 
 CAMB's linear $P(k)$ does not heat the baryons at reionization and CLASS's
 does: 3 % at $k = 200\ h\,\mathrm{Mpc}^{-1}$ at the fiducial, 13 % at
@@ -356,38 +359,37 @@ does: 3 % at $k = 200\ h\,\mathrm{Mpc}^{-1}$ at the fiducial, 13 % at
 $P(\text{reio})/P(\text{no reio})$ from a pair at the same point. A ratio
 cancels most of what a loose setting gets wrong, which is why the pair can run
 at CLASS's own defaults: taken on CLASS's own $k$ nodes it is within 6e-5 of a
-pair tightened everywhere. Taken after CLASS's $P(k)$ spline it was 1.3e-3 off
-above 200, two spectra of different shape interpolated between nodes eleven a
-decade apart.
+pair tightened everywhere. Taken after CLASS's $P(k)$ spline it would be 1.3e-3
+off above 200, two spectra of different shape interpolated between nodes eleven
+a decade apart.
 
 ## A validation against the training truth cannot see the truth's error
 
-2.0's validation reported 0.064 % against the same default CLASS it was trained
-on, while the network sat 0.35 % from a converged answer. Both numbers were
-true; only one was the accuracy of the spectrum. So 2.1 ships two records:
-`validation.json` against the training truth, which measures the network alone
-and carries the derivatives, and `validation_reference.json` against CAMB at a
-converged rung, which neither version was trained on and on which they compare.
-The reference is half an hour of one core per point, so it scores the shape
-and the tail only.
+A network trained and validated on the same truth reports only its fit: on
+CLASS at its defaults it would score about 0.06 % while sitting 0.4 % from a
+converged answer. Both numbers would be true, and only the second is the
+accuracy of the spectrum. So two records ship: `validation.json` against the
+training truth, which measures the network alone and carries the derivatives,
+and `validation_reference.json` against CAMB at a converged rung, which the
+network was not trained on. The reference is half an hour of one core per
+point, so it scores the shape and the tail only.
 
 ## A validation record carries the checksum of the weights it scored
 
-`"weights": "shipped"` names whichever file is shipped *now*. 2.1's weights
-went in beside 2.0's `validation.json` with every consistency test passing,
-because both networks stopped at epoch 237 and nothing else in the record pins
-down the bytes. Each record carries `weights_sha256`, and a test compares it
-with the shipped file.
+`"weights": "shipped"` names whichever file is shipped *now*. Two networks can
+agree on every other field of the record — epoch, forms, box — and differ in
+every weight, so nothing else in the record pins down the bytes. Each record
+carries `weights_sha256`, and a test compares it with the shipped file.
 
 ## The truth cache is keyed on rounded values
 
-A reference solve is half an hour; the cache is what makes scoring a second
-network cheap, and it was filled on Dahu to be read elsewhere. Its keys hashed
-the scoring wavenumbers exactly, and those come out of `exp`, which numpy
-rounds differently with and without AVX-512: 21 of 300 differed in the last bit
-between Dahu and an Arrow Lake laptop on the same numpy, and every key missed.
-The keys now hash $\ln k$ to 1e-9 and the rest to 1e-10, far above that noise
-and far below any difference that would be a different solve.
+A reference solve is half an hour, and the cache is what makes scoring a second
+network cheap: it is meant to be filled on a cluster and read elsewhere. The
+scoring wavenumbers come out of `exp`, which numpy rounds differently with and
+without AVX-512: 21 of 300 differ in the last bit between a cluster node and an
+Arrow Lake laptop on the same numpy, so keys built on exact floats would never
+match. The keys hash $\ln k$ to 1e-9 and the rest to 1e-10, far above that
+noise and far below any difference that would be a different solve.
 
 ## CAMB is asked for each redshift once
 
@@ -395,22 +397,21 @@ CLASS evaluates $P(k)$ at any list of redshifts. CAMB integrates the transfer
 functions to each requested redshift in turn, and a repeated one is a
 zero-length step its integrator refuses with a DVERK error. `validate`'s
 $\partial\ln P/\partial z$ stencils ask for $z = 0$ and $0.05$ at both step
-sizes, so under CAMB every one of its 16 points was skipped and the redshift
-derivative went unscored, with nothing louder than a count of zero.
+sizes; passed as they are, CAMB would refuse all 16 points and the redshift
+derivative would go unscored, with nothing louder than a count of zero.
 `generate.solve_camb` passes the unique redshifts and matches rows back by $z$.
 
 ## Training on a GPU is at full float32
 
 On an A100, JAX multiplies float32 matrices in TF32, ten mantissa bits, unless
-told otherwise. A run with the same data, seed and schedule as a CPU run tracked
-it to 0.2 % for the first epochs and then stopped at a val loss of 5.9e-7
-against 3.7e-7, its *train* loss as high: a worse fit, not overfitting. With
-`JAX_DEFAULT_MATMUL_PRECISION=highest` the first epochs agree with the CPU's to
-four digits. The shipped 2.1 network was trained at full float32 throughout.
+told otherwise. A TF32 run with the same data, seed and schedule as a CPU run
+tracks it to 0.2 % for the first epochs and then stops at a validation loss of
+5.9e-7 against 3.7e-7, its *train* loss as high: a worse fit, not overfitting.
+With `JAX_DEFAULT_MATMUL_PRECISION=highest` the first epochs agree with the
+CPU's to four digits, and the shipped network is trained that way throughout.
 
-`--host-targets` exists for the same campaign: the 150k set's targets are
-13.5 GiB, and moving them onto a device takes twice that for a moment. Kept in
-host memory and sent a batch at a time, the run is the same run bit for bit,
-and on a 16 GB laptop card it is as fast as the A100, because a 4×512 network is
-limited by per-step overhead rather than arithmetic.
-
+`--host-targets` serves the same training set: its targets are 13.5 GiB, and
+moving them onto a device takes twice that for a moment. Kept in host memory
+and sent a batch at a time, the run is the same run bit for bit, and on a 16 GB
+laptop card it is as fast as the A100, because a 4×512 network is limited by
+per-step overhead rather than arithmetic.

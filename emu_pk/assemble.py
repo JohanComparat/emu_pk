@@ -1,24 +1,19 @@
 r"""Shards in, one table or one training set out.
 
-Two products, and the first of them makes a decision that has to be checked
+Two products, and the first of them rests on a decision that is checked
 rather than taken on trust.
 
-The correction table ships **factorised**,
+The correction table ships as the **full cube** over
+:math:`(f_\nu, w_0, w_a, z, k)`, not factorised as
 
-.. math::  r(k,z;\,f_\nu,w_0,w_a) \simeq r^{\nu}(k,z;f_\nu)\;r^{\rm DE}(k,z;w_0,w_a)
+.. math::  r(k,z;\,f_\nu,w_0,w_a) \simeq r^{\nu}(k,z;f_\nu)\;r^{\rm DE}(k,z;w_0,w_a).
 
-because a full five-axis tensor-product Hermite needs :math:`2^4` derivative
-arrays over a 3.6-million-element cube -- hundreds of megabytes resident -- while
-the two factors need :math:`2^2` and :math:`2^3` over cubes a few hundred
-kilobytes each.  The factors are the LambdaCDM slice and the massless slice of
-the same grid, so each is exact on its own axis and the approximation lives
-entirely in the cross term.
-
-:func:`build_ratio` therefore solves the **whole** grid, not just the two
-slices, and measures the cross term it is discarding.  The number is printed and
-stored in the table as ``resid_max``.  If it is not comfortably below the
-emulator's own shape error the factorisation is the wrong call, and the number
-is there to say so rather than to be assumed away.
+The factors would be far cheaper -- :math:`2^2` and :math:`2^3` derivative
+arrays over small cubes, against :math:`2^4` over the full one -- and each would
+be exact on its own axis, so the approximation would live entirely in the cross
+term.  :func:`build_ratio` solves the whole grid and measures that cross term,
+printed and stored in the table as ``resid_max``: it reaches 1.61 %, against an
+emulator shape error of 0.07 %, which is why the full cube ships.
 """
 
 from __future__ import annotations
@@ -66,8 +61,8 @@ def build_ratio(shard_dir, out=None, verbose=True):
     Ships the **full** four-axis cube.  The factorised form -- a neutrino factor
     times a dark-energy factor -- is far cheaper and not accurate enough: its
     cross term reaches 1.6 percent at high neutrino mass with strongly
-    non-LambdaCDM dark energy, an order of magnitude above the emulator's own
-    0.16 percent shape error.  The two effects couple physically -- more
+    non-LambdaCDM dark energy, twenty times the emulator's own 0.07 percent
+    shape error.  The two effects couple physically -- more
     late-time growth is more time for free streaming to suppress -- so the
     discrepancy grows with the product of the two, exactly as it should.
 
@@ -143,13 +138,14 @@ def build_training_set(shard_dir, out, dtype=np.float32, workers=16,
                        parts=32):
     """Concatenate ``emu_*.npz`` shards into one design matrix and one target.
 
-    Rows are ``(cosmology, redshift)`` pairs: one CLASS solve contributes every
+    Rows are ``(cosmology, redshift)`` pairs: one solve contributes every
     redshift in :data:`emu_pk.grid.Z_NODES_EMU`, so the design is the outer
     product of the sampled box with that axis.
 
     Missing design indices are reported rather than filled.  A training set with
-    silent gaps trains perfectly well and is wrong exactly where CLASS refused,
-    which is the part of the box a forecast is most likely to wander into.
+    silent gaps trains perfectly well and is wrong exactly where the solver
+    refused, which is the part of the box a forecast is most likely to wander
+    into.
 
     ``workers`` threads read the shards; see the comment below for why threads
     and not processes, and why the default is not 1.

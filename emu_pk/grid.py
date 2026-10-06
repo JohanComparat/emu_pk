@@ -6,8 +6,9 @@ the last node.  Writing the grid down in one module, imported by the generator
 convention two files happen to share.
 
 Wavenumbers are in h/Mpc and spectra in (Mpc/h)^3 throughout, matching
-``ggah_mod``'s convention rather than CLASS's 1/Mpc -- the conversion happens
-once, in :mod:`emu_pk.generate`, so nothing downstream carries an ``h``.
+``ggah_mod``'s convention rather than the solvers' 1/Mpc -- the conversion
+happens once, in :mod:`emu_pk.generate` and :mod:`emu_pk.heating`, so nothing
+downstream carries an ``h``.
 """
 
 from __future__ import annotations
@@ -26,12 +27,12 @@ __all__ = ["K_MIN", "K_MAX", "N_K", "k_grid", "lnk_grid",
 #: mode, which returns a flat tail where the spectrum should be falling and
 #: puts P(k_max) orders of magnitude high with nothing raising.
 #:
-#: 300 from 2.1.0, where it was 200.  ``ggah_mod``'s Boltzmann backends tabulate
-#: to 300 and its two flavours integrate to 200; an emulator that stopped at
-#: 200 pinned the differentiable flavour there, and one that reaches 300 lets
-#: both flavours move together.  ``N_K`` keeps 2.0's density, 63.5 points a
-#: decade.  The precision above 200 was measured before the grid moved
-#: (``ggah_mod_benchmark`` ``scripts/58_kmax_extension.py``).
+#: 300, because ``ggah_mod``'s Boltzmann backends tabulate to 300 while its two
+#: flavours integrate to 200: an emulator that stopped at 200 would pin the
+#: differentiable flavour there, and one that reaches 300 lets both flavours
+#: move together.  ``N_K`` is 63.5 points a decade.  The solver precision
+#: above 200 is measured in ``ggah_mod_benchmark``
+#: ``scripts/58_kmax_extension.py``.
 K_MIN = 1e-4
 K_MAX = 300.0
 N_K = 411
@@ -63,7 +64,7 @@ Z_NODES_RATIO = np.array([0.0, 0.1, 0.25, 0.4, 0.5, 0.7, 1.0, 1.25,
 
 #: Redshifts written per training-set cosmology.  ``z`` is a network *input*,
 #: so these are rows rather than an interpolation axis, and all of them cost
-#: one CLASS solve between them.
+#: one solve between them.
 #:
 #: Twenty uniform nodes over [0, 5] put the first interior node at z = 0.263,
 #: which leaves the slope at z = 0 unpinned: z = 0 is a node in *value* and an
@@ -77,8 +78,8 @@ Z_NODES_RATIO = np.array([0.0, 0.1, 0.25, 0.4, 0.5, 0.7, 1.0, 1.25,
 #: the nodes per cosmology changes it by less again.
 #:
 #: **Regenerating against this needs a fresh shard directory.**
-#: ``generate.emu_shard`` skips a chunk whose output exists, so 20-node shards
-#: would be kept and silently mixed; ``assemble`` refuses shards whose z axes
+#: ``generate.emu_shard`` skips a chunk whose output exists, so shards written
+#: on any other z axis would be kept and silently mixed; ``assemble`` refuses shards whose z axes
 #: disagree, which turns that into an error rather than a bad training set, but
 #: the clean move is a new directory.
 Z_NODES_EMU = np.unique(np.concatenate([
@@ -90,7 +91,7 @@ Z_NODES_EMU = np.unique(np.concatenate([
 # --------------------------------------------------------------------------
 # Correction-table axes
 # --------------------------------------------------------------------------
-#: Sum of neutrino masses [eV].  Twelve nodes to 0.6 eV, against ten to 0.5.
+#: Sum of neutrino masses [eV].  Twelve nodes to 0.6 eV, the top of the box.
 #: Zero is a node and must stay one: it is where both ratios are *exactly* 1,
 #: which is what lets the correction be applied unconditionally with no Python
 #: branch on a traced value.

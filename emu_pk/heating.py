@@ -1,13 +1,12 @@
 r"""Post-reionization baryon heating, carried from CLASS onto CAMB's spectrum.
 
-From 2.1.0 the training spectra are CAMB's (:func:`emu_pk.cosmo.camb_params`),
-and CAMB's linear :math:`P(k)` does not heat the baryons at reionization.  CLASS
-does: the heated gas has pressure, and :math:`P_m` is suppressed below its
-Jeans length -- 3 per cent at :math:`k = 200\,h\,{\rm Mpc}^{-1}` at the
-fiducial, 13 per cent where :math:`\omega_{\rm cdm}` is lowest and the baryons
-are a third of the matter (``ggah_mod_benchmark`` precision scan, the
-``no_reio`` rung).  The 2.0 training set carried it, as a consequence of being
-CLASS's, and 2.1.0 keeps it on purpose: each CAMB spectrum is multiplied by
+The training spectra are CAMB's (:func:`emu_pk.cosmo.camb_params`), and CAMB's
+linear :math:`P(k)` does not heat the baryons at reionization.  CLASS does: the
+heated gas has pressure, and :math:`P_m` is suppressed below its Jeans length --
+3 per cent at :math:`k = 200\,h\,{\rm Mpc}^{-1}` at the fiducial, 13 per cent
+where :math:`\omega_{\rm cdm}` is lowest and the baryons are a third of the
+matter (``ggah_mod_benchmark`` precision scan, the ``no_reio`` rung).  The
+heating is physical, so it is kept: each CAMB spectrum is multiplied by
 
 .. math::
 
@@ -29,9 +28,9 @@ Seven parameters is not a table.
 
 **Cheap, because it is a ratio.**  Both solves share one set of settings, so
 their errors cancel: tightening the neutrino tolerance a thousandfold moves
-:math:`R` by :math:`\sim10^{-5}`.  :data:`SETTINGS` are therefore loosened well
-below CLASS's defaults, at a measured cost in accuracy on :math:`R` that is
-recorded beside them.
+:math:`R` by :math:`\sim10^{-5}`.  :data:`SETTINGS` are therefore CLASS's own
+defaults rather than a tightened setting, at a measured cost in accuracy on
+:math:`R` that is recorded beside them.
 """
 
 from __future__ import annotations
@@ -54,7 +53,7 @@ __all__ = ["SETTINGS", "RETRY", "Heating", "pair"]
 #: k = 200 except at omega_cdm = 0.05, 1.3e-4 where the suppression is 24 per
 #: cent.  CAMB's own precision leaves about 4e-4.
 #:
-#: Refused on the way: the same pair with the ratio taken *after* CLASS's P(k)
+#: Rejected alternatives: the same pair with the ratio taken *after* CLASS's P(k)
 #: spline (1.3e-3 above k = 200 -- two spectra of different shape interpolated
 #: between nodes 11 a decade apart); that pair with the output sampled at 20 a
 #: decade (as accurate, 2.4x the cost, because the extra nodes are the
@@ -78,12 +77,12 @@ class Heating:
     pcb_class: np.ndarray
 
 
-#: What :func:`pair` retries with when CLASS refuses a point.  At the grid's
-#: new top (P_k_max = 315 h/Mpc) CLASS's stiff integrator loses its step size
-#: on the last k modes at some points near the quintessence corner
-#: (w0 + wa -> 0) that it solved at 2.0's P_k_max = 210 -- two in the first
-#: 600 of the pilot.  A thousandfold tighter tolerance than the default's 1e-5
-#: solves both, at 1.5x the cost; raising P_k_max does not.  Both solves of the
+#: What :func:`pair` retries with when CLASS refuses a point.  At the top of
+#: the grid (P_k_max = 315 h/Mpc) CLASS's stiff integrator can lose its step
+#: size on the last k modes at points near the quintessence corner
+#: (w0 + wa -> 0), which it solves with P_k_max = 210.  A thousandfold tighter
+#: tolerance than the default's 1e-5 solves them, at 1.5x the cost; raising
+#: P_k_max does not.  Both solves of the
 #: pair are retried together, so the ratio still comes from one setting.
 RETRY: dict = {"tol_perturbations_integration": 1e-6}
 

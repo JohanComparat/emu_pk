@@ -13,13 +13,13 @@ needed, and neither is a compiler.
 | | Installs | For |
 |---|---|---|
 | `emu_pk` | numpy, jax | evaluating a trained network and the correction table |
-| `emu_pk[gen]` | + `classy` | generating training data, and **validating** |
+| `emu_pk[gen]` | + CAMB, `classy` | generating training data, and **validating** |
 | `emu_pk[train]` | + `optax` | training a network |
 | `emu_pk[dev]` | + pytest | running the test suite |
 | `emu_pk[docs]` | + sphinx | building this documentation |
 
-**The split is load-bearing.** `import emu_pk` in an environment with no
-`classy` and no `optax` must work, and the test suite asserts it. That is what
+**The split is load-bearing.** `import emu_pk` in an environment with no CAMB,
+no `classy` and no `optax` must work, and the test suite asserts it. That is what
 lets another package depend on this one without inheriting a Boltzmann solver
 or a training stack.
 
@@ -43,22 +43,23 @@ and carries a commented block per extra.
 
 ## A note on `[gen]`
 
-`[gen]` is CAMB and `classy`. Since 2.1 the training truth is CAMB at high
-precision, times CLASS's reionization heating, so generation and validation
-need both. The shipped weights were trained and validated on **CAMB 1.6.6**;
-CAMB 2.0.4 differs from it by up to 4.4e-4 in $\ln P$ near
-$k = 0.1\ h\,\mathrm{Mpc}^{-1}$, which is a visible fraction of the network's
-own error. To reproduce the shipped validation, pin it:
+`[gen]` is CAMB and `classy`. The training truth is CAMB at raised precision
+(`lAccuracyBoost = 3`, `AccuracyBoost = 2`, no late radiation truncation),
+times the reionization heating of a CLASS pair at the same point, so generation
+and validation need both. The shipped weights were trained and validated
+against **CAMB 1.6.6** and CLASS 3.3.4. Other CAMB versions solve the same
+cosmology slightly differently — 2.0.4 by up to 4.4e-4 in $\ln P$ near
+$k = 0.1\ h\,\mathrm{Mpc}^{-1}$, a visible fraction of the network's own
+error — so to reproduce the shipped validation, pin it:
 
 ```bash
 pip install 'emu_pk[gen]' camb==1.6.6
 ```
 
 CAMB installs as a wheel. `classy` compiles CLASS from source, so it needs a C
-compiler. It is also the
-one part of this that can fail for environmental reasons: CLASS's `setup.py`
-invokes `make` with an unbounded `-j`, which on a memory-capped machine gets
-the compiler killed —
+compiler. It is also the one part of this that can fail for environmental
+reasons: CLASS's `setup.py` invokes `make` with an unbounded `-j`, which on a
+memory-capped machine gets the compiler killed —
 
 ```
 g++: fatal error: Killed signal terminated program cc1plus

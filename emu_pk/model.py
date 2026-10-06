@@ -1,7 +1,7 @@
 r"""Inference: a linear-P(k) network evaluated in pure JAX.
 
-Nothing here imports ``optax``, ``classy`` or anything else outside the core
-install.  Loading a trained model needs numpy and jax and nothing more, which is
+Nothing here imports CAMB, ``classy``, ``optax`` or anything else outside the
+core install.  Loading a trained model needs numpy and jax and nothing more, which is
 what lets ``ggah_mod`` depend on this package without inheriting a Boltzmann
 solver or a training stack.
 
@@ -81,8 +81,8 @@ def primordial_ln_pk(lnk, h, n_s, ln10A_s, k_pivot=cosmo.K_PIVOT):
 
     In linear theory with a power-law primordial spectrum this split is
     *exact*: :math:`P = P_\mathcal{R}(k)\,T^2(k)`, the transfer function does
-    not know what :math:`A_s` or :math:`n_s` are, and CLASS's ``pk_lin`` is that
-    product.  So the network is given the second term only and this one is added
+    not know what :math:`A_s` or :math:`n_s` are, and the solvers' linear
+    spectra are that product.  So the network is given the second term only and this one is added
     back here.
 
     Two things follow, and they are the reason for the split rather than side
@@ -90,24 +90,24 @@ def primordial_ln_pk(lnk, h, n_s, ln10A_s, k_pivot=cosmo.K_PIVOT):
 
     * :math:`\partial\ln P/\partial \ln10A_s = 1` and
       :math:`\partial\ln P/\partial n_s = \ln(kh/k_*)` become *exact*, where
-      a network that learned them scored 0.31 % and 1.02 %.  A Fisher matrix
+      a network that learns them scores 0.31 % and 1.02 %.  A Fisher matrix
       built on this one is exactly right in two of its eleven directions.
     * Amplitude and tilt are the two largest variance directions in the target
       over this box -- a factor ~11 in amplitude and ~44 in tilt across a
       wavenumber range of 14.5 e-folds.  Removing them analytically is capacity
-      the PCA and the network get back for the transfer function, the BAO and
-      the neutrino suppression, which is where the error actually is.
+      the network gets back for the transfer function, the BAO and the
+      neutrino suppression, which is where the error actually is.
 
     ``lnk`` is :math:`\ln k` with :math:`k` in **h/Mpc**, this package's
-    convention, and ``k_pivot`` is in **1/Mpc**, CLASS's -- hence the explicit
+    convention, and ``k_pivot`` is in **1/Mpc**, the solvers' -- hence the explicit
     factor of ``h``.  The two units meeting in one expression is exactly the
     kind of thing that is wrong by :math:`h` and self-consistent everywhere, so
     it happens once, here.
 
     The constant :math:`-10\ln 10` from :math:`A_s = 10^{-10}e^{\ln10A_s}` is
     deliberately *not* included: it does not depend on the cosmology, so it is
-    absorbed into the PCA mean and carrying it would only be one more place for
-    train and inference to disagree.
+    absorbed into the output standardisation, and carrying it would only be one
+    more place for train and inference to disagree.
 
     Arguments broadcast: pass ``lnk`` as ``(n_k,)`` against scalars for one
     spectrum, or against ``(n_rows, 1)`` columns for a whole training set.
@@ -171,11 +171,11 @@ def activation(x, beta, gamma):
     is the numerically stable form; it differentiates to :math:`s(1-s)`, which is
     ``0`` there.
 
-    This is not hypothetical.  The first full training run on 150,000
-    cosmologies returned ``train nan  val nan`` at the end of epoch 1, with a
-    PCA residual of :math:`7.8\times10^{-6}` and no NaN anywhere in the data:
-    the weights had simply grown until some pre-activation crossed :math:`-88`,
-    and one NaN gradient poisons every parameter through Adam.  An activation
+    This is not hypothetical.  With the naive form, training on 150,000
+    cosmologies returns ``train nan  val nan`` at the end of the first epoch
+    with no NaN anywhere in the data: the weights grow until some
+    pre-activation crosses :math:`-88`, and one NaN gradient poisons every
+    parameter through Adam.  An activation
     whose whole purpose is that something differentiates it has to be
     differentiable everywhere it is *evaluated*, not merely where it was tested.
     """
@@ -197,11 +197,10 @@ def load_weights(path=None) -> dict:
 
     **Keyed on the file's mtime and size, not on its path alone.**  Caching on
     the path is right until something rewrites that path, and then it is
-    silently wrong: retraining to the same filename and reloading returned the
-    *previous* network, with no error and no warning.  That is not hypothetical
-    -- it invalidated a pilot comparison here, where two configurations wrote
-    to one output name and the second scored the first one's weights, producing
-    two identical rows that looked like a real null result.
+    silently wrong: retraining to the same filename and reloading would return
+    the *previous* network, with no error and no warning.  Two configurations
+    writing to one output name would then score the first one's weights twice,
+    and two identical rows look like a real null result.
     """
     p = DEFAULT_WEIGHTS if path is None else pathlib.Path(path)
     if not p.exists():

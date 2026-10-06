@@ -1,7 +1,8 @@
-r"""Run CLASS.  One shard of work per process, one ``.npz`` per shard.
+r"""Run the solvers.  One shard of work per process, one ``.npz`` per shard.
 
-This is the only module that needs a Boltzmann solver, and the only one that
-runs on the cluster.  Two products, from the same driver:
+This is the module that runs on the cluster: CAMB at raised precision for the
+spectra, and the CLASS pair of :mod:`emu_pk.heating` for their reionization
+heating.  Two products, from the same driver:
 
 ``--mode ratio``
     the Phase-1 correction grid: the fiducial cosmology, swept over
@@ -30,10 +31,10 @@ from . import box, cosmo, grid
 __all__ = ["class_params_for", "solve", "solve_camb", "solve_point", "SOLVER",
            "stamp", "ratio_shard", "emu_shard", "main"]
 
-#: Which solver writes the training set.  ``"camb"`` from 2.1.0: CAMB at
+#: Which solver writes the training set.  ``"camb"``: CAMB at
 #: :data:`emu_pk.cosmo.CAMB_PRECISION`, times CLASS's reionization heating
-#: (:mod:`emu_pk.heating`).  ``"class"`` is the 2.0 path, CLASS at its own
-#: defaults, kept so a 2.0 shard can be reproduced and compared.
+#: (:mod:`emu_pk.heating`).  ``"class"`` solves with CLASS at its own defaults
+#: instead, for comparison; the shipped weights are not trained on it.
 SOLVER = "camb"
 
 

@@ -26,10 +26,10 @@ The bounds are closed and inclusive, and these are the values themselves:
 The parameter rows are `box.BOX`; the wavenumber and redshift rows are
 `grid.K_MIN`/`grid.K_MAX` and `grid.Z_MIN`/`grid.Z_MAX`.
 
-`Omega_k` is positive for an open universe, CLASS's own sign. `nu_r1` and
-`nu_r2` divide the neutrino mass over three species, $m_i = r_i \Sigma m_\nu$
-with $r_3 = 1 - r_1 - r_2$; `sum_mnu` is still the sum, and what these two add
-is how it is split.
+`Omega_k` is positive for an open universe, the sign CAMB and CLASS both use.
+`nu_r1` and `nu_r2` divide the neutrino mass over three species,
+$m_i = r_i \Sigma m_\nu$ with $r_3 = 1 - r_1 - r_2$; `sum_mnu` is the sum, and
+these two say how it is split.
 
 Not every point inside these bounds is sampled: `w0 + wa < 0` and the ordered
 simplex $0 \le r_1 \le r_2 \le (1-r_1)/2$ carve out the rest. Both reasons are
@@ -91,16 +91,16 @@ bound towards early times, dark energy dominates before recombination, and
 the solver either refuses or returns a spectrum that is not a cosmology anyone
 means to train on.
 
-**Mass ratios outside the ordered simplex are redrawn.** A Boltzmann solver sums
-the three species' contributions and cannot tell them apart, so the six permutations of
-one mass vector are the same cosmology; ordering them is what stops the network
-spending capacity on an exact symmetry instead of the physics. `nu_r1` cannot
+**Mass ratios outside the ordered simplex are redrawn.** A Boltzmann solver
+sums the three species' contributions and cannot tell them apart, so the six
+permutations of one mass vector are the same cosmology; ordering them is what
+stops the network spending capacity on an exact symmetry instead of the
+physics. `nu_r1` cannot
 exceed 1/3 under that constraint, which is where its bound comes from.
 
 Curvature is *not* rejected anywhere. $\pm0.15$ is the widest interval over
-which CLASS solves the whole box, measured when the box was set: at the
-low-density corner it begins refusing near $\Omega_k = -0.275$, and on the
-open side it never refuses at all. Open curvature can drive the closure
+which the whole box solves: at the low-density corner CLASS begins refusing
+near $\Omega_k = -0.275$, and on the open side it never refuses at all. Open curvature can drive the closure
 $\Omega_{\rm de} = 1 - \Omega_m - \Omega_r - \Omega_k$ negative, and those
 solve without complaint — a strange universe, not an ill-posed one.
 `validate` reports the region as its own stratum rather than carving it out.
@@ -117,13 +117,13 @@ wide priors will visit places the training set did not.
 **The degenerate neutrino point.** $r = (1/3, 1/3)$ is a *vertex* of the
 sampled simplex, not an interior point — it is where `nu_r1` meets its bound and
 the ordering constraint is tight at once, and it cannot be made interior because
-a mass spread is non-negative. It is also where every result published before
-version 2 sits, so it gets its own stratum.
+a mass spread is non-negative. It is also where every analysis that keeps the
+degenerate approximation sits, so it gets its own stratum.
 
 **The extreme-quintessence corner.** With `w0` near $-0.5$ and `wa` positive,
-`w(a)` climbs toward zero at early times. The 2.1 generator refused 25 of the
-150 000 training solves, 22 of them where `w0 + wa` approaches zero (CLASS
-refused about 0.02 % for 2.0, in the same corner), so the training set has
-a small hole exactly where a forecast is most likely to wander. The generator
+`w(a)` climbs toward zero at early times. The generator refused 25 of the
+150 000 training solves, 22 of them where `w0 + wa` approaches zero, so the
+training set has a small hole exactly where a forecast is most likely to
+wander. The generator
 records failures rather than filling them, because a set with silent gaps
 trains perfectly well and is wrong in a place nothing points at.

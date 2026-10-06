@@ -11,10 +11,14 @@ eleven-parameter cosmology that includes **three separate neutrino masses**,
 CPL dark energy and **spatial curvature**, out to
 $k = 300\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-It is trained on CAMB at high precision with CLASS's reionization heating, and
-reproduces a *converged* CAMB reference to a median 0.063 %. It is written in
-JAX, so derivatives with respect to the cosmological parameters come from
-automatic differentiation.
+Every training spectrum is a CAMB solve at raised precision —
+`lAccuracyBoost = 3`, `AccuracyBoost = 2`, no late radiation truncation —
+multiplied by the reionization heating CLASS computes and CAMB's linear
+spectrum lacks, taken as the ratio of a CLASS pair at the same point. That
+truth is 0.039 % from CAMB's converged answer, and the network reproduces the
+converged answer itself to a median 0.063 %. It is written in JAX, so
+derivatives with respect to the cosmological parameters come from automatic
+differentiation.
 
 ```python
 import numpy as np
@@ -49,20 +53,18 @@ hypercube drawn from a different seed from the training design.
 
 [`emu_pk/data/validation_reference.json`](emu_pk/data/validation_reference.json)
 scores the network against CAMB at its converged precision rung, times the same
-reionization heating: a truth neither 2.0 nor 2.1 was trained on, and so the one
-on which they compare. Total error in $P_m$, 32 cosmologies, at $z = 0$:
+reionization heating. The network was not trained on this truth, so the score
+includes the error of the training truth itself: it is the accuracy of the
+spectrum, not only of the fit. Total error in $P_m$, 32 cosmologies, at
+$z = 0$:
 
 | against the converged reference | median | 90th | max |
 |---|---|---|---|
 | $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$ | **0.063 %** | 0.130 % | 0.190 % |
 | tail, $k \in [10, 300]\ h\,\mathrm{Mpc}^{-1}$ | **0.044 %** | 0.069 % | 0.086 % |
-| *2.0.1, $k \in [10^{-3}, 10]$* | *0.351 %* | *0.580 %* | *1.358 %* |
 
 The median stays between 0.051 % and 0.063 % from $z = 0$ to 5, and the cold
-spectrum $P_{cb}$ scores the same. 2.0 was trained on CLASS at its defaults,
-which a precision scan put 0.41 % from converged; its own validation, against
-that same default CLASS, could not see it. 2.1 is trained on CAMB at
-`ggah_mod`'s precision, 0.039 % from converged.
+spectrum $P_{cb}$ scores the same.
 
 ### Against its training truth
 
@@ -138,12 +140,14 @@ unwarranted number, so `PkEmulator` checks the box on every call it can.
 Points with `w0 + wa >= 0` are excluded. CPL dark energy then grows without
 bound towards early times and dominates before recombination.
 
-The curvature bound is measured. CLASS solves the whole box at
-$|\Omega_k| \le 0.15$; on the closed side it begins refusing at
+The curvature bound is measured. The whole box solves at
+$|\Omega_k| \le 0.15$; on the closed side CLASS begins refusing at
 $\Omega_k = -0.275$, at `omega_cdm = 0.05`, `h = 0.85`. On the open side it
 never refuses, including where the closure
 $\Omega_{\rm de} = 1 - \Omega_k - \Omega_m - \Omega_r$ turns negative, so
-that bound is stated rather than discovered.
+that bound is stated rather than discovered. The points the generator does
+refuse, 25 of 150 000, sit in the dark-energy corners, not at the curvature
+bounds.
 
 Negative $\Omega_{\rm de}$ is kept. It covers 0.4 % of the flat box and 0.9 %
 of this one, the solvers handle it, and the spectrum is smooth in the parameters;
@@ -157,7 +161,7 @@ and the ordering removes five of them. Both mass orderings and the degenerate
 limit lie inside; the degenerate point $(1/3, 1/3)$ is a vertex, and is scored
 as its own stratum.
 
-Against CLASS, the degenerate approximation is wrong by 0.32 % in $P(k)$ at
+The degenerate approximation is wrong by 0.32 % in $P(k)$ at
 $\Sigma m_\nu = 0.10$ eV in an inverted ordering, and by under 0.012 % above
 0.25 eV. This emulator's own error, against the converged reference, is 0.063 %.
 
@@ -176,15 +180,16 @@ pip install 'emu_pk[gen]'          # + CAMB and classy, to generate data or vali
 pip install 'emu_pk[train]'        # + optax, to train
 ```
 
-`import emu_pk` in an environment with no `classy` and no `optax` must work,
-so that a package depending on this one does not inherit a Boltzmann solver or
-a training stack. The test suite asserts it.
+`import emu_pk` in an environment with no CAMB, no `classy` and no `optax`
+must work, so that a package depending on this one does not inherit a
+Boltzmann solver or a training stack. The test suite and CI assert it.
 
 `[gen]` compiles CLASS from source and needs a C compiler. The shipped weights
-were trained and validated on **CAMB 1.6.6**: CAMB 2.0.4 differs from it by up
-to 4.4e-4 in $\ln P$ near $k = 0.1\ h\,\mathrm{Mpc}^{-1}$, a visible fraction
-of the network's own error, so pin it (`pip install camb==1.6.6`) to reproduce
-the validation.
+were trained and validated against **CAMB 1.6.6** and CLASS 3.3.4. Other CAMB
+versions solve the same cosmology slightly differently — 2.0.4 by up to 4.4e-4
+in $\ln P$ near $k = 0.1\ h\,\mathrm{Mpc}^{-1}$, a visible fraction of the
+network's own error — so pin it (`pip install camb==1.6.6`) to reproduce the
+validation.
 
 ### A dedicated environment
 
@@ -284,8 +289,8 @@ also:
 
 - **CosmoPower** — Spurio Mancini et al. (2022), MNRAS 511, 1771. The network
   architecture and the learned activation are theirs.
-- **CAMB** — Lewis, Challinor & Lasenby (2000), ApJ 538, 473. Since 2.1 every
-  training spectrum and every validation truth is a CAMB solve.
+- **CAMB** — Lewis, Challinor & Lasenby (2000), ApJ 538, 473. Every training
+  spectrum and every validation truth is a CAMB solve.
 - **CLASS** — Blas, Lesgourgues & Tram (2011), JCAP 07, 034. Every training
   spectrum carries CLASS's reionization heating, and the correction table in
   `emu_pk.ratio` is distilled from CLASS.

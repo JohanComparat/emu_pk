@@ -1,8 +1,8 @@
 r"""Gradient-safe interpolation primitives.
 
-Ported from ``ggah_mod.numerics`` and ``ggah_mod.cosmology.nu_ratio`` when the
-table moved here.  They are copied rather than imported because ``ggah_mod``
-depends on *this* package: importing back would be a cycle.
+The same primitives as ``ggah_mod.numerics`` and
+``ggah_mod.cosmology.nu_ratio``, copied rather than imported because
+``ggah_mod`` depends on *this* package: importing back would be a cycle.
 
 Each one encodes a correctness detail that is invisible in the output when it is
 got wrong, which is why they are written once and tested directly.
@@ -50,9 +50,10 @@ def lin_weights(x, grid):
       needed; ``where`` selects a branch cleanly and carries the full gradient.
 
     This is not hypothetical.  The correction table's mass axis has a node at
-    ``Sigma m_nu = 0.06`` eV, which is the fiducial, so every Fisher forecast
-    differentiating the neutrino mass at the fiducial got a derivative wrong by
-    a factor of two -- with no symptom other than the number.
+    ``Sigma m_nu = 0.06`` eV, which is the fiducial, so with ``clip`` every
+    Fisher forecast differentiating the neutrino mass at the fiducial would get
+    a derivative wrong by a factor of two -- with no symptom other than the
+    number.
     """
     lo, hi = grid[0], grid[-1]
     x_c = jnp.where(x < lo, lo, jnp.where(x > hi, hi, x))
@@ -71,11 +72,10 @@ def pchip_slopes(y, x):
     * ``f_nu``.  The fiducial ``Sigma m_nu = 0.06`` eV is a node, where the left
       and right slopes differ by about 5 percent.
     * ``z``.  The round numbers a redshift is most likely to be evaluated at are
-      exactly the kinks.  ``d ln(dn/dM)/dz`` was wrong by 2.6e-4 at ``z = 0.5``
-      and 1.0e-3 at ``z = 1.0`` under linear interpolation, against 1e-10 at an
-      off-node redshift --
-      step-independently, which is what distinguishes a kink from a truncation
-      error.
+      exactly the kinks.  Under linear interpolation ``d ln(dn/dM)/dz`` is
+      wrong by 2.6e-4 at ``z = 0.5`` and 1.0e-3 at ``z = 1.0``, against 1e-10
+      at an off-node redshift -- step-independently, which is what
+      distinguishes a kink from a truncation error.
     * ``w0``, ``wa``.  Five nodes each, and the fiducial ``w0 = -1``, ``wa = 0``
       sits on a node of both.  Same argument, same treatment.
 

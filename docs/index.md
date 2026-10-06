@@ -4,13 +4,16 @@ Differentiable emulation of the **linear matter power spectrum**, over an
 eleven-parameter cosmology with three separate neutrino masses, CPL dark
 energy and spatial curvature, out to $k = 300\ h\,\mathrm{Mpc}^{-1}$ and $z = 5$.
 
-It is trained on CAMB at high precision with CLASS's reionization heating.
-Against a *converged* CAMB reference it reproduces $P(k)$ to a median 0.063 %,
-where 2.0, trained on CLASS at its defaults, was 0.351 % off. Against its own
-training truth it reproduces $P(k)$ to a median 0.064 %, and the derivatives
-$\partial\ln P/\partial\theta$ to between 0.048 % and 4.46 % depending on the
-parameter. {doc}`tutorial/02_accuracy` carries the per-parameter figures,
-the redshift dependence and the floor of each comparison.
+Every training spectrum is a CAMB solve at raised precision
+(`lAccuracyBoost = 3`, `AccuracyBoost = 2`, no late radiation truncation),
+multiplied by the reionization heating CLASS computes and CAMB's linear
+spectrum lacks, taken as the ratio of a CLASS pair at the same point. Against a
+*converged* CAMB reference it reproduces $P(k)$ to a median 0.063 %. Against
+its own training truth it reproduces $P(k)$ to a median 0.064 %, and the
+derivatives $\partial\ln P/\partial\theta$ to between 0.048 % and 4.46 %
+depending on the parameter. {doc}`tutorial/02_accuracy` carries the
+per-parameter figures, the redshift dependence and the floor of each
+comparison.
 
 It is written in JAX, so those derivatives come from automatic differentiation.
 Two of them are analytic: the primordial power law is divided out of the
@@ -30,18 +33,17 @@ pk = emu.pk(k, z=0.5, params=theta)
 
 ## Why this one
 
-Most linear-$P(k)$ emulators are trained on a narrower box and validated on
-values.
+Most linear-$P(k)$ emulators are trained on a narrower box, and validated on
+the values of $P(k)$ against the solver setting they were trained on.
 
 - The box carries `sum_mnu`, `w0`, `wa`, `Omega_k` and two neutrino mass ratios.
   An emulator without a parameter returns a zero derivative for it, which in a
   Fisher matrix is a flat direction.
 - `emu_pk.validate` measures autodiff against central differences of the
   training truth, per parameter and per redshift, and reports the floor of its
-  own comparison. An
-  emulator can reproduce $P(k)$ to a tenth of a percent and still get
-  $\partial\ln P/\partial\theta$ wrong, because the error surface is smooth in
-  $k$ and rough in $\theta$.
+  own comparison. An emulator can reproduce $P(k)$ to a tenth of a percent and
+  still get $\partial\ln P/\partial\theta$ wrong, because the error surface is
+  smooth in $k$ and rough in $\theta$.
 - It reaches $k = 300\ h\,\mathrm{Mpc}^{-1}$, which a halo-model $\sigma(M)$
   integral needs.
 - Its accuracy is stated against a converged solver, not only against the
@@ -103,9 +105,9 @@ dependency: `emu_pk` neither imports nor vendors it.
 
 ### CAMB
 
-Since 2.1 every training spectrum and every validation truth is a CAMB solve,
-at `ggah_mod` 0.9.8's precision for training and at a converged setting for the
-reference.
+Every training spectrum and every validation truth is a CAMB solve: at raised
+precision for training, the setting `ggah_mod` 0.9.8 uses, and at a converged
+setting for the reference.
 
 > Lewis, A., Challinor, A. & Lasenby, A.,
 > *Efficient computation of CMB anisotropies in closed FRW models*,
@@ -119,9 +121,8 @@ reference.
 
 Every training spectrum carries CLASS's reionization heating, as the ratio of a
 CLASS pair with and without it, and the correction table in `emu_pk.ratio` is
-distilled from CLASS directly. Until 2.0 every training spectrum was a CLASS
-solve. Its authors ask that any use cite at least the *Approximation schemes*
-paper.
+distilled from CLASS directly. Its authors ask that any use cite at least the
+*Approximation schemes* paper.
 
 > Blas, D., Lesgourgues, J. & Tram, T.,
 > *The Cosmic Linear Anisotropy Solving System (CLASS). Part II: Approximation

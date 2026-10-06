@@ -1,9 +1,9 @@
-r"""Fit the PCA basis and the MLP.  Needs ``optax``; nothing else does.
+r"""Fit the MLP.  Needs ``optax``; nothing else does.
 
 Two output representations, selectable so the choice is measurable rather
 than assumed.
 
-``--direct`` (CosmoPower's, for this quantity)
+direct (the default; CosmoPower's, for this quantity)
     the network predicts standardised :math:`\ln P` at every wavenumber.
     CosmoPower's released linear-matter model is ``PKLIN_NN``, a
     ``cosmopower_NN``; Spurio Mancini et al. (2022) say they tested both
@@ -12,7 +12,7 @@ than assumed.
     are negative so the logarithm is unavailable.  :math:`\ln P` is positive
     everywhere, so that reason does not apply here.
 
-default (PCA)
+``--no-direct`` (PCA)
     a 64-component basis with the network predicting coefficients.  Kept as the
     baseline the direct form is measured against.
 
@@ -21,9 +21,10 @@ learned :math:`(\gamma + (1-\gamma)\sigma(\beta x))x` -- which is what makes the
 comparison one of training sets and objectives rather than of two different
 ideas.
 
-What is different here is the box (:mod:`emu_pk.box`: nine parameters against
-five, and ``w0``/``wa`` present at all) and the wavenumber reach (200 h/Mpc
-against 14.6), which is the whole point.
+What is different here is the box (:mod:`emu_pk.box`: eleven parameters
+against five, with ``w0``/``wa``, curvature and three neutrino masses), the
+wavenumber reach (300 h/Mpc against 14.6), and the training truth: CAMB at
+raised precision, times the reionization heating of a CLASS pair.
 
 **Checkpoint every epoch.**  The training job runs under OAR ``besteffort``,
 which means it can be killed at any moment to make room for someone else's
@@ -100,7 +101,7 @@ def reduce_target(Y, X, lnk, k_pivot=cosmo.K_PIVOT, chunk=200_000):
     which is exactly independent of both, so the network is left with the
     transfer function alone and those two derivatives become analytic.
 
-    In place and in chunks because the target is a few million rows by 400
+    In place and in chunks because the target is a few million rows by 411
     modes: the obvious ``Y - term`` allocates a second copy of a multi-gigabyte
     array, and the machine this runs on is a shared node with other people's
     jobs on it.  ``Y`` is the array ``load_training_set`` just returned and
@@ -110,7 +111,7 @@ def reduce_target(Y, X, lnk, k_pivot=cosmo.K_PIVOT, chunk=200_000):
     The term comes from :func:`emu_pk.model.primordial_ln_pk`, the same function
     inference adds back.  One definition, or the training set and the predictor
     disagree by a power law that is smooth, finite, and invisible to every test
-    that does not involve CLASS.
+    that does not involve a solver.
     """
     i_h, i_ns, i_as = (COLS.index(c) for c in ("h", "n_s", "ln10A_s"))
     lnk = np.asarray(lnk)[None, :]
@@ -213,9 +214,8 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
     training them together is what stops them drifting apart in a way that would
     show up as a spurious cold-vs-total effect downstream.
 
-    Three things are flags rather than decisions, because each replaced
-    something that shipped and each has to be measurable against what it
-    replaced on the same data:
+    These are flags rather than decisions, so that each is measurable against
+    its alternative on the same data; the defaults are what the package ships:
 
     ``reduced``
         fit :math:`\ln P` with the primordial power law divided out, so
@@ -233,8 +233,8 @@ def train(dataset, out, n_comp=64, hidden=(512, 512, 512, 512), epochs=60,
         coefficients on a PCA basis.  This is CosmoPower's own choice for this
         quantity; see the module docstring.
     ``staged``
-        run ``STAGES`` -- CosmoPower's own schedule, five learning rates
-        from 1e-2 to 1e-6, each until early stopping.  Overrides ``schedule``,
+        run ``STAGES`` -- CosmoPower's style of schedule, four learning rates
+        from 1e-3 to 1e-6, each until early stopping.  Overrides ``schedule``,
         ``epochs`` and ``lr``, because it supplies all three.
     ``z_var``
         what to feed the redshift column as; see :data:`emu_pk.model.Z_VARS`.

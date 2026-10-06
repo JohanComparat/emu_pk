@@ -3,16 +3,22 @@ r"""What the emulator is worth: shape error, and derivative error.
 Two numbers, and the second is the one that matters and the one emulator papers
 usually leave out.
 
-*Shape* error is the familiar one: the largest fractional departure from CLASS
-over the trusted range of :math:`k`, after renormalising, so a spectrum that is
-right in shape and wrong in amplitude is not scored as both.
+*Shape* error is the familiar one: the largest fractional departure from the
+truth over the trusted range of :math:`k`, after renormalising, so a spectrum
+that is right in shape and wrong in amplitude is not scored as both.
+
+The truth is the one the network learnt by default (``--truth training``: CAMB
+at raised precision, times the heating of a CLASS pair), which measures the
+network alone; ``--truth reference`` scores against CAMB at a converged rung
+instead, which the network was not trained on, and so includes the error of
+the training truth itself.
 
 *Derivative* error is what a Fisher forecast actually consumes.  An emulator can
 reproduce :math:`P(k)` to a tenth of a percent and still get
 :math:`\partial\ln P/\partial\theta` wrong, because the error surface is smooth
 in :math:`k` and rough in :math:`\theta`; nothing in a shape comparison can see
 it.  Here it is measured directly: automatic differentiation of the network
-against central differences of *CLASS*, per parameter -- not against central
+against central differences of *the solver*, per parameter -- not against central
 differences of the network, which agree with autodiff perfectly whenever the
 network is smooth and say nothing about whether it is right.
 
@@ -20,17 +26,17 @@ Four things this measures that a shape comparison at one redshift does not:
 
 **Every redshift, not just zero.**  A derivative *with respect to redshift* --
 :math:`f\sigma_8` is built from one -- is invisible at a single redshift by
-construction.  A CLASS solve returns every redshift it is asked for, so the
-sweep costs nothing but the loop.
+construction.  A solve returns every redshift it is asked for, so the sweep
+costs nothing but the loop.
 
 **The redshift derivative itself.**  :math:`f = -\,\mathrm{d}\ln D/\mathrm{d}\ln
 (1+z)`, so :math:`\partial\ln P/\partial z` is the thing :math:`f\sigma_8` is
 built from.  It is scored here the same way the eleven parameters are.
 
 **The metric's own noise floor.**  The reference is a central difference of
-CLASS, which is not exact: it carries a truncation error going as the square of
-the step and a solver-noise term going as its inverse.  Repeating at two step
-sizes says which of "``wa`` is 5.6 % wrong" is the network and which is the
+the truth, which is not exact: it carries a truncation error going as the square
+of the step and a solver-noise term going as its inverse.  Repeating at two step
+sizes says which of "``wa`` is 0.3 % wrong" is the network and which is the
 ruler.  Without it a run can spend a week chasing its own finite
 difference.
 
@@ -45,11 +51,11 @@ shape, and the whole thing.
 samples a corner, so a median over the design says nothing about the walls --
 and the walls are where a sampler with a wide prior spends its time.  Points
 within ``EDGE_FRAC`` of any bound are reported separately, and so is the
-extreme-quintessence corner where CLASS refused 0.02 % of the training solves
-and the training set therefore has a hole.
+extreme-quintessence corner where the generator refused 22 of the 150 000
+training solves and the training set therefore has a hole.
 
-Needs ``classy``: this is a comparison against the solver, so it belongs to the
-``[gen]`` install, not the core one.
+Needs CAMB and ``classy``: this is a comparison against the solvers, so it
+belongs to the ``[gen]`` install, not the core one.
 """
 
 from __future__ import annotations
@@ -67,10 +73,10 @@ from .model import _catmull_rom as model_catmull_rom
 __all__ = ["shape_error", "derivative_error", "redshift_derivative_error",
            "flat_slice_error", "interpolation_floor", "main"]
 
-#: The range the comparison is scored over, which is not the full grid.  The
-#: emulator is trained to 200 h/Mpc but a linear spectrum there is far inside
-#: the regime the halo model replaces, and scoring it would report a number
-#: nobody uses.
+#: The range the headline comparison is scored over, which is not the full
+#: grid.  The emulator is trained to 300 h/Mpc, but a linear spectrum there is
+#: far inside the regime the halo model replaces; the tail from 10 to the
+#: network's k_max is scored as its own band.
 K_TRUSTED = (1e-3, 10.0)
 
 #: The decade *below* :data:`K_TRUSTED`, scored separately rather than not at
@@ -358,44 +364,34 @@ def interpolation_floor(n: int = 8, z_nodes=(0.0,), seed: int = 991,
                         band=K_TRUSTED, design=None, verbose=True):
     r"""What the *metric* costs, before any network is involved.
 
-    :func:`shape_error` asks CLASS at 300 fresh log points while the network
-    predicts on :data:`emu_pk.grid.k_grid`'s 400 nodes and
-    ``model._interp_lnk`` interpolates linearly in :math:`\ln k` between them.
-    That interpolation is scored as though it were network error.
+    :func:`shape_error` asks the truth at 300 fresh log points while the
+    network predicts on :data:`emu_pk.grid.k_grid`'s 411 nodes and
+    ``model._interp_lnk`` interpolates between them.  That interpolation is
+    scored as though it were network error.
 
     So it is measured the same way :func:`derivative_error` measures its own
-    finite-difference floor: push a *CLASS* spectrum through the same path --
+    finite-difference floor: push a *truth* spectrum through the same path --
     solve on the native grid, interpolate to the scoring points, compare
-    against CLASS solved at the scoring points -- and report what comes out.
-
-    **The answer is that the shipped headline number is the ruler.**  Measured
-    on the same ``seed=991`` design the shipped model was scored on, with the
-    same renormalisation, at ``z = 0``, ``n = 16``:
+    against the truth solved at the scoring points -- and report what comes
+    out.  On the ``seed=991`` design, with the same renormalisation, at
+    ``z = 0``, ``n = 8``:
 
     ==========================  =========  =========  =========
-    .                           median     p90        max
+    interpolant                 median     p90        max
     ==========================  =========  =========  =========
-    interpolation floor         0.1124 %   0.2337 %   0.3068 %
-    shipped network, reported   0.1113 %   0.2244 %   0.6213 %
-    ratio                       **1.01**   **1.04**   0.49
+    linear in :math:`\ln k`     0.1045 %   0.2253 %   0.2483 %
+    four-point cubic (shipped)  0.0209 %   0.0333 %   0.0342 %
     ==========================  =========  =========  =========
-
-    The reported median and p90 are accounted for entirely by linear
-    interpolation from the 400-node grid onto the 300 scoring points; the
-    network's own error is below what this measurement can resolve.  Half the
-    max is the ruler too.
 
     Linear interpolation of an acoustic wiggle at roughly six nodes per period
-    is an :math:`O(h^2)` error of exactly this size, and the error sits in the
-    acoustic band.  :meth:`PkEmulator._interp_lnk` is cubic now for that reason,
-    which is :math:`O(h^4)` on the same nodes and takes the floor to 0.0208 %
-    median -- back below the network.
+    is an :math:`O(h^2)` error larger than the network's own, and it sits in
+    the acoustic band; a linear ruler would report itself.
+    :meth:`PkEmulator._interp_lnk` is cubic for that reason, :math:`O(h^4)` on
+    the same nodes, which puts the floor at a third of the network's error.
 
-    **This function calls that interpolant rather than reimplementing it.**  It
-    did reimplement it, with ``np.interp``, and kept doing so after the emulator
-    became cubic -- so it measured a path nothing takes and reported a floor
-    five times too high, *above* the error it exists to bound.  A floor that
-    does not share the code it is a floor for is worse than no floor.
+    **This function calls that interpolant rather than reimplementing it.**  A
+    floor computed through a different path than the emulator's own measures
+    that path instead, and can land *above* the error it exists to bound.
 
     Returns ``{z: summary}``, in the same shape as everything else here.
     """
@@ -450,12 +446,12 @@ def interpolation_floor(n: int = 8, z_nodes=(0.0,), seed: int = 991,
 def shape_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                 which=("m", "cb"), verbose=True, band=K_TRUSTED, design=None,
                 label="shape error"):
-    """Max ``|shape/CLASS - 1|`` over held-out cosmologies, at every redshift.
+    """Max ``|shape/truth - 1|`` over held-out cosmologies, at every redshift.
 
     Held out by construction: the design is drawn from a *different* seed from
     the training set's, so no point scored here was trained on.
 
-    Both spectra from one solve.  CLASS returns ``P_m`` and ``P_cb`` together
+    Both spectra from one solve.  A solve returns ``P_m`` and ``P_cb`` together
     and the network has two heads, so scoring them in separate passes would
     double the only expensive part of this for no new information.  Returns
     ``{which: {z: summary}}``.
@@ -535,13 +531,13 @@ def flat_slice_error(emu, n: int = 32, z_nodes=Z_NODES, seed: int = 991,
                      which=("m", "cb"), verbose=True, band=K_TRUSTED):
     r"""The same score, on the flat slice: :math:`\Omega_k` pinned to zero.
 
-    **The number that says what the ninth parameter cost the other eight.**
+    **The number that says what the curvature axis costs the other ten.**
 
     A curvature axis widens the space the same network capacity has to cover,
     and a user who never leaves :math:`\Omega_k = 0` should not pay much for
     that.  Scoring the full eleven-dimensional design cannot answer it -- the
-    curved points are a different question -- so this pins the column and scores
-    the flat cosmologies alone, against the released flat-box figure of 0.111 %.
+    curved points are a different question -- so this pins the column and
+    scores the flat cosmologies alone.
 
     Held out exactly as :func:`shape_error` is: the design comes from a
     different seed from the training set's.  Pinning is applied after the draw,
@@ -575,11 +571,11 @@ def _class_dlnp(theta, j, hstep, z_nodes, k, which):
 
 def derivative_error(emu, n: int = 16, z_nodes=Z_NODES, seed: int = 991,
                      rel_step=0.02, which="m", convergence=True, verbose=True):
-    r"""Autodiff of the network against **central differences of CLASS**.
+    r"""Autodiff of the network against **central differences of the truth**.
 
     Reported per parameter as the median over ``k`` of
     :math:`|\partial\ln P/\partial\theta` (emulator) :math:`-\ \partial\ln
-    P/\partial\theta` (CLASS):math:`|` relative to the CLASS value, so a
+    P/\partial\theta` (truth):math:`|` relative to the truth's value, so a
     parameter the emulator is simply blind to reports 1 rather than something
     small.  That distinction is the whole point: a derivative that is *absent*
     shows up in a Fisher matrix as a flat direction, which is visible; one that
@@ -589,7 +585,7 @@ def derivative_error(emu, n: int = 16, z_nodes=Z_NODES, seed: int = 991,
     the two are compared.  That difference is the **floor**: the metric cannot
     resolve an error below it, and a score at or under its own floor is a
     statement about the ruler rather than about the network.  It doubles the
-    number of CLASS solves, which is why it is a flag.
+    number of solves, which is why it is a flag.
     """
     k = np.logspace(np.log10(K_TRUSTED[0]), np.log10(K_TRUSTED[1]), 120)
     z_nodes = np.atleast_1d(np.asarray(z_nodes, dtype=float))
@@ -638,7 +634,7 @@ def derivative_error(emu, n: int = 16, z_nodes=Z_NODES, seed: int = 991,
 def redshift_derivative_error(emu, n: int = 16, z_nodes=Z_NODES,
                               seed: int = 991, dz=0.05, which="m",
                               verbose=True):
-    r""":math:`\partial\ln P/\partial z`, autodiff against CLASS.
+    r""":math:`\partial\ln P/\partial z`, autodiff against the truth.
 
     An emulator can be level with another on the spectrum itself and much worse
     on :math:`f\sigma_8`, because that weakness lives in the redshift direction

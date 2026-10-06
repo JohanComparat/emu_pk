@@ -7,13 +7,13 @@ hypercube drawn from a different seed than the training design.
 
 - `emu_pk/data/validation_reference.json` scores against **a converged
   reference**: CAMB at its converged precision rung, times the same reionization
-  heating. Neither 2.0 nor 2.1 was trained on it, so it is the comparison
-  between them, and the error it measures includes the error of the training
-  truth itself.
+  heating. The network was not trained on it, so the error it measures includes
+  the error of the training truth itself: it is the accuracy of the spectrum.
 - `emu_pk/data/validation.json` scores against **the training truth**: CAMB at
-  the precision the network learnt, times the heating. It measures the network
-  alone, and it is where the derivatives, the lowest decade and the floor of
-  each comparison are.
+  the raised precision the network learnt (`lAccuracyBoost = 3`,
+  `AccuracyBoost = 2`, no late radiation truncation), times the heating of a
+  CLASS pair. It measures the network alone, and it is where the derivatives,
+  the lowest decade and the floor of each comparison are.
 
 ## Against a converged reference
 
@@ -23,19 +23,17 @@ Total error in $P_m$, 32 held-out cosmologies, at $z = 0$:
 |---|---|---|---|
 | $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$ | **0.063 %** | 0.130 % | 0.190 % |
 | tail, $k \in [10, 300]\ h\,\mathrm{Mpc}^{-1}$ | **0.044 %** | 0.069 % | 0.086 % |
-| *2.0.1, $k \in [10^{-3}, 10]$* | *0.351 %* | *0.580 %* | *1.358 %* |
-| *2.0.1, tail to its own 200* | *0.494 %* | *0.565 %* | *0.629 %* |
 
 From $z = 0$ to 5 the median stays between 0.051 % and 0.063 % and the worst
 point at or below 0.198 %; the cold spectrum $P_{cb}$ scores 0.063 % at $z = 0$.
 In the tail the median runs from 0.025 % to 0.052 %.
 
-2.0 was 0.35 % off everywhere, smoothly: it was trained on CLASS at its
-defaults, which `ggah_mod_benchmark`'s precision scan put 0.41 % from CLASS's
-own converged answer, and a network learns its truth faithfully, error
-included. Its validation was against the same default CLASS and could not see
-it. The heavy-neutrino half of the box was worst, at 0.325 % in the median and
-1.0 % at worst, where the ncdm fluid approximation dominates above 0.3 eV.
+A network learns its training truth faithfully, error included, and a
+validation against that same truth cannot see the error. This one measures it:
+the training truth is 0.039 % from the converged rung in the median over this
+box, and the network's own fit sits on top of that. Both neutrino halves of the
+box score alike, 0.059 % in the median above $\Sigma m_\nu = 0.3$ eV and
+0.080 % below.
 
 The converged reference costs half an hour of one core per point, so it is
 scored on the shape and the tail only:
@@ -135,8 +133,8 @@ $$\frac{\left|\partial\ln P/\partial\theta\ \text{(emulator)} -
        {\left|\partial\ln P/\partial\theta\ \text{(truth)}\right|},$$
 
 the emulator side from automatic differentiation, the truth side from central
-differences. The ratio is taken against the truth's own derivative, so an axis the
-emulator responds to weakly scores near 100 % rather than near zero.
+differences. The ratio is taken against the truth's own derivative, so an axis
+the emulator responds to weakly scores near 100 % rather than near zero.
 
 At $z = 0$, with the comparison's own floor beside each:
 
@@ -153,8 +151,8 @@ At $z = 0$, with the comparison's own floor beside each:
 divided out of the training target and restored in closed form, so neither is a
 network input and the two derivatives are $1$ and $\ln(kh/k_\ast)$. They score
 $1\times10^{-14}$ and $8\times10^{-6}$, which is what the float32 forward pass
-and the solver's own finite difference leave behind. A Fisher matrix built on this
-network is exact in two of its eleven directions.
+and the solver's own finite difference leave behind. A Fisher matrix built on
+this network is exact in two of its eleven directions.
 
 The two mass ratios are the weakest axes at 4 %, and the ones with the least
 signal to fit: splitting the sum unevenly moves $P(k)$ by 0.32 % at
@@ -175,14 +173,12 @@ reaches 0.333 %; `omega_cdm`, `h`, `omega_b` and `sum_mnu` are flat or improve.
 
 Away from $z = 0$ this sits within a factor of two to four of what the
 comparison can resolve. At $z = 0$ the ratio is 2.8, where the node is an
-endpoint in slope and the $z < 0$ side is outside the trained range. Under the
-CAMB truth this is scored from 2.1.0 on: before it, CAMB refused the stencil's
-repeated redshifts and every point was skipped.
+endpoint in slope and the $z < 0$ side is outside the trained range.
 
 ### The floor
 
-The reference is a central difference of the truth, which carries a truncation term
-and a solver-noise term of its own. `validate` recomputes it at half the step
+The reference is a central difference of the truth, which carries a truncation
+term and a solver-noise term of its own. `validate` recomputes it at half the step
 and reports the difference as a **floor**, the smallest error the comparison
 can resolve. At $z = 0$ that floor runs from 0.002 % for `Omega_k` to 0.248 %
 for `nu_r1`, and is 0.040 % for the redshift derivative.

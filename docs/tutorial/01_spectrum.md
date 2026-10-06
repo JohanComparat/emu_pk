@@ -8,7 +8,8 @@ import numpy as np
 from emu_pk import PkEmulator, box
 
 print(box.PARAMS)
-# ('omega_b', 'omega_cdm', 'h', 'n_s', 'ln10A_s', 'sum_mnu', 'w0', 'wa')
+# ('omega_b', 'omega_cdm', 'h', 'n_s', 'ln10A_s', 'sum_mnu', 'w0', 'wa',
+#  'Omega_k', 'nu_r1', 'nu_r2')
 
 emu = PkEmulator()
 k = np.logspace(-4, 2, 400)                      # h/Mpc
@@ -21,8 +22,8 @@ pk = emu.pk(k, z=0.0, params=theta)
 
 *Left:* $P_m(k,z)$ at the Planck 2018 cosmology across the trained redshift
 range. *Right:* the same five curves, as a fractional residual against a solve
-of the same cosmology in the training truth: CAMB at high precision, times
-CLASS's reionization heating. The shaded band is the range the accuracy claims
+of the same cosmology in the training truth: CAMB at raised precision, times
+the reionization heating of a CLASS pair at the same point. The shaded band is the range the accuracy claims
 are scored over, $k \in [10^{-3}, 10]\ h\,\mathrm{Mpc}^{-1}$.
 
 Two things to read off it. The residual is well under a tenth of a percent
@@ -72,8 +73,7 @@ pk = emu.pk(k, z, theta)              # (21, 400)
 
 The training grid reaches $k = 300\ h\,\mathrm{Mpc}^{-1}$, which is what a
 halo-model $\sigma(M)$ integral needs, and the band from 10 to 300 is scored on
-its own. Above it the emulator continues as a
-power law rather than clamping — `jnp.interp` would hold the last value, and a
-clamped linear spectrum is *flat* where it should be falling as
-$k^{-3}\ln^2 k$. That is a safety net here rather than a load-bearing
+its own. Above it the emulator continues as a power law rather than clamping —
+`jnp.interp` would hold the last value, and a clamped linear spectrum is *flat*
+where it should be falling as $k^{-3}\ln^2 k$. That is a safety net here rather than a load-bearing
 extrapolation, but it is a net and not a cliff.

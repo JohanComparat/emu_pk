@@ -37,24 +37,22 @@ __all__ = ["PARAMS", "BOX", "sample", "inside", "check"]
 #: the training design matrix, the predictor's argument packing -- reads this
 #: tuple rather than repeating the order, because a silently permuted column is
 #: the kind of error that trains perfectly well and predicts nonsense.
-#: ``Omega_k`` is appended rather than inserted, deliberately: every existing
-#: ``PARAMS.index(...)`` keeps its value, so a checkpoint's ``_in_idx`` and a
-#: shard's column order stay comparable across the change.  The capital ``O``
-#: breaks the lowercase habit of the other eight and is kept anyway, because it
-#: is CLASS's own key *and* ``ggah_mod.cosmology.Cosmology``'s field name -- and
-#: that agreement is what lets one mapping serve all three.
-#: ``nu_r1``/``nu_r2`` are appended for the same reason and split the neutrino
-#: mass over three species: :math:`m_i = r_i \Sigma m_\nu` with
-#: :math:`r_3 = 1 - r_1 - r_2`, ordered :math:`r_1 \le r_2 \le r_3`.  ``sum_mnu``
-#: keeps index 5 and keeps its meaning -- it is still the sum -- so every prior,
-#: every published result and every existing column stay where they were.  What
-#: is new is *how the sum is divided*, which the degenerate convention fixed at
-#: (1/3, 1/3, 1/3) and oscillation experiments say is not what the world does.
+#: The eight parameters of massive-neutrino w0waCDM come first, and
+#: ``Omega_k``, ``nu_r1`` and ``nu_r2`` after them.  The capital ``O`` breaks
+#: the lowercase habit of the others and is kept anyway, because it is CLASS's
+#: own key *and* ``ggah_mod.cosmology.Cosmology``'s field name -- and that
+#: agreement is what lets one mapping serve all three.  ``nu_r1``/``nu_r2``
+#: split the neutrino mass over three species: :math:`m_i = r_i \Sigma m_\nu`
+#: with :math:`r_3 = 1 - r_1 - r_2`, ordered :math:`r_1 \le r_2 \le r_3`.
+#: ``sum_mnu`` is the sum, as in every prior and every published result; what
+#: the two ratios add is *how the sum is divided*, which the degenerate
+#: convention fixes at (1/3, 1/3, 1/3) and oscillation experiments say is not
+#: what the world does.
 PARAMS = ("omega_b", "omega_cdm", "h", "n_s", "ln10A_s", "sum_mnu", "w0", "wa",
           "Omega_k", "nu_r1", "nu_r2")
 
 #: Closed bounds, inclusive.  ``z`` is not here: it is a network input but not a
-#: sampled axis -- one CLASS solve yields every redshift in
+#: sampled axis -- one solve yields every redshift in
 #: :data:`emu_pk.grid.Z_NODES_EMU`, so it is enumerated rather than drawn.
 BOX = {
     "omega_b":  (0.0170, 0.0280),
@@ -101,8 +99,8 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     Points violating ``w0 + wa < 0`` are rejected and redrawn.  That is not a
     taste constraint: with ``w0 + wa >= 0`` the CPL dark-energy density grows
     without bound towards early times, dark energy dominates before
-    recombination, and CLASS either refuses or returns a spectrum that is not a
-    cosmology anyone means to train on.
+    recombination, and the solver either refuses or returns a spectrum that is
+    not a cosmology anyone means to train on.
 
     **Curvature is not rejected anywhere, and the bound is why.**  ``Omega_k``
     spans ``[-0.15, 0.15]`` because that is the widest interval over which CLASS
@@ -115,20 +113,19 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     ``Omega_de = 1 - Omega_m - Omega_r - Omega_k`` negative, and CLASS solves
     those without a word -- a negative dark-energy density is exotic, not
     ill-posed.  **It is deliberately not rejected.**  0.34 % of the *flat* box
-    already sits there and the shipped weights are trained through it
-    (``omega_cdm = 0.30``, ``h = 0.55`` gives ``Omega_m = 1.084``); curvature
-    takes that to 0.78 %.  Carving it out now would silently narrow the flat box
-    in the same release that widens it, and would break the one comparison that
-    says what the ninth parameter cost the other eight.  ``validate`` reports
-    the region as its own stratum instead, the way it does the quintessence
-    corner.
+    sits there (``omega_cdm = 0.30``, ``h = 0.55`` gives ``Omega_m = 1.084``),
+    curvature takes that to 0.78 %, and the shipped weights are trained through
+    it.  Carving it out would silently narrow the flat box, and would break the
+    one comparison that says what the curvature axis costs the other ten.
+    ``validate`` reports the region as its own stratum instead, the way it does
+    the quintessence corner.
 
-    **The neutrino masses.**  ``sum_mnu`` is still the sum; ``nu_r1`` and
+    **The neutrino masses.**  ``sum_mnu`` is the sum; ``nu_r1`` and
     ``nu_r2`` say how it is divided, with :math:`m_i = r_i \Sigma m_\nu` and
     :math:`r_3 = 1 - r_1 - r_2`.  Points outside the *ordered* simplex
     :math:`0 \le r_1 \le r_2 \le (1-r_1)/2` are rejected and redrawn.  The
-    ordering is not a taste constraint either: CLASS sums the species'
-    contributions and cannot tell them apart, so the six permutations of one
+    ordering is not a taste constraint either: a Boltzmann solver sums the
+    species' contributions and cannot tell them apart, so the six permutations of one
     mass vector are the same cosmology, and sampling all six would spend
     network capacity learning an exact symmetry rather than the physics.
     ``r_1 \le 1/3`` follows from the constraint rather than being imposed.
@@ -143,8 +140,8 @@ def sample(n: int, seed: int = 20260827, pin: dict | None = None) -> np.ndarray:
     point -- it is where ``r_1`` meets its bound and the constraint is tight at
     once -- and it cannot be made interior, because a spread is non-negative.
     That is the same situation as ``sum_mnu = 0`` and ``z = 0``, and it matters
-    more than either because (1/3, 1/3) is where every published result and the
-    the degenerate convention sits.  ``validate`` scores it as its own
+    more than either because (1/3, 1/3) is where the degenerate convention,
+    and every analysis that keeps it, sits.  ``validate`` scores it as its own
     stratum.
 
     ``pin`` holds named columns at fixed values *after* the draw --

@@ -32,8 +32,8 @@ refused rather than padded.
 
 The last two split the neutrino mass over three species,
 $m_i = r_i \Sigma m_\nu$ with $r_3 = 1 - r_1 - r_2$, ordered
-$r_1 \le r_2 \le r_3$. `(1/3, 1/3)` is the degenerate convention every earlier
-version assumed; the physical orderings sit near `(0.00, 0.15)` for normal at
+$r_1 \le r_2 \le r_3$. `(1/3, 1/3)` is the degenerate convention most analyses
+assume; the physical orderings sit near `(0.00, 0.15)` for normal at
 $\Sigma m_\nu = 0.059$ eV and `(0.02, 0.49)` for inverted at 0.101 eV, and both
 tend to `(1/3, 1/3)` as the mass grows. See {doc}`tutorial/04_the_box`.
 
@@ -88,9 +88,9 @@ they free-stream away, $\delta_\nu \to 0$, and
 $$P_m \to (1 - f_\nu)^2\,P_{cb},$$
 
 so **$P_{cb}$ is the larger of the two**. For $\Sigma m_\nu = 0.3$ eV at the
-Planck cosmology, $f_\nu = 0.023$ and the emulator gives $P_{cb}/P_m = 1.0000$
-at $k = 10^{-4}$ and $1.0456$ at $k = 1\ h\,\mathrm{Mpc}^{-1}$, against the
-free-streaming limit $1/(1-f_\nu)^2 = 1.0472$.
+Planck cosmology, $f_\nu = 0.022$ and the emulator gives $P_{cb}/P_m = 1.0000$
+at $k = 10^{-4}$ and $1.0455$ at $k = 1\ h\,\mathrm{Mpc}^{-1}$, against the
+free-streaming limit $1/(1-f_\nu)^2 = 1.0458$.
 
 With $\Sigma m_\nu = 0$ there are no massive neutrinos, the cold field *is* the
 total field, and the two are the same spectrum.
