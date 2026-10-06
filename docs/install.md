@@ -25,6 +25,8 @@ or a training stack.
 
 ## A dedicated conda environment
 
+> **Maintainer setup.** On the development laptop, use the shared `dev` environment defined in `~/software/dev_env` (`conda activate dev`); this package is already installed there in editable mode. Do not create a separate environment for it: add missing dependencies to `~/software/dev_env` and rebuild.
+
 The repository carries an `environment.yml` for a minimal environment — python,
 numpy and JAX, and nothing else:
 

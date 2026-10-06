@@ -188,6 +188,8 @@ the validation.
 
 ### A dedicated environment
 
+> **Maintainer setup.** On the development laptop, use the shared `dev` environment defined in `~/software/dev_env` (`conda activate dev`); this package is already installed there in editable mode. Do not create a separate environment for it: add missing dependencies to `~/software/dev_env` and rebuild.
+
 [`environment.yml`](environment.yml) is a minimal conda environment — python,
 numpy and JAX, and nothing else:
 
