@@ -40,7 +40,8 @@ jobs:
           w = glob.glob("dist/*.whl")[0]
           names = zipfile.ZipFile(w).namelist()
           need = ["emu_pk/data/emu_pk_mlp.npz", "emu_pk/data/class_pk_ratio.npz",
-                  "emu_pk/data/validation.json", "emu_pk/py.typed"]
+                  "emu_pk/data/validation.json",
+                  "emu_pk/data/validation_reference.json", "emu_pk/py.typed"]
           missing = [n for n in need if n not in names]
           assert not missing, f"{w} is missing {missing}"
           print(f"{w}: data present")
