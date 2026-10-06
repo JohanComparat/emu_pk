@@ -4,6 +4,34 @@ Notable changes to `emu_pk`. Format follows [Keep a Changelog](https://keepachan
 versioning is [semantic](https://semver.org/spec/v2.0.0.html), and from 1.0.0
 the public API is what `emu_pk.__all__` and each module's `__all__` declare.
 
+## [2.1.1]
+
+Documentation only: the network, the weights, the validation records and every
+prediction are bit for bit 2.1.0's.
+
+### Changed
+
+- The documentation, the README, `CITATION.cff` and the docstrings the API
+  reference renders describe the package as it is, in the present tense: the
+  training truth is CAMB at `lAccuracyBoost = 3`, `AccuracyBoost = 2` and no
+  late radiation truncation, times the reionization heating of a CLASS pair at
+  CLASS's defaults.
+
+### Fixed
+
+- The spectrum tutorial printed `box.PARAMS` with eight names; it has eleven.
+- `emu_pk.assemble` and `emu_pk.ratio` said the correction table ships
+  factorised; it ships as the full cube, as the code and the shipped file do.
+- `emu_pk.heating` said the CLASS pair runs on loosened settings; it runs at
+  CLASS's defaults.
+- `emu_pk.train` called the PCA head the default (it is the direct head) and
+  described the staged schedule as five rates from 1e-2 (it is four, from
+  1e-3).
+- Numbers measured on earlier networks or the 400-node grid are re-measured on
+  the shipped one: the $P_{cb}/P_m$ example, the interpolation floor, the
+  lowest decade's share of the output variance and the redshift-derivative
+  accuracy in the design notes.
+
 ## [2.1.0]
 
 A training truth that is converged, not default, and a grid that reaches
@@ -215,7 +243,8 @@ wider box** -- 0.064 % median shape error against 0.111 %.
 
 First public release.
 
-[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/JohanComparat/emu_pk/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/JohanComparat/emu_pk/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/JohanComparat/emu_pk/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/JohanComparat/emu_pk/compare/v1.0.0...v2.0.0

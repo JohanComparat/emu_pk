@@ -10,7 +10,7 @@ authors:
 repository-code: "https://github.com/JohanComparat/emu_pk"
 url: "https://emu-pk.readthedocs.io/en/stable/"
 license: BSD-3-Clause
-version: 2.1.0
+version: 2.1.1
 date-released: "2026-10-06"
 abstract: >-
   emu_pk emulates the linear matter power spectrum over an eleven-parameter
