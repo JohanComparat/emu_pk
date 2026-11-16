@@ -26,7 +26,7 @@ and over all redshifts.  Also written: the training and validation losses at
 the kept weights, and the roughness of :math:`\partial\ln P/\partial\omega_{\rm b}`
 along a line in :math:`\omega_{\rm b}` (the root mean square of its second
 difference over that of the derivative), which is large for a piecewise-affine
-network.
+network, and the derivative itself along that line.
 
 Run (GPU)::
 
@@ -107,6 +107,8 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dataset", default=str(DATASET))
     ap.add_argument("--act", default="cp", choices=["cp", *ACTS])
+    ap.add_argument("--save-weights", action="store_true",
+                    help="also write the kept weights to <out>/<tag>_weights.npz")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     net = make_apply(a.act)
@@ -278,7 +280,11 @@ def main(argv=None):
         "roughness_dlnp_domega_b": rough,
         "t_train_s": t_train, "t_total_s": time.monotonic() - t_start,
         "device": str(jax.devices()[0]), "history": hist,
+        "dlnp_domega_b": {"omega_b": ob.tolist(), "k": float(kk[ik]), "der": der.tolist()},
     }
+    if a.save_weights:
+        np.savez_compressed(out / f"{tag}_weights.npz",
+                            **{k: np.asarray(v) for k, v in best_p.items()})
     (out / f"{tag}.json").write_text(json.dumps(res, indent=1))
     print(f"{tag}: median z=0 {res['test_z0']['median']:.2e}, p90 {res['test_z0']['p90']:.2e}, "
           f"train/val {train_loss:.2e}/{best:.2e}, {n_par} weights, {t_train:.0f} s", flush=True)
