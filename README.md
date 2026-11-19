@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/emu_pk.svg)](https://pypi.org/project/emu_pk/)
 [![Python](https://img.shields.io/pypi/pyversions/emu_pk.svg)](https://pypi.org/project/emu_pk/)
 [![Tests](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml/badge.svg)](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml)
-[![Docs](https://readthedocs.org/projects/emu-pk/badge/?version=stable)](https://emu-pk.readthedocs.io/en/stable/)
+[![Docs](https://img.shields.io/readthedocs/emu-pk/stable.svg)](https://emu-pk.readthedocs.io/en/stable/)
 [![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
 
 Differentiable emulation of the **linear matter power spectrum**, over an
