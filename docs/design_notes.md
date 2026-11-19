@@ -426,6 +426,6 @@ CPU's to four digits, and the shipped network is trained that way throughout.
 
 `--host-targets` serves the same training set: its targets are 13.5 GiB, and
 moving them onto a device takes twice that for a moment. Kept in host memory
-and sent a batch at a time, the run is the same run bit for bit, and on a 16 GB
-laptop card it is as fast as the A100, because a 4×512 network is limited by
-per-step overhead rather than arithmetic.
+and sent a batch at a time, the run is the same run bit for bit, and as fast,
+because a 4×512 network is limited by per-step overhead rather than
+arithmetic.

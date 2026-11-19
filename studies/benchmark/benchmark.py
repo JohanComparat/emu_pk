@@ -439,7 +439,7 @@ def stage_plot(a):
                            fontsize=st["small"])
         ax[1, 0].set_xlabel("time per evaluation [s]")
         ax[1, 1].set_xlabel("time per evaluation [s]")
-        ax[1, 1].set_xlim(5e-8, 5e-6)
+        ax[1, 1].set_xlim(1e-8, 1e-6)
         ax[1, 1].xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
         hand = [Patch(color=COLOURS[n], label=LABELS.get(n, n)) for n in COLOURS]
         hand += [Line2D([], [], ls="", marker=m, mfc="white", mec="k", label=MLAB[c])

@@ -45,5 +45,5 @@ The derivative in `sum_mnu` is the physical one: $2 f_\nu / \Sigma m_\nu = 2/(93
 
 A head predicting $\ln(P_{\rm cb}/P_{\rm m}) = \Sigma m_\nu\, g(\theta, k, z)$, with $g$ the network output, would make the null exact by construction, in value and in every derivative except the one in $\Sigma m_\nu$, as the primordial split does for $A_s$ and $n_s$.
 It also needs no new information: the training targets are the two spectra already stored.
-We did not retrain the shipped network for it: the violation it removes is below the network's own error, and the change of output form would need a new checkpoint field and a full training run (about 50 minutes on a 16 GB laptop GPU, 240 epochs).
+We did not retrain the shipped network for it: the violation it removes is below the network's own error, and the change of output form would need a new checkpoint field and a full training run (about an hour on an A100, 240 epochs).
 It is the change to make at the next retraining.

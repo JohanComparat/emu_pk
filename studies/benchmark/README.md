@@ -7,7 +7,8 @@ The codes, their references and the numbers are in the [README](../../README.md#
 
 ## Redrawing the figure
 
-`results/` holds the results of the run behind Paper I, so the figure is redrawn without any solver:
+`results/` holds the results of the production run, so the figure is redrawn without any solver: the errors and the solver timings from one core of an AMD EPYC 9654 (GRICAD, Kraken), and the GPU timings from an NVIDIA V100 SXM2 (GRICAD, Bigfoot) in full float32.
+`runs/` keeps every run of the CPU and GPU stages: also one core of an Intel Xeon Gold 6244 (GRICAD, Dahu) and an NVIDIA A100 PCIe (Bigfoot), with the GPU precision check of each card (`studies/gpu_precision/`).
 
 ```bash
 python studies/benchmark/benchmark.py plot
@@ -28,5 +29,5 @@ python studies/benchmark/benchmark.py gpu --cache my_run            # in a GPU J
 python studies/benchmark/benchmark.py plot --cache my_run
 ```
 
-The CPU times of Paper I were taken on one core of an Intel Core Ultra 9 285HX with one thread, and the GPU times on an NVIDIA RTX PRO 4000 Blackwell laptop GPU in single precision; times on another machine scale with it, while the errors do not depend on the machine.
+The errors do not depend on the machine: the Kraken and Dahu runs reproduce them to every digit. The times do; on one core of the Xeon Gold 6244, `emu_pk` takes 0.43 ms against 0.16 ms on the EPYC 9654, and on the A100, at full float32, a batch of 20 000 takes 0.08 µs per spectrum against 0.25 µs on the V100.
 SYREN-NEW runs on the GPU through a JAX transcription of its published NumPy code, made by `benchmark.py` from the source, which reproduces it to $10^{-15}$.

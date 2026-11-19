@@ -52,7 +52,6 @@ Measured, not estimated:
 | assembled training set on disk | ~15 GB, in 32 parts |
 | training, 240 epochs, 32 Dahu CPU cores | ~10 hours (154 s/epoch) |
 | training, 240 epochs, one A100, full float32 | ~1 hour (14.4 s/epoch) |
-| training, 240 epochs, a 16 GB laptop GPU | ~50 minutes (12 s/epoch) |
 | validation against the training truth | ~840 solves |
 
 A solve is CAMB at `lAccuracyBoost = 3`, `AccuracyBoost = 2` and no late
@@ -63,27 +62,28 @@ over this box; CLASS at its own defaults sits 0.41 % from its converged answer
 over the same box, more than six times the network's error.
 
 Generation is embarrassingly parallel across shards and is the part that needs
-a cluster. Measured on a mobile i9 (8 physical cores behind 16 threads), with
-CLASS at its defaults: 2.75 s/solve solo on a cool machine, and **0.44 solves/s
-in aggregate at any worker count** once it is hot, because the cores drop to
-1.1 GHz at 100 °C and sixteen concurrent solver instances thrash a 24 MiB shared
-L3. A rate taken from a burst is off by an order of magnitude from what a
-sustained run delivers, which is what the `calibrate` gate exists to prevent.
+a cluster. A rate taken from a short burst of solves can be off by an order of
+magnitude from what a sustained run delivers, once the cores throttle and the
+concurrent solver instances share the L3 cache; the `calibrate` gate measures
+the sustained rate on the node before a campaign is sized on it.
 
 ## Training on a GPU
 
 The network is 4×512, so a step is limited by its overhead rather than by
-arithmetic, and a GPU is fast for that reason rather than for its FLOPs: the
-laptop card above is as quick as the A100. Two settings matter, and both fail
-quietly:
+arithmetic, and a GPU is fast for that reason rather than for its FLOPs. Two settings
+matter, and both fail quietly:
 
 - **Full float32 matrix products.** On an A100, JAX multiplies float32 matrices
   in TF32 unless told otherwise. With the same data, seed and schedule, a TF32
   run tracks a CPU run for the first epochs and then stops at a validation loss
   of 5.9e-7 against 3.7e-7, with a worst-case error 1.6 times higher. Set
   `JAX_DEFAULT_MATMUL_PRECISION=highest` for training; `oarsub/run_train.sh`
-  does. Evaluating the shipped network on a GPU is unaffected on the laptop
-  card above: it agrees with the CPU to 2e-5 in $\ln P$ at either setting.
+  does. The same applies to evaluating the shipped network on a card with
+  TF32 (A100, H100): on an A100 at JAX's default it differs from the CPU by up
+  to 6.9e-3 in $\ln P$ (median 2.7e-4) over 1 000 cosmologies of the box, more
+  than the network's own error, and by 3.8e-5 with
+  `JAX_DEFAULT_MATMUL_PRECISION=highest`. A V100, which has no TF32, agrees to
+  2.3e-5 at either setting (`studies/gpu_precision/`).
 - **`--host-targets` on a card smaller than the training set.** The 150k set's
   targets are 13.5 GiB, and putting them on the device takes twice that for a
   moment, which a 16 GB card cannot do. The option keeps them in host memory

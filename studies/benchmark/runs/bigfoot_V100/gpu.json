@@ -1,0 +1,14 @@
+{
+ "time_gpu_z1": {
+  "emu_pk": 3.830292262136936e-07,
+  "SYREN-NEW (JAX)": 8.658319711685181e-08,
+  "CosmoPower": 3.0242197681218384e-07
+ },
+ "time_gpu_z1_batch20000": {
+  "emu_pk": 2.4870502529665827e-07,
+  "SYREN-NEW (JAX)": 1.968614524230361e-08,
+  "CosmoPower": 1.9738590344786643e-07
+ },
+ "device": "Tesla V100-SXM2-32GB",
+ "dtype": "float32"
+}

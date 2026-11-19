@@ -1,0 +1,146 @@
+{
+ "device": "gpu: NVIDIA H100 NVL",
+ "cpu": "x86_64",
+ "jax": "0.11.2",
+ "emu_pk": "2.1.2",
+ "n_k": 200,
+ "n_params": 11,
+ "repeat": 20,
+ "cold_s": {
+  "median": 3.2436486741062254,
+  "min": 3.123082349076867,
+  "max": 4.090376351960003
+ },
+ "functions": {
+  "pk_1z": {
+   "trace_s": 0.04373832908459008,
+   "compile_s": 0.20747841778211296,
+   "warm_median_ms": 0.07386552169919014,
+   "warm_p10_ms": 0.07242695428431034,
+   "warm_p90_ms": 0.08020494133234025,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0008,
+    "temp_MB": 0.022528,
+    "generated_code_MB": 4.900016
+   }
+  },
+  "pk_31z": {
+   "trace_s": 0.04717562790028751,
+   "compile_s": 1.1427945671603084,
+   "warm_median_ms": 0.08222809992730618,
+   "warm_p10_ms": 0.07984891999512911,
+   "warm_p90_ms": 0.09173937141895296,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0248,
+    "temp_MB": 0.571392,
+    "generated_code_MB": 4.90014
+   }
+  },
+  "pk_and_pkcb_31z": {
+   "trace_s": 0.056386776035651565,
+   "compile_s": 0.6256923319306225,
+   "warm_median_ms": 0.0861890148371458,
+   "warm_p10_ms": 0.08451805915683508,
+   "warm_p90_ms": 0.1069090561941266,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.049616,
+    "temp_MB": 0.571408,
+    "generated_code_MB": 4.903684
+   }
+  },
+  "jacfwd_1z": {
+   "trace_s": 0.0719268040265888,
+   "compile_s": 0.6915566350799054,
+   "warm_median_ms": 0.09325460996478796,
+   "warm_p10_ms": 0.09011300280690193,
+   "warm_p90_ms": 0.1041030278429389,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0088,
+    "temp_MB": 0.2048,
+    "generated_code_MB": 9.770628
+   }
+  },
+  "jacrev_1z": {
+   "trace_s": 0.08871729695238173,
+   "compile_s": 0.9651094190776348,
+   "warm_median_ms": 0.11943362187594175,
+   "warm_p10_ms": 0.1159528736025095,
+   "warm_p90_ms": 0.12948946096003056,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0088,
+    "temp_MB": 3.969304,
+    "generated_code_MB": 9.792964
+   }
+  },
+  "jacfwd_31z": {
+   "trace_s": 0.07630597497336566,
+   "compile_s": 0.7963694408535957,
+   "warm_median_ms": 0.1037506153807044,
+   "warm_p10_ms": 0.10090281721204519,
+   "warm_p90_ms": 0.10833388660103083,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.2728,
+    "temp_MB": 3.80928,
+    "generated_code_MB": 4.90014
+   }
+  },
+  "jacrev_31z": {
+   "trace_s": 0.09266355820000172,
+   "compile_s": 1.5207298949826509,
+   "warm_median_ms": 8.526582620106637,
+   "warm_p10_ms": 8.513591741211712,
+   "warm_p90_ms": 8.536053774878383,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.2728,
+    "temp_MB": 1496.082464,
+    "generated_code_MB": 9.751916
+   }
+  },
+  "grad_scalar_31z": {
+   "trace_s": 0.07965769595466554,
+   "compile_s": 0.9691170630976558,
+   "warm_median_ms": 0.12699048966169357,
+   "warm_p10_ms": 0.12505771592259407,
+   "warm_p90_ms": 0.14157341793179515,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 4.4e-05,
+    "temp_MB": 2.198544,
+    "generated_code_MB": 9.751916
+   }
+  },
+  "pk_batch1000_1z": {
+   "trace_s": 0.055925795808434486,
+   "compile_s": 0.9203859851695597,
+   "warm_median_ms": 0.12211804278194904,
+   "warm_p10_ms": 0.11924603022634983,
+   "warm_p90_ms": 0.13435501605272293,
+   "memory": {
+    "argument_MB": 0.044,
+    "output_MB": 0.8,
+    "temp_MB": 37.6512,
+    "generated_code_MB": 4.900016
+   }
+  },
+  "jacfwd_batch1000_1z": {
+   "trace_s": 0.09283739700913429,
+   "compile_s": 1.1144871939904988,
+   "warm_median_ms": 0.3659679787233472,
+   "warm_p10_ms": 0.3610469866544008,
+   "warm_p90_ms": 0.37559049669653183,
+   "memory": {
+    "argument_MB": 0.044,
+    "output_MB": 8.8,
+    "temp_MB": 82.7072,
+    "generated_code_MB": 4.900016
+   }
+  }
+ }
+}

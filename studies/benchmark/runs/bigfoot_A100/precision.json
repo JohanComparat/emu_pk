@@ -1,0 +1,20 @@
+{
+ "device": {
+  "cpu": "cpu",
+  "gpu_default": "NVIDIA A100-PCIE-40GB",
+  "gpu_highest": "NVIDIA A100-PCIE-40GB"
+ },
+ "n_cosmologies": 1000,
+ "n_z": 31,
+ "n_k": 200,
+ "gpu_default": {
+  "max_abs_dlnP": 0.006873130798339844,
+  "median_abs_dlnP": 0.00027179718017578125,
+  "p99_abs_dlnP": 0.001539901364594698
+ },
+ "gpu_highest": {
+  "max_abs_dlnP": 3.814697265625e-05,
+  "median_abs_dlnP": 4.76837158203125e-07,
+  "p99_abs_dlnP": 3.814697265625e-06
+ }
+}

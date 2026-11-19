@@ -43,21 +43,22 @@ The shipped network does not have it; it is planned for the next retraining.
 ## Timings
 
 We time `emu_pk` 2.1.2 on cluster nodes, in batch jobs, with every call ending in `jax.block_until_ready`, for 200 wavenumbers and one cosmology ([study](https://github.com/JohanComparat/emu_pk/tree/main/studies/timing)).
-Each CPU column is 16 physical cores of the processor named; the GPU column is an NVIDIA V100.
+Each CPU column is 16 physical cores of the processor named; the GPU columns are an NVIDIA V100 and an NVIDIA H100 NVL.
 The Jacobian is $\partial P_{\rm m}(k, z)/\partial\theta$ over the eleven parameters of the box at the 31 training redshifts.
 
-| | Xeon Gold 5318Y | EPYC 9654 | EPYC 7453 | V100 |
-|---|---|---|---|---|
-| cold start, `import emu_pk` to the first spectrum | 7.9 s | 2.8 s | 4.2 s | 3.6–5.1 s |
-| compilation, per function | 0.3–0.4 s | 0.1–0.2 s | 0.2–0.4 s | 0.3–0.9 s |
-| one spectrum, compiled | 0.49 ms | 0.082 ms | 0.17 ms | 0.09 ms |
-| Jacobian, `jax.jacfwd` | 3.0 ms | 1.6 ms | 3.4 ms | 0.25 ms |
-| Jacobian, `jax.jacrev` | 1.15 s | 0.98 s | 1.33 s | 0.12–0.14 s |
-| gradient of a scalar, `jax.grad` | 2.7 ms | 0.89 ms | 2.5 ms | 0.2 ms |
-| 1 000 cosmologies, one $z$ | 7.0 ms | 3.0 ms | 7.6 ms | 0.4 ms |
+| | Xeon Gold 5318Y | EPYC 9654 | EPYC 7453 | V100 | H100 |
+|---|---|---|---|---|---|
+| cold start, `import emu_pk` to the first spectrum | 7.9 s | 2.8 s | 4.2 s | 3.6–5.1 s | 3.2 s |
+| compilation, per function | 0.3–0.4 s | 0.1–0.2 s | 0.2–0.4 s | 0.3–0.9 s | 0.2–1.5 s |
+| one spectrum, compiled | 0.49 ms | 0.082 ms | 0.17 ms | 0.09 ms | 0.074 ms |
+| Jacobian, `jax.jacfwd` | 3.0 ms | 1.6 ms | 3.4 ms | 0.25 ms | 0.10 ms |
+| Jacobian, `jax.jacrev` | 1.15 s | 0.98 s | 1.33 s | 0.12–0.14 s | 8.5 ms |
+| gradient of a scalar, `jax.grad` | 2.7 ms | 0.89 ms | 2.5 ms | 0.2 ms | 0.13 ms |
+| 1 000 cosmologies, one $z$ | 7.0 ms | 3.0 ms | 7.6 ms | 0.4 ms | 0.12 ms |
 
 The scratch memory, beyond inputs and outputs, is the same on every machine: 1.9 MB for the `jax.jacfwd` Jacobian on a CPU and 1.4 GB for the `jax.jacrev` one.
 Use `jax.jacfwd` for the Jacobian: eleven inputs against up to 6 200 outputs make forward mode eleven passes.
 Use reverse mode only for the gradient of a scalar such as a likelihood.
 One spectrum is latency-bound and follows the speed of one core; a batch follows the number of cores and their vector units, and is where the GPU pays.
+On an A100 or H100, set `JAX_DEFAULT_MATMUL_PRECISION=highest`: JAX's default multiplies float32 matrices in TF32, which moves $\ln P$ by up to 6.9e-3 from the CPU result on an A100, against 3.8e-5 at `highest` ([study](https://github.com/JohanComparat/emu_pk/tree/main/studies/gpu_precision)); the H100 timings above are at the default.
 On a GPU shared with other processes, set `XLA_PYTHON_CLIENT_PREALLOCATE=false`: JAX otherwise reserves 75 % of the memory at start-up and the larger programs fail with `RESOURCE_EXHAUSTED`.

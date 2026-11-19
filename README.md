@@ -146,26 +146,27 @@ appear at Fid only.
 
 *Top: against CLASS 3.3.4 at its default precision, the truth of Sui et al.
 (2025); the dotted vertical line is the time of that CLASS run. Bottom: against
-converged CLASS. Left: one CPU core (Intel Core Ultra 9 285HX, one thread,
-compiled JAX functions, mean over 1 000 calls). Right: GPU (NVIDIA RTX PRO 4000
-Blackwell laptop GPU), single precision, in batches of 2 000 (filled) and
-20 000 (open) cosmologies. This is Fig. 15 of Paper I; the script and the
-results that draw it are in [`studies/benchmark/`](studies/benchmark/).*
+converged CLASS. Left: one core of an AMD EPYC 9654 (GRICAD, Kraken), one
+thread, compiled JAX functions, mean over 1 000 calls. Right: an NVIDIA V100
+SXM2 (GRICAD, Bigfoot), full float32, in batches of 2 000 (filled) and 20 000
+(open) cosmologies. The errors are those of Fig. 15 of Paper I; the script and
+the results that draw the figure are in [`studies/benchmark/`](studies/benchmark/).*
 
 - **Accuracy.** Against converged CLASS, `emu_pk` is at 0.08 % at Fid, w⁺ and
   w⁻ and at 0.03 % at M_ν⁺; SYREN-NEW is at 0.09–0.14 % and 0.19 % at M_ν⁺,
   CosmoPower at 0.08 %, SYREN ΛCDM at 0.09 %, and the fit of Eisenstein & Hu
   at 1.25 %. CAMB, on which `emu_pk` was trained, is at 0.03–0.04 %.
-- **Time.** The figure's times were taken on one machine, so they compare the
-  codes with each other rather than give absolute speeds. On one CPU core the
-  five emulators lie within a factor of eight of each other, and are three to
-  four orders of magnitude faster than CLASS and CAMB. On a GPU, a batch of
-  2 000 costs the launch of the computation for every emulator, and a batch of
-  20 000 puts `emu_pk` within a factor of two of SYREN-NEW.
+- **Time on one CPU core.** SYREN-NEW takes 0.12 ms, `emu_pk` and CosmoPower
+  0.16 ms, the fit of Eisenstein & Hu 0.60 ms and SYREN ΛCDM 1.1 ms, against
+  0.53 s for CLASS and 1.7 s and 4.2 s for CAMB at its default precision and at
+  the precision `emu_pk` was trained at.
+- **Time on a GPU.** In a batch of 20 000, SYREN-NEW takes 0.020 µs per
+  spectrum, CosmoPower 0.20 µs and `emu_pk` 0.25 µs; a closed formula outruns
+  a network once the launch is amortised.
 
-On cluster nodes, one `emu_pk` spectrum takes 0.08 to 0.49 ms on 16 CPU cores
-and 0.09 ms on an NVIDIA V100, and a batch of 1 000 cosmologies 3 to 8 ms on 16
-cores and 0.4 ms on the V100 ([`docs/validation.md`](docs/validation.md#timings)).
+On 16 CPU cores, one `emu_pk` spectrum takes 0.08 to 0.49 ms depending on the
+processor, and on an NVIDIA H100 0.074 ms
+([`docs/validation.md`](docs/validation.md#timings)).
 
 Only `emu_pk` among these covers the full box (`sum_mnu` with three separate
 masses, `w0`, `wa`, `Omega_k`) and returns its derivatives by automatic

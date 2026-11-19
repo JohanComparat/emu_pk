@@ -1,0 +1,14 @@
+{
+ "time_gpu_z1": {
+  "emu_pk": 2.2550299763679505e-07,
+  "SYREN-NEW (JAX)": 1.0675274825189263e-07,
+  "CosmoPower": 1.9114599854219704e-07
+ },
+ "time_gpu_z1_batch20000": {
+  "emu_pk": 8.043037523748354e-08,
+  "SYREN-NEW (JAX)": 2.7947675698669626e-08,
+  "CosmoPower": 6.579969995073043e-08
+ },
+ "device": "NVIDIA A100-PCIE-40GB",
+ "dtype": "float32"
+}

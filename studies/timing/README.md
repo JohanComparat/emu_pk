@@ -26,6 +26,7 @@ XLA_PYTHON_CLIENT_PREALLOCATE=false python studies/timing/timing.py --repeat 20 
 | AMD EPYC 7453 | CC-IN2P3, `htc` | Zen 3 (2021) | 2.75 / 3.45 GHz | AVX2 | 64 MB | 32 of 112 hardware threads (16 cores) |
 | NVIDIA V100 SXM2 32 GB | GRICAD, Bigfoot | Volta (2017) | 15.7 TFLOP/s FP32 | — | 900 GB/s HBM2 | one GPU, 10 CPU cores |
 | NVIDIA V100 PCIe 32 GB | CC-IN2P3, `gpu_v100` | Volta (2017) | 14 TFLOP/s FP32 | — | 900 GB/s HBM2 | one GPU, 5 CPU cores |
+| NVIDIA H100 NVL 94 GB | CC-IN2P3, `gpu_h100` | Hopper (2023) | 60 TFLOP/s FP32 | — | 3.9 TB/s HBM3 | one GPU, 5 CPU cores |
 
 The core counts, base clocks and allocations are those the batch systems report for the nodes that ran the jobs; the boost clocks, vector units and caches are the vendors' specifications.
 JAX is 0.10.2 at GRICAD and 0.11.2 at CC-IN2P3.
@@ -67,19 +68,20 @@ Reverse mode is the right choice for the gradient of a scalar, a likelihood: 0.9
 
 Warm call, median, in ms:
 
-| function | V100 SXM2 | V100 PCIe |
-|---|---|---|
-| $P_{\rm m}$, one $z$ | 0.096 | 0.085 |
-| $P_{\rm m}$, 31 $z$ | 0.19 | 0.13 |
-| `jacfwd`, one $z$ | 0.15 | 0.16 |
-| `jacfwd`, 31 $z$ | 0.26 | 0.25 |
-| `jacrev`, 31 $z$ | 136 | 123 |
-| `grad` of a scalar, 31 $z$ | 0.20 | 0.22 |
-| $P_{\rm m}$, 1 000 cosmologies, one $z$ | 0.43 | 0.38 |
-| `jacfwd`, 1 000 cosmologies, one $z$ | 3.0 | 2.7 |
+| function | V100 SXM2 | V100 PCIe | H100 NVL |
+|---|---|---|---|
+| $P_{\rm m}$, one $z$ | 0.096 | 0.085 | 0.074 |
+| $P_{\rm m}$, 31 $z$ | 0.19 | 0.13 | 0.082 |
+| `jacfwd`, one $z$ | 0.15 | 0.16 | 0.093 |
+| `jacfwd`, 31 $z$ | 0.26 | 0.25 | 0.10 |
+| `jacrev`, 31 $z$ | 136 | 123 | 8.5 |
+| `grad` of a scalar, 31 $z$ | 0.20 | 0.22 | 0.13 |
+| $P_{\rm m}$, 1 000 cosmologies, one $z$ | 0.43 | 0.38 | 0.12 |
+| `jacfwd`, 1 000 cosmologies, one $z$ | 3.0 | 2.7 | 0.37 |
 
-Cold start is 5.1 s and 3.6 s, and compilation 0.3 to 0.9 s per function.
+Cold start is 5.1 s, 3.6 s and 3.2 s, and compilation 0.2 to 1.5 s per function.
 The single calls cost 0.1 to 0.3 ms whatever their size, the launch overhead of the GPU; the two V100 agree to 30 %, so the SXM2 and PCIe forms make no difference at this size.
-The batch of 1 000 cosmologies is where the GPU pays: 0.4 ms against 3 to 8 ms on 16 CPU cores, and 3 ms for its Jacobian against 28 to 48 ms.
-`jacrev` over 31 redshifts takes 0.12 to 0.14 s and 1.1 to 1.5 GB, so it fits, but it stays 500 times slower than `jacfwd`.
+The batch of 1 000 cosmologies is where the GPU pays: 0.4 ms on a V100 and 0.12 ms on the H100 against 3 to 8 ms on 16 CPU cores, and 3 ms and 0.37 ms for its Jacobian against 28 to 48 ms.
+The H100 is three to seven times faster than the V100 on the batches and 15 times faster on `jacrev`, which its larger arithmetic and memory bandwidth serve, and only 1.2 to 2.5 times faster on the single calls, which are bound by the launch.
+`jacrev` over 31 redshifts takes 0.12 to 0.14 s on a V100 and 8.5 ms on the H100, with 1.1 to 1.5 GB of scratch, so it fits, but it stays 80 to 500 times slower than `jacfwd`.
 On a GPU shared with other processes, set `XLA_PYTHON_CLIENT_PREALLOCATE=false`: JAX otherwise reserves 75 % of the memory at start-up, and the larger programs fail with `RESOURCE_EXHAUSTED` when another process holds the rest.
