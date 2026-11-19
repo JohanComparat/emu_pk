@@ -42,21 +42,22 @@ The shipped network does not have it; it is planned for the next retraining.
 
 ## Timings
 
-We time the compiled functions with `jax.block_until_ready`, on a laptop with an Intel Core Ultra 9 285HX and an NVIDIA RTX PRO 4000 Blackwell Laptop GPU, for 200 wavenumbers and one cosmology ([study](https://github.com/JohanComparat/emu_pk/tree/main/studies/timing)).
+We time `emu_pk` 2.1.2 on cluster nodes, in batch jobs, with every call ending in `jax.block_until_ready`, for 200 wavenumbers and one cosmology ([study](https://github.com/JohanComparat/emu_pk/tree/main/studies/timing)).
+Each CPU column is 16 physical cores of the processor named; the GPU column is an NVIDIA V100.
 The Jacobian is $\partial P_{\rm m}(k, z)/\partial\theta$ over the eleven parameters of the box at the 31 training redshifts.
 
-| | CPU | GPU |
-|---|---|---|
-| cold start, `import emu_pk` to the first spectrum | 5.1 s | 8.5 s |
-| compilation | 0.3–0.8 s | 1–14 s |
-| one spectrum, compiled | 0.36 ms | 0.30 ms |
-| Jacobian, `jax.jacfwd` | 11 ms, 1.9 MB | 0.14 ms, 3.8 MB |
-| Jacobian, `jax.jacrev` | 4.2 s, 1.4 GB | 48 ms, 1.5 GB |
-| gradient of a scalar, `jax.grad` | 2.9 ms | 0.12 ms |
+| | Xeon Gold 5318Y | EPYC 9654 | EPYC 7453 | V100 |
+|---|---|---|---|---|
+| cold start, `import emu_pk` to the first spectrum | 7.9 s | 2.8 s | 4.2 s | 3.6–5.1 s |
+| compilation, per function | 0.3–0.4 s | 0.1–0.2 s | 0.2–0.4 s | 0.3–0.9 s |
+| one spectrum, compiled | 0.49 ms | 0.082 ms | 0.17 ms | 0.09 ms |
+| Jacobian, `jax.jacfwd` | 3.0 ms | 1.6 ms | 3.4 ms | 0.25 ms |
+| Jacobian, `jax.jacrev` | 1.15 s | 0.98 s | 1.33 s | 0.12–0.14 s |
+| gradient of a scalar, `jax.grad` | 2.7 ms | 0.89 ms | 2.5 ms | 0.2 ms |
+| 1 000 cosmologies, one $z$ | 7.0 ms | 3.0 ms | 7.6 ms | 0.4 ms |
 
-Memory is XLA's scratch space beyond inputs and outputs.
+The scratch memory, beyond inputs and outputs, is the same on every machine: 1.9 MB for the `jax.jacfwd` Jacobian on a CPU and 1.4 GB for the `jax.jacrev` one.
 Use `jax.jacfwd` for the Jacobian: eleven inputs against up to 6 200 outputs make forward mode eleven passes.
 Use reverse mode only for the gradient of a scalar such as a likelihood.
+One spectrum is latency-bound and follows the speed of one core; a batch follows the number of cores and their vector units, and is where the GPU pays.
 On a GPU shared with other processes, set `XLA_PYTHON_CLIENT_PREALLOCATE=false`: JAX otherwise reserves 75 % of the memory at start-up and the larger programs fail with `RESOURCE_EXHAUSTED`.
-CPU times vary by up to a factor of three between runs on this laptop, which throttles under load.
-On three cluster nodes (16 cores of an Intel Xeon Gold 5318Y, an AMD EPYC 9654 and an AMD EPYC 7453), one spectrum takes 0.08 to 0.49 ms and the `jax.jacfwd` Jacobian 1.6 to 3.0 ms; the study gives every function on every node.

@@ -1,0 +1,146 @@
+{
+ "device": "gpu: Tesla V100-SXM2-32GB",
+ "cpu": "x86_64",
+ "jax": "0.10.2",
+ "emu_pk": "2.1.2",
+ "n_k": 200,
+ "n_params": 11,
+ "repeat": 20,
+ "cold_s": {
+  "median": 5.135856406996027,
+  "min": 4.893210082082078,
+  "max": 6.3185124539304525
+ },
+ "functions": {
+  "pk_1z": {
+   "trace_s": 0.09389450284652412,
+   "compile_s": 0.3638343191705644,
+   "warm_median_ms": 0.09570096153765917,
+   "warm_p10_ms": 0.092465546913445,
+   "warm_p90_ms": 0.1051501138135791,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0008,
+    "temp_MB": 0.005336,
+    "generated_code_MB": 4.899504
+   }
+  },
+  "pk_31z": {
+   "trace_s": 0.09261612594127655,
+   "compile_s": 0.5687486780807376,
+   "warm_median_ms": 0.1914160093292594,
+   "warm_p10_ms": 0.16816959250718355,
+   "warm_p90_ms": 0.20689070224761963,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0248,
+    "temp_MB": 4.386048,
+    "generated_code_MB": 4.899884
+   }
+  },
+  "pk_and_pkcb_31z": {
+   "trace_s": 0.12336853612214327,
+   "compile_s": 0.3589512768667191,
+   "warm_median_ms": 0.16552594024688005,
+   "warm_p10_ms": 0.1615714281797409,
+   "warm_p90_ms": 0.17985326703637838,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.049616,
+    "temp_MB": 4.386304,
+    "generated_code_MB": 4.903172
+   }
+  },
+  "jacfwd_1z": {
+   "trace_s": 0.1641480838879943,
+   "compile_s": 0.6827609790489078,
+   "warm_median_ms": 0.15326496213674545,
+   "warm_p10_ms": 0.15000510029494762,
+   "warm_p90_ms": 0.16587923746556044,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0088,
+    "temp_MB": 4.258064,
+    "generated_code_MB": 9.770116
+   }
+  },
+  "jacrev_1z": {
+   "trace_s": 0.27218559896573424,
+   "compile_s": 0.7539519232232124,
+   "warm_median_ms": 0.27455901727080345,
+   "warm_p10_ms": 0.2707636449486017,
+   "warm_p90_ms": 0.2890621311962605,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0088,
+    "temp_MB": 5.271832,
+    "generated_code_MB": 4.921796
+   }
+  },
+  "jacfwd_31z": {
+   "trace_s": 0.15972985699772835,
+   "compile_s": 0.42451209388673306,
+   "warm_median_ms": 0.2549770288169384,
+   "warm_p10_ms": 0.25225586723536253,
+   "warm_p90_ms": 0.264737824909389,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.2728,
+    "temp_MB": 6.481152,
+    "generated_code_MB": 4.899884
+   }
+  },
+  "jacrev_31z": {
+   "trace_s": 0.22721425094641745,
+   "compile_s": 0.8215498661156744,
+   "warm_median_ms": 136.14353898447007,
+   "warm_p10_ms": 136.0722800483927,
+   "warm_p90_ms": 136.19712034706026,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.2728,
+    "temp_MB": 1102.458392,
+    "generated_code_MB": 9.751404
+   }
+  },
+  "grad_scalar_31z": {
+   "trace_s": 0.17653444898314774,
+   "compile_s": 0.4374608271755278,
+   "warm_median_ms": 0.20142749417573214,
+   "warm_p10_ms": 0.19801950547844172,
+   "warm_p90_ms": 0.21339866798371077,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 4.4e-05,
+    "temp_MB": 4.616464,
+    "generated_code_MB": 4.901484
+   }
+  },
+  "pk_batch1000_1z": {
+   "trace_s": 0.12150324904359877,
+   "compile_s": 0.4245260718744248,
+   "warm_median_ms": 0.43417897541075945,
+   "warm_p10_ms": 0.43228387366980314,
+   "warm_p90_ms": 0.45435973443090916,
+   "memory": {
+    "argument_MB": 0.044,
+    "output_MB": 0.8,
+    "temp_MB": 10.339584,
+    "generated_code_MB": 4.899504
+   }
+  },
+  "jacfwd_batch1000_1z": {
+   "trace_s": 0.24465294904075563,
+   "compile_s": 0.5406510708853602,
+   "warm_median_ms": 2.992528025060892,
+   "warm_p10_ms": 2.95051506254822,
+   "warm_p90_ms": 3.026922419667244,
+   "memory": {
+    "argument_MB": 0.044,
+    "output_MB": 8.8,
+    "temp_MB": 73.73056,
+    "generated_code_MB": 4.899504
+   }
+  }
+ }
+}
