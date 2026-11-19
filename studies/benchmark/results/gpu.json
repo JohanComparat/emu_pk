@@ -1,0 +1,14 @@
+{
+ "time_gpu_z1": {
+  "emu_pk": 1.1385619945940562e-06,
+  "SYREN-NEW (JAX)": 1.06063749990426e-06,
+  "CosmoPower": 1.1203157482668758e-06
+ },
+ "time_gpu_z1_batch20000": {
+  "emu_pk": 1.9083969964412973e-07,
+  "SYREN-NEW (JAX)": 1.1367944971425459e-07,
+  "CosmoPower": 1.7753755091689527e-07
+ },
+ "device": "NVIDIA RTX PRO 4000 Blackwell Generation Laptop GPU",
+ "dtype": "float32"
+}

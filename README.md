@@ -118,6 +118,64 @@ And with respect to redshift, which $f\sigma_8$ is built from:
 
 These sit within a factor of two to four of what the comparison can resolve.
 
+## Performance and code comparison
+
+We compare `emu_pk` with other emulators of the linear matter power spectrum in
+the figure below, following Fig. 10 of Sui et al. (2025). For each code we
+measure the mean of |P/P_true − 1| over 200 wavenumbers log-spaced in
+[0.009, 9] h/Mpc at z = 0, and the time of one evaluation at z = 1, at the
+four Quijote cosmologies (Villaescusa-Navarro et al. 2020): Fid, w⁺ and w⁻
+(w = −0.95, −1.05), and M_ν⁺ (Σm_ν = 0.1 eV). Each code is applied only inside
+its parameter space, so SYREN ΛCDM, CosmoPower and the fit of Eisenstein & Hu
+appear at Fid only.
+
+![Mean fractional error of the linear P(k) against the time of one evaluation, for emu_pk, SYREN-NEW, SYREN ΛCDM, CosmoPower, the fit of Eisenstein & Hu, CAMB and CLASS](https://raw.githubusercontent.com/JohanComparat/emu_pk/main/docs/_static/figures/emulator_benchmark.png)
+
+*Top: against CLASS 3.3.4 at its default precision, the truth of Sui et al.
+(2025); the dotted vertical line is the time of that CLASS run. Bottom: against
+converged CLASS. Left: one CPU core (Intel Core Ultra 9 285HX, one thread,
+compiled JAX functions, mean over 1 000 calls). Right: GPU (NVIDIA RTX PRO 4000
+Blackwell laptop GPU), single precision, in batches of 2 000 (filled) and
+20 000 (open) cosmologies. This is Fig. 15 of Paper I; the script and the
+results that draw it are in [`studies/benchmark/`](studies/benchmark/).*
+
+- **Accuracy.** Against converged CLASS, `emu_pk` is at 0.08 % at Fid, w⁺ and
+  w⁻ and at 0.03 % at M_ν⁺; SYREN-NEW is at 0.09–0.14 % and 0.19 % at M_ν⁺,
+  CosmoPower at 0.08 %, SYREN ΛCDM at 0.09 %, and the fit of Eisenstein & Hu
+  at 1.25 %. CAMB, on which `emu_pk` was trained, is at 0.03–0.04 %.
+- **Time on one CPU core.** SYREN-NEW takes 0.086 ms, the fit of Eisenstein &
+  Hu 0.096 ms, CosmoPower 0.24 ms, `emu_pk` 0.27 ms and SYREN ΛCDM 0.67 ms,
+  against 0.36 s for CLASS and 1.0 s and 2.9 s for CAMB at its default
+  precision and at the precision `emu_pk` was trained at.
+- **Time on a GPU.** A batch of 2 000 costs the launch of the computation,
+  1.1 µs per spectrum for every emulator; a batch of 20 000 gives 0.11 µs for
+  SYREN-NEW, 0.18 µs for CosmoPower and 0.19 µs for `emu_pk`.
+
+Only `emu_pk` among these covers the full box (`sum_mnu` with three separate
+masses, `w0`, `wa`, `Omega_k`) and returns its derivatives by automatic
+differentiation. Timings on cluster CPU and GPU nodes, for one spectrum, its
+Jacobian and batches, are in
+[`docs/validation.md`](docs/validation.md#timings) and
+[`studies/timing/`](studies/timing/).
+
+The codes compared, and where to find them:
+
+| code | reference | code |
+|---|---|---|
+| SYREN-NEW | Sui, Bartlett, Pandey et al. (2025), A&A 698, A1, [doi:10.1051/0004-6361/202452854](https://doi.org/10.1051/0004-6361/202452854), [arXiv:2410.14623](https://arxiv.org/abs/2410.14623) | [github.com/DeaglanBartlett/symbolic_pofk](https://github.com/DeaglanBartlett/symbolic_pofk) |
+| SYREN ΛCDM | Bartlett, Kammerer, Kronberger et al. (2024), A&A 686, A209, [doi:10.1051/0004-6361/202348811](https://doi.org/10.1051/0004-6361/202348811), [arXiv:2311.15865](https://arxiv.org/abs/2311.15865) | [github.com/DeaglanBartlett/symbolic_pofk](https://github.com/DeaglanBartlett/symbolic_pofk) |
+| CosmoPower | Spurio Mancini, Piras, Alsing et al. (2022), MNRAS 511, 1771, [doi:10.1093/mnras/stac064](https://doi.org/10.1093/mnras/stac064), [arXiv:2106.03846](https://arxiv.org/abs/2106.03846) | [github.com/alessiospuriomancini/cosmopower](https://github.com/alessiospuriomancini/cosmopower) |
+| CosmoPower-JAX | Piras & Spurio Mancini (2023), OJAp 6, 20, [doi:10.21105/astro.2305.06347](https://doi.org/10.21105/astro.2305.06347), [arXiv:2305.06347](https://arxiv.org/abs/2305.06347) | [github.com/dpiras/cosmopower-jax](https://github.com/dpiras/cosmopower-jax) |
+| Eisenstein & Hu fit | Eisenstein & Hu (1998), ApJ 496, 605, [doi:10.1086/305424](https://doi.org/10.1086/305424), [arXiv:astro-ph/9709112](https://arxiv.org/abs/astro-ph/9709112) | — |
+| CAMB | Lewis, Challinor & Lasenby (2000), ApJ 538, 473, [doi:10.1086/309179](https://doi.org/10.1086/309179), [arXiv:astro-ph/9911177](https://arxiv.org/abs/astro-ph/9911177) | [github.com/cmbant/CAMB](https://github.com/cmbant/CAMB) |
+| CLASS | Blas, Lesgourgues & Tram (2011), JCAP 07, 034, [doi:10.1088/1475-7516/2011/07/034](https://doi.org/10.1088/1475-7516/2011/07/034), [arXiv:1104.2933](https://arxiv.org/abs/1104.2933) | [github.com/lesgourg/class_public](https://github.com/lesgourg/class_public) |
+| Quijote cosmologies | Villaescusa-Navarro, Hahn, Massara et al. (2020), ApJS 250, 2, [doi:10.3847/1538-4365/ab9d82](https://doi.org/10.3847/1538-4365/ab9d82), [arXiv:1909.05273](https://arxiv.org/abs/1909.05273) | — |
+
+Sui et al. (2025) also compare the BACCO emulator and the emulator of
+Orjuela-Quintana, Sapone & Nesseris (2026), PRD 113, 063526,
+[doi:10.1103/hp65-mcrz](https://doi.org/10.1103/hp65-mcrz),
+[arXiv:2407.16640](https://arxiv.org/abs/2407.16640), which we did not run.
+
 ## The box
 
 Outside these bounds the network extrapolates, returning a finite and
