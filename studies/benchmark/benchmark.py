@@ -20,8 +20,10 @@ Emulators, each applied only inside its parameter space as in the paper:
   SYREN LCDM (Bartlett et al. 2024a; Fid), Eisenstein & Hu 1998 (Fid),
   CosmoPower mpk_lin as shipped by cosmopower_jax (Fid), CAMB at its default
   precision and at emu_pk's training precision (all four).
-CosmoPower's TensorFlow original, the BACCO emulator and Orjuela-Quintana et al.
-(2024), which the paper also shows, are not installed here.
+BACCO (Arico et al. 2021) is scored and timed by bacco.py, in an environment
+with TensorFlow, and read from results/bacco_benchmark.json.  CosmoPower's
+TensorFlow original is not run; Orjuela-Quintana et al. (2024) publish fits,
+not code.
 
 CPU timings: one core (taskset), one thread, mean over repeated calls of one
 cosmology at z = 1 (as in the paper), after a warm-up; JAX functions jitted.
@@ -379,7 +381,8 @@ def stage_gpu(a):
 # ------------------------------------------------------------------ plot
 COLOURS = {"emu_pk": "#1f6f8b", "SYREN-NEW": "#d4a017", "SYREN LCDM": "#7a5c00",
            "CosmoPower": "#c0392b", "Eisenstein & Hu": "#8c8c8c", "CAMB": "#8e44ad",
-           "CAMB (emu_pk precision)": "#d291e6", "CLASS": "#2e8b57"}
+           "CAMB (emu_pk precision)": "#d291e6", "CLASS": "#2e8b57",
+           "BACCO": "#e7298a"}
 LABELS = {"SYREN LCDM": r"SYREN $\Lambda$CDM", "CAMB (emu_pk precision)":
           "CAMB, emu_pk precision", "CLASS": "CLASS, default precision"}
 MARKERS = {"Fid": "o", "Mnu+": "s", "w+": "^", "w-": "v"}
@@ -404,6 +407,14 @@ def stage_plot(a):
     tgpu["SYREN-NEW"] = tgpu.pop("SYREN-NEW (JAX)")
     tbig = dict(gpu["time_gpu_z1_batch20000"])
     tbig["SYREN-NEW"] = tbig.pop("SYREN-NEW (JAX)")
+    # BACCO (Arico et al. 2021), scored and timed by bacco.py on the same truths
+    # and on the CPU of `cpu`: it needs TensorFlow.  CPU panels only.
+    bacco = os.path.join(CACHE, "bacco_benchmark.json")
+    if os.path.exists(bacco):
+        b = json.load(open(bacco))
+        cpu["error_z0"]["BACCO"] = b["err_vs_class_default"]
+        cpu["error_ref_z0"]["BACCO"] = b["err_vs_class_converged"]
+        tcpu["BACCO"] = b["cpu_time_s"]
     rows = ((cpu["error_z0"], r"against CLASS, default precision"),
             (cpu["error_ref_z0"], r"against converged CLASS"))
     # Paper I's figure, at the paper's 7.1 in width, and a PNG for the README

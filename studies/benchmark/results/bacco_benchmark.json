@@ -1,0 +1,32 @@
+{
+ "emulator": "BACCO linear (baccoemu.Matter_powerspectrum.get_linear_pk)",
+ "baccoemu": "2.3.0",
+ "metric": "mean |P/P_truth - 1| over 200 log k in [9e-3, 9] h/Mpc, z = 0",
+ "err_vs_class_default": {
+  "Fid": 0.00026698910541538776,
+  "Mnu+": 0.0002838945056399739,
+  "w+": 0.00017019538432949343,
+  "w-": 0.00022303812910242415
+ },
+ "err_vs_class_converged": {
+  "Fid": 0.000375552340619259,
+  "Mnu+": 0.0019775328944053334,
+  "w+": 0.00026953910484011745,
+  "w-": 0.00019728466557180358
+ },
+ "cpu_time_s": 0.001006061663996661,
+ "n_time": 1000,
+ "host": {
+  "node": "dahu141",
+  "cpu": "Intel(R) Xeon(R) Gold 6244 CPU @ 3.60GHz",
+  "affinity": [
+   2
+  ],
+  "loadavg": [
+   0.46337890625,
+   0.7001953125,
+   1.34765625
+  ]
+ },
+ "tensorflow": "2.21.0"
+}

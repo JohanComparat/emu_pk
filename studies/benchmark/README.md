@@ -7,8 +7,9 @@ The codes, their references and the numbers are in the [README](../../README.md#
 
 ## Redrawing the figure
 
-`results/` holds the results of the production run, so the figure is redrawn without any solver: the errors and the solver timings from one core of an AMD EPYC 9654 (GRICAD, Kraken), and the GPU timings from an NVIDIA V100 SXM2 (GRICAD, Bigfoot) in full float32.
-`runs/` keeps every run of the CPU and GPU stages: also one core of an Intel Xeon Gold 6244 (GRICAD, Dahu) and an NVIDIA A100 PCIe (Bigfoot), with the GPU precision check of each card (`studies/gpu_precision/`).
+`results/` holds the results of the production run, so the figure is redrawn without any solver: the errors and the CPU timings from one core of an Intel Xeon Gold 6244 (GRICAD, Dahu), the CPU of Paper I's timings, and the GPU timings from an NVIDIA V100 SXM2 (GRICAD, Bigfoot) in full float32.
+`results/bacco_benchmark.json` holds BACCO (Aricò et al. 2021), scored on the same truths and timed on the same CPU by `bacco.py`, which needs `baccoemu` and TensorFlow; BACCO appears in the CPU panels only.
+`runs/` keeps every run of the CPU and GPU stages: also one core of an AMD EPYC 9654 (GRICAD, Kraken) and an NVIDIA A100 PCIe (Bigfoot), with the GPU precision check of each card (`studies/gpu_precision/`).
 
 ```bash
 python studies/benchmark/benchmark.py plot
@@ -26,8 +27,9 @@ python studies/benchmark/benchmark.py truth --cache my_run          # CLASS and 
 python studies/benchmark/benchmark.py ref --cache my_run            # converged CLASS, about 11 min
 taskset -c 2 python studies/benchmark/benchmark.py cpu --cache my_run   # one core, one thread
 python studies/benchmark/benchmark.py gpu --cache my_run            # in a GPU JAX environment
+taskset -c 0 python studies/benchmark/bacco.py --truth-dir my_run --out my_run/bacco_benchmark   # with baccoemu
 python studies/benchmark/benchmark.py plot --cache my_run
 ```
 
-The errors do not depend on the machine: the Kraken and Dahu runs reproduce them to every digit. The times do; on one core of the Xeon Gold 6244, `emu_pk` takes 0.43 ms against 0.16 ms on the EPYC 9654, and on the A100, at full float32, a batch of 20 000 takes 0.08 µs per spectrum against 0.25 µs on the V100.
+The errors do not depend on the machine: the Kraken and Dahu runs reproduce them to every digit. The times do; on one core of the EPYC 9654, `emu_pk` takes 0.16 ms against 0.43 ms on the Xeon Gold 6244, and on the A100, at full float32, a batch of 20 000 takes 0.08 µs per spectrum against 0.25 µs on the V100.
 SYREN-NEW runs on the GPU through a JAX transcription of its published NumPy code, made by `benchmark.py` from the source, which reproduces it to $10^{-15}$.
