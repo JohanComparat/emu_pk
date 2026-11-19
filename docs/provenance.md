@@ -27,7 +27,7 @@ sha256sum $(python -c "import emu_pk, pathlib; print(pathlib.Path(emu_pk.__file_
 
 The training set is 150 000 points of the Latin hypercube `emu_pk.box.sample(150000, seed=20260827)`, each solved with CAMB 1.6.6 at `lAccuracyBoost = 3`, `AccuracyBoost = 2` and no late radiation truncation, times the reionization heating of a CLASS v3.3.4 pair (see [the design notes](design_notes.md)), at the 31 redshifts of `emu_pk.grid.Z_NODES_EMU`.
 CAMB or CLASS refused 25 points, so the set holds 149 975 cosmologies and 4 649 225 rows.
-It is 15.5 GB in 32 parts, `training_set_v21_c.npz` and `training_set_v21_c.part000.npz` to `part031.npz`; their SHA-256 are in [`training_set_v21_c.sha256`](training_set_v21_c.sha256).
+It is 15.5 GB in 33 files, the index `training_set_v21_c.npz` and `training_set_v21_c.part000.npz` to `part031.npz`; their SHA-256 are in [`training_set_v21_c.sha256`](training_set_v21_c.sha256).
 
 The set is regenerated from the seed and the shard index alone, with the commands of [Reproducing the training set](reproducing.md):
 
@@ -56,4 +56,4 @@ Against the converged CAMB reference, the same statistic is 0.063 % in the media
 ## Archive
 
 The weights ship in the wheel on PyPI and in the tagged repository (`v2.1.2`).
-The training set is not yet on a public archive; it is to be deposited on Zenodo together with the checksum file above, and the DOI added here.
+The training set, with the checksum file above, is on Zenodo: [doi:10.5281/zenodo.24365520](https://doi.org/10.5281/zenodo.24365520).

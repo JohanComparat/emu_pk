@@ -15,7 +15,8 @@ prediction are bit for bit 2.1.0's.
   heads at zero neutrino mass, and the timings of the spectrum and its Jacobian.
 - `docs/provenance.md`: the SHA-256 of the weights, the validation records and
   the correction table; the seed and commands that regenerate the training set;
-  the commands behind the quoted accuracy.
+  the commands behind the quoted accuracy; the DOI of the training set on
+  Zenodo, 10.5281/zenodo.24365520.
 - `docs/training_set_v21_c.sha256`: the SHA-256 of the 33 files of the training
   set.
 - `studies/null_mnu/` and `studies/timing/`: the scripts and results behind the
