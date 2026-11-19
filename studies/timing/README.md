@@ -45,3 +45,31 @@ The GPU `jacrev` and `grad` rows come from a second run of each alone, with `XLA
 In the first run both failed with `RESOURCE_EXHAUSTED`: another process held 8.6 GB of the 16 GB GPU, and JAX by default reserves 75 % of the memory at start-up.
 On a shared GPU, set `XLA_PYTHON_CLIENT_PREALLOCATE=false` or lower `XLA_PYTHON_CLIENT_MEM_FRACTION`.
 The CPU warm times vary by a factor of 3 between runs on this laptop (0.08 ms to 0.36 ms for one spectrum), with the clock throttling under load; take them as an order of magnitude.
+
+## CPU timings on cluster nodes
+
+We repeat the CPU run on three cluster nodes, each a 16-core allocation of a shared node, with `emu_pk` 2.1.2 and `--repeat 20`; the results are in `clusters/`, one JSON and one environment file per node.
+Unlike the laptop, these nodes do not throttle: the 10th and 90th percentiles of the warm calls lie within 15 % of the median.
+
+| node | CPU | JAX |
+|---|---|---|
+| Dahu (GRICAD) | Intel Xeon Gold 5318Y, 2.1 GHz | 0.10.2 |
+| Kraken (GRICAD) | AMD EPYC 9654 | 0.10.2 |
+| CC-IN2P3 (`htc`) | AMD EPYC 7453 | 0.11.2 |
+
+Warm call, median, in ms:
+
+| function | laptop | Dahu | Kraken | CC-IN2P3 |
+|---|---|---|---|---|
+| $P_{\rm m}$, one $z$ | 0.36 | 0.49 | 0.082 | 0.15 |
+| $P_{\rm m}$, 31 $z$ | 3.1 | 1.0 | 0.39 | 1.2 |
+| `jacfwd`, one $z$ | 1.1 | 0.56 | 0.24 | 0.62 |
+| `jacfwd`, 31 $z$ | 11 | 3.0 | 1.6 | 2.9 |
+| `jacrev`, 31 $z$ | 4 200 | 1 150 | 980 | 1 650 |
+| `grad` of a scalar, 31 $z$ | 2.9 | 2.7 | 0.89 | 4.3 |
+| $P_{\rm m}$, 1 000 cosmologies | 41 | 7.0 | 3.0 | 30 |
+| `jacfwd`, 1 000 cosmologies | 156 | 28 | 29 | 63 |
+
+Cold start, import to the first spectrum, is 7.9 s on Dahu, 2.8 s on Kraken and 3.8 s on CC-IN2P3 (median of five), against 5.1 s on the laptop; compilation takes 0.1 to 0.8 s on every node.
+The scratch memory of each program is the same on every machine, to 10 %, since it is a property of the compiled program.
+One spectrum at one redshift takes 0.08 to 0.5 ms on a CPU, and the full Jacobian over eleven parameters and 31 redshifts 1.6 to 11 ms with `jacfwd`; the order of the functions is the same on every node, and `jacrev` over 31 redshifts stays 300 to 600 times slower than `jacfwd`.

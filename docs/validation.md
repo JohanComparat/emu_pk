@@ -58,4 +58,5 @@ Memory is XLA's scratch space beyond inputs and outputs.
 Use `jax.jacfwd` for the Jacobian: eleven inputs against up to 6 200 outputs make forward mode eleven passes.
 Use reverse mode only for the gradient of a scalar such as a likelihood.
 On a GPU shared with other processes, set `XLA_PYTHON_CLIENT_PREALLOCATE=false`: JAX otherwise reserves 75 % of the memory at start-up and the larger programs fail with `RESOURCE_EXHAUSTED`.
-CPU times vary by up to a factor of three between runs on this laptop, which throttles under load; take them as orders of magnitude.
+CPU times vary by up to a factor of three between runs on this laptop, which throttles under load.
+On three cluster nodes (16 cores of an Intel Xeon Gold 5318Y, an AMD EPYC 9654 and an AMD EPYC 7453), one spectrum takes 0.08 to 0.49 ms and the `jax.jacfwd` Jacobian 1.6 to 3.0 ms; the study gives every function on every node.
