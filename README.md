@@ -156,20 +156,21 @@ results that draw it are in [`studies/benchmark/`](studies/benchmark/).*
   w⁻ and at 0.03 % at M_ν⁺; SYREN-NEW is at 0.09–0.14 % and 0.19 % at M_ν⁺,
   CosmoPower at 0.08 %, SYREN ΛCDM at 0.09 %, and the fit of Eisenstein & Hu
   at 1.25 %. CAMB, on which `emu_pk` was trained, is at 0.03–0.04 %.
-- **Time on one CPU core.** SYREN-NEW takes 0.086 ms, the fit of Eisenstein &
-  Hu 0.096 ms, CosmoPower 0.24 ms, `emu_pk` 0.27 ms and SYREN ΛCDM 0.67 ms,
-  against 0.36 s for CLASS and 1.0 s and 2.9 s for CAMB at its default
-  precision and at the precision `emu_pk` was trained at.
-- **Time on a GPU.** A batch of 2 000 costs the launch of the computation,
-  1.1 µs per spectrum for every emulator; a batch of 20 000 gives 0.11 µs for
-  SYREN-NEW, 0.18 µs for CosmoPower and 0.19 µs for `emu_pk`.
+- **Time.** The figure's times were taken on one machine, so they compare the
+  codes with each other rather than give absolute speeds. On one CPU core the
+  five emulators lie within a factor of eight of each other, and are three to
+  four orders of magnitude faster than CLASS and CAMB. On a GPU, a batch of
+  2 000 costs the launch of the computation for every emulator, and a batch of
+  20 000 puts `emu_pk` within a factor of two of SYREN-NEW.
+
+On cluster nodes, one `emu_pk` spectrum takes 0.08 to 0.49 ms on 16 CPU cores
+and 0.09 ms on an NVIDIA V100, and a batch of 1 000 cosmologies 3 to 8 ms on 16
+cores and 0.4 ms on the V100 ([`docs/validation.md`](docs/validation.md#timings)).
 
 Only `emu_pk` among these covers the full box (`sum_mnu` with three separate
 masses, `w0`, `wa`, `Omega_k`) and returns its derivatives by automatic
-differentiation. Timings on cluster CPU and GPU nodes, for one spectrum, its
-Jacobian and batches, are in
-[`docs/validation.md`](docs/validation.md#timings) and
-[`studies/timing/`](studies/timing/).
+differentiation. The timings of one spectrum, its Jacobian and batches on
+each node are in [`studies/timing/`](studies/timing/).
 
 The codes compared, and where to find them:
 
