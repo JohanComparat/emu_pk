@@ -118,6 +118,19 @@ And with respect to redshift, which $f\sigma_8$ is built from:
 
 These sit within a factor of two to four of what the comparison can resolve.
 
+![The derivatives of the linear P_m(k) and of the ratio P_cb/P_m at z = 0 with respect to the ten cosmological parameters, through emu_pk](https://raw.githubusercontent.com/JohanComparat/emu_pk/main/docs/_static/figures/pk_gradients.png)
+
+*∂ln P/∂θ at z = 0, differentiated through `emu_pk` around the fiducial
+cosmology, with respect to the ten cosmological parameters of `ggah_mod`
+(Ω_m, Ω_b, h, Σm_ν, T_CMB, n_s, ln(10¹⁰A_s), w₀, w_a, Ω_k). (a) The derivatives
+of P_m; none is an exact zero. Seven of the ten are network inputs, n_s and
+ln(10¹⁰A_s) are restored in closed form, so ∂ln P/∂n_s is exactly ln(k/k_pivot)
+and ∂ln P/∂ln(10¹⁰A_s) is 1, and T_CMB enters only through the neutrino density
+subtracted to form ω_cdm. The wiggles in Ω_m and h around k ~ 0.1 h/Mpc are the
+acoustic scale moving with the parameter. (b) The same derivatives of the ratio
+P_cb/P_m: it is insensitive to n_s and A_s, and responds to Σm_ν, and to Ω_m and
+h only through the neutrino fraction f_ν. This is Fig. 3 of Paper I.*
+
 ## Performance and code comparison
 
 We compare `emu_pk` with other emulators of the linear matter power spectrum in
