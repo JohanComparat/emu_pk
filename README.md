@@ -5,6 +5,7 @@
 [![Tests](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml/badge.svg)](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml)
 [![Docs](https://img.shields.io/readthedocs/emu-pk/stable.svg)](https://emu-pk.readthedocs.io/en/stable/)
 [![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/1352363874.svg)](https://doi.org/10.5281/zenodo.24370066)
 [![Training set DOI](https://img.shields.io/badge/training%20set-10.5281%2Fzenodo.24365520-blue.svg)](https://doi.org/10.5281/zenodo.24365520)
 
 Differentiable emulation of the **linear matter power spectrum**, over an
@@ -294,8 +295,9 @@ look arbitrary from the source alone are in
 
 ## Citing
 
-If you use `emu_pk`, please cite it via [`CITATION.cff`](CITATION.cff), and
-also:
+If you use `emu_pk`, please cite it via [`CITATION.cff`](CITATION.cff) or its
+Zenodo DOI, [10.5281/zenodo.24370066](https://doi.org/10.5281/zenodo.24370066)
+(all versions; each release has its own DOI on that page), and also:
 
 - **CosmoPower** — Spurio Mancini et al. (2022), MNRAS 511, 1771. The network
   architecture and the learned activation are theirs.

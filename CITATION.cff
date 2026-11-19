@@ -7,6 +7,7 @@ authors:
     given-names: Johan
     email: jcomparat@lpsc.in2p3.fr
     orcid: "https://orcid.org/0000-0001-9200-1497"
+doi: 10.5281/zenodo.24370066
 repository-code: "https://github.com/JohanComparat/emu_pk"
 url: "https://emu-pk.readthedocs.io/en/stable/"
 license: BSD-3-Clause
