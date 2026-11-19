@@ -5,6 +5,7 @@
 [![Tests](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml/badge.svg)](https://github.com/JohanComparat/emu_pk/actions/workflows/tests.yml)
 [![Docs](https://img.shields.io/readthedocs/emu-pk/stable.svg)](https://emu-pk.readthedocs.io/en/stable/)
 [![Licence: BSD-3-Clause](https://img.shields.io/badge/licence-BSD--3--Clause-blue.svg)](LICENSE)
+[![Training set DOI](https://img.shields.io/badge/training%20set-10.5281%2Fzenodo.24365520-blue.svg)](https://doi.org/10.5281/zenodo.24365520)
 
 Differentiable emulation of the **linear matter power spectrum**, over an
 eleven-parameter cosmology that includes **three separate neutrino masses**,
@@ -258,6 +259,15 @@ the box edge and the extreme-quintessence corner out from the interior: about
 840 solves. The second is the converged reference, half an hour of one core a
 point. `--cache DIR` keeps the solves, and a cache filled on one machine
 serves another.
+
+## Training set
+
+The training set of the shipped network is on Zenodo,
+[doi:10.5281/zenodo.24365520](https://doi.org/10.5281/zenodo.24365520):
+149 975 cosmologies solved with CAMB 1.6.6 at 31 redshifts, 15.5 GB in 33
+files, with their SHA-256 checksums (CC BY 4.0). The seed and the commands that
+regenerate it, and the checksums of the shipped weights, are in
+[`docs/provenance.md`](docs/provenance.md).
 
 ## Tests
 
