@@ -4,6 +4,29 @@ Notable changes to `emu_pk`. Format follows [Keep a Changelog](https://keepachan
 versioning is [semantic](https://semver.org/spec/v2.0.0.html), and from 1.0.0
 the public API is what `emu_pk.__all__` and each module's `__all__` declare.
 
+## [2.1.2]
+
+Documentation only: the network, the weights, the validation records and every
+prediction are bit for bit 2.1.0's.
+
+### Added
+
+- `docs/validation.md`: the accuracy of the spectrum, the null test of the two
+  heads at zero neutrino mass, and the timings of the spectrum and its Jacobian.
+- `docs/provenance.md`: the SHA-256 of the weights, the validation records and
+  the correction table; the seed and commands that regenerate the training set;
+  the commands behind the quoted accuracy.
+- `docs/training_set_v21_c.sha256`: the SHA-256 of the 33 files of the training
+  set.
+- `studies/null_mnu/` and `studies/timing/`: the scripts and results behind the
+  validation page.
+
+### Changed
+
+- The design notes give the reionization heating factor and state that
+  $T_{\rm CMB}$ is fixed at 2.7255 K and enters through $\omega_\gamma$ and the
+  neutrino temperature.
+
 ## [2.1.1]
 
 Documentation only: the network, the weights, the validation records and every
@@ -243,7 +266,8 @@ wider box** -- 0.064 % median shape error against 0.111 %.
 
 First public release.
 
-[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/JohanComparat/emu_pk/compare/v2.1.2...HEAD
+[2.1.2]: https://github.com/JohanComparat/emu_pk/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/JohanComparat/emu_pk/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/JohanComparat/emu_pk/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/JohanComparat/emu_pk/compare/v2.0.0...v2.0.1

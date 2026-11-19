@@ -363,6 +363,20 @@ pair tightened everywhere. Taken after CLASS's $P(k)$ spline it would be 1.3e-3
 off above 200, two spectra of different shape interpolated between nodes eleven
 a decade apart.
 
+The factor applied to each training spectrum, for $P_{\rm m}$ and $P_{\rm cb}$ separately, is
+$$
+R(k, z;\theta) = \frac{P^{\rm CLASS}(k, z;\theta)}{P^{\rm CLASS}_{\rm no\ reio}(k, z;\theta)},
+$$
+with both solves at the same point $\theta$ and at CLASS's default settings, the second with `reio_parametrization = reio_none` (`emu_pk.heating.pair`).
+The reionization history is CLASS's default, which fixes $z_{\rm reio} = 7.6711$ everywhere in the box ($\tau = 0.0543$ at the fiducial).
+This is a convention: $\tau$ is not a parameter of the emulator, and the heating at another reionization history is not emulated.
+
+## The CMB temperature is fixed
+
+$T_{\rm CMB} = 2.7255$ K in every solve, CAMB and CLASS alike (`emu_pk.cosmo.T_CMB`), and it is not an input of the network.
+It enters the spectra through the radiation density it sets, the photons $\omega_\gamma = 2.473 \times 10^{-5}$ and the neutrinos at $T_\nu = (4/11)^{1/3}\,T_{\rm CMB}$, which fix the redshift of matter--radiation equality at a given $\omega_{\rm cdm} + \omega_{\rm b}$ and the conversion of each neutrino mass to its density.
+It does not enter through $\omega_{\rm cdm}$, which is sampled independently of it.
+
 ## A validation against the training truth cannot see the truth's error
 
 A network trained and validated on the same truth reports only its fit: on

@@ -1,0 +1,146 @@
+{
+ "device": "cpu: cpu",
+ "cpu": "x86_64",
+ "jax": "0.10.2",
+ "emu_pk": "2.1.1",
+ "n_k": 200,
+ "n_params": 11,
+ "repeat": 50,
+ "cold_s": {
+  "median": 5.083045456999571,
+  "min": 1.905113199999505,
+  "max": 5.711495982000088
+ },
+ "functions": {
+  "pk_1z": {
+   "trace_s": 0.30736215400065703,
+   "compile_s": 0.2676492999999027,
+   "warm_median_ms": 0.355822000074113,
+   "warm_p10_ms": 0.3128504003143462,
+   "warm_p90_ms": 0.6354103997182394,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0008,
+    "temp_MB": 0.006148,
+    "generated_code_MB": 0.0
+   }
+  },
+  "pk_31z": {
+   "trace_s": 0.1641284450006424,
+   "compile_s": 0.3274667519999639,
+   "warm_median_ms": 3.1132584999795654,
+   "warm_p10_ms": 2.5496859994746046,
+   "warm_p90_ms": 4.833774399958202,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0248,
+    "temp_MB": 0.16548,
+    "generated_code_MB": 0.0
+   }
+  },
+  "pk_and_pkcb_31z": {
+   "trace_s": 0.26153319500008365,
+   "compile_s": 0.3309063039996545,
+   "warm_median_ms": 2.5910055001077126,
+   "warm_p10_ms": 1.5646604002540698,
+   "warm_p90_ms": 5.51960010043331,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.049616,
+    "temp_MB": 0.16548,
+    "generated_code_MB": 0.0
+   }
+  },
+  "jacfwd_1z": {
+   "trace_s": 0.16353203400012717,
+   "compile_s": 0.4414550330002385,
+   "warm_median_ms": 1.133631000357127,
+   "warm_p10_ms": 0.9448139999221894,
+   "warm_p90_ms": 4.94259860006423,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0088,
+    "temp_MB": 0.068164,
+    "generated_code_MB": 0.0
+   }
+  },
+  "jacrev_1z": {
+   "trace_s": 0.12139317699984531,
+   "compile_s": 0.2497804869999527,
+   "warm_median_ms": 5.016496000280313,
+   "warm_p10_ms": 2.9543111004386446,
+   "warm_p90_ms": 8.388194300277974,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.0088,
+    "temp_MB": 1.574084,
+    "generated_code_MB": 0.0
+   }
+  },
+  "jacfwd_31z": {
+   "trace_s": 0.11839992000022903,
+   "compile_s": 0.254293661999327,
+   "warm_median_ms": 11.192310500064195,
+   "warm_p10_ms": 7.123714999670483,
+   "warm_p90_ms": 17.426877900470572,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.2728,
+    "temp_MB": 1.883652,
+    "generated_code_MB": 0.0
+   }
+  },
+  "jacrev_31z": {
+   "trace_s": 0.3847024560000136,
+   "compile_s": 0.787334435000048,
+   "warm_median_ms": 4171.987537999939,
+   "warm_p10_ms": 3036.7298543993456,
+   "warm_p90_ms": 4857.693187199766,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 0.2728,
+    "temp_MB": 1401.2633,
+    "generated_code_MB": 0.0
+   }
+  },
+  "grad_scalar_31z": {
+   "trace_s": 0.2071685829996568,
+   "compile_s": 0.3507220989995403,
+   "warm_median_ms": 2.8960105000805925,
+   "warm_p10_ms": 2.377965300274809,
+   "warm_p90_ms": 4.666025199639989,
+   "memory": {
+    "argument_MB": 4.4e-05,
+    "output_MB": 4.4e-05,
+    "temp_MB": 0.800196,
+    "generated_code_MB": 0.0
+   }
+  },
+  "pk_batch1000_1z": {
+   "trace_s": 0.278969512999538,
+   "compile_s": 0.35990706699976727,
+   "warm_median_ms": 41.00504949974493,
+   "warm_p10_ms": 34.063298899855,
+   "warm_p90_ms": 49.00273810017097,
+   "memory": {
+    "argument_MB": 0.044,
+    "output_MB": 0.8,
+    "temp_MB": 6.148,
+    "generated_code_MB": 0.0
+   }
+  },
+  "jacfwd_batch1000_1z": {
+   "trace_s": 0.30340505100048176,
+   "compile_s": 0.4461592910001855,
+   "warm_median_ms": 156.2642900003084,
+   "warm_p10_ms": 90.80891060066278,
+   "warm_p90_ms": 206.06511350042638,
+   "memory": {
+    "argument_MB": 0.044,
+    "output_MB": 8.8,
+    "temp_MB": 67.592548,
+    "generated_code_MB": 0.0
+   }
+  }
+ }
+}

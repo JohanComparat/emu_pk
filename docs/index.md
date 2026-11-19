@@ -75,6 +75,8 @@ tutorial/04_the_box
 api/index
 design_notes
 reproducing
+provenance
+validation
 ```
 
 ## Citing
