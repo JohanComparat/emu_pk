@@ -91,10 +91,32 @@
       }
     },
     "jacrev_31z": {
-      "error": "jax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory [executable_name='jit__lambda']"
+      "trace_s": 0.135,
+      "compile_s": 8.32,
+      "warm_median_ms": 48.4,
+      "warm_p10_ms": 44.6,
+      "warm_p90_ms": 57.4,
+      "memory": {
+        "argument_MB": 4.4e-05,
+        "output_MB": 0.2728,
+        "temp_MB": 1496.08
+      },
+      "repeat": 20,
+      "note": "rerun alone with XLA_PYTHON_CLIENT_PREALLOCATE=false while another process held 8.6 GB of the GPU; the first run failed with RESOURCE_EXHAUSTED"
     },
     "grad_scalar_31z": {
-      "error": "       ~~~~~~~~~~~~~~~~~~~^^\njax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: Underlying backend ran out of memory trying to instantiate command buffer with 31 (total of 0 alive graphs in the process). You can try to (a) Give more memory to the driver by reducing XLA_CLIENT_MEM_FRACTION (b) Disable command buffers with 'XLA_FLAGS=--xla_gpu_enable_command_buffer=' (empty set). Original error: Failed to instantiate CUDA graph: CUDA_ERROR_OUT_OF_MEMORY: out of memory [executable_name='jit__lambda']\n"
+      "trace_s": 0.173,
+      "compile_s": 4.63,
+      "warm_median_ms": 0.118,
+      "warm_p10_ms": 0.114,
+      "warm_p90_ms": 0.27,
+      "memory": {
+        "argument_MB": 4.4e-05,
+        "output_MB": 4.4e-05,
+        "temp_MB": 2.2
+      },
+      "repeat": 50,
+      "note": "rerun alone with XLA_PYTHON_CLIENT_PREALLOCATE=false while another process held 8.6 GB of the GPU; the first run failed with RESOURCE_EXHAUSTED"
     },
     "pk_batch1000_1z": {
       "trace_s": 0.7548330690005969,

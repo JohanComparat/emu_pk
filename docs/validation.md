@@ -51,10 +51,11 @@ The Jacobian is $\partial P_{\rm m}(k, z)/\partial\theta$ over the eleven parame
 | compilation | 0.3–0.8 s | 1–14 s |
 | one spectrum, compiled | 0.36 ms | 0.30 ms |
 | Jacobian, `jax.jacfwd` | 11 ms, 1.9 MB | 0.14 ms, 3.8 MB |
-| Jacobian, `jax.jacrev` | 4.2 s, 1.4 GB | out of memory |
-| gradient of a scalar, `jax.grad` | 2.9 ms | not measured |
+| Jacobian, `jax.jacrev` | 4.2 s, 1.4 GB | 48 ms, 1.5 GB |
+| gradient of a scalar, `jax.grad` | 2.9 ms | 0.12 ms |
 
 Memory is XLA's scratch space beyond inputs and outputs.
 Use `jax.jacfwd` for the Jacobian: eleven inputs against up to 6 200 outputs make forward mode eleven passes.
 Use reverse mode only for the gradient of a scalar such as a likelihood.
+On a GPU shared with other processes, set `XLA_PYTHON_CLIENT_PREALLOCATE=false`: JAX otherwise reserves 75 % of the memory at start-up and the larger programs fail with `RESOURCE_EXHAUSTED`.
 CPU times vary by up to a factor of three between runs on this laptop, which throttles under load; take them as orders of magnitude.

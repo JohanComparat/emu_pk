@@ -30,16 +30,18 @@ Cold start, import to first spectrum: 5.1 s on the CPU (1.9 s to 5.7 s) and 8.5 
 | `jacfwd`, one $z$ | 0.44 s | 1.1 ms | 0.07 MB | 6.9 s | 0.22 ms | 0.06 MB |
 | `jacrev`, one $z$ | 0.25 s | 5.0 ms | 1.6 MB | 10.8 s | 0.15 ms | 4.0 MB |
 | `jacfwd`, 31 $z$ | 0.25 s | 11 ms | 1.9 MB | 11.1 s | 0.14 ms | 3.8 MB |
-| `jacrev`, 31 $z$ | 0.79 s | 4 200 ms | 1 400 MB | — | out of memory | — |
-| `grad` of a scalar, 31 $z$ | 0.35 s | 2.9 ms | 0.80 MB | — | failed, see below | — |
+| `jacrev`, 31 $z$ | 0.79 s | 4 200 ms | 1 400 MB | 8.3 s | 48 ms | 1 500 MB |
+| `grad` of a scalar, 31 $z$ | 0.35 s | 2.9 ms | 0.80 MB | 4.6 s | 0.12 ms | 2.2 MB |
 | $P_{\rm m}$, 1 000 cosmologies, one $z$ | 0.36 s | 41 ms | 6.1 MB | 11.6 s | 1.0 ms | 5.3 MB |
 | `jacfwd`, 1 000 cosmologies, one $z$ | 0.45 s | 156 ms | 68 MB | 13.6 s | 1.1 ms | 74 MB |
 
 The full Jacobian is the job of `jacfwd`: eleven inputs against 200 to 6 200 outputs, so forward mode makes eleven passes where reverse mode makes one per output.
-At one redshift both are fast; over 31 redshifts `jacrev` takes 4.2 s and 1.4 GB of scratch on the CPU against 11 ms and 1.9 MB for `jacfwd`, and does not fit on the 16 GB GPU.
+At one redshift both are fast; over 31 redshifts `jacrev` takes 4.2 s and 1.4 GB of scratch on the CPU against 11 ms and 1.9 MB for `jacfwd`; on the GPU `jacrev` takes 48 ms and 1.5 GB against 0.14 ms and 3.8 MB.
 The cost of `jacrev` there comes from reversing the cubic interpolation in $k$, a gather whose transpose is a scatter per output row.
 Reverse mode is the right choice for the gradient of a scalar, a likelihood, which costs 2.9 ms on the CPU over 31 redshifts.
 
 On the GPU the warm call is 0.1 to 0.3 ms whatever the size, the launch overhead, and compilation takes 1 to 14 s.
-The GPU `grad` run failed at instantiation with `RESOURCE_EXHAUSTED` in the CUDA command buffer, in its own process right after the `jacrev` run; we did not investigate it further.
+The GPU `jacrev` and `grad` rows come from a second run of each alone, with `XLA_PYTHON_CLIENT_PREALLOCATE=false`.
+In the first run both failed with `RESOURCE_EXHAUSTED`: another process held 8.6 GB of the 16 GB GPU, and JAX by default reserves 75 % of the memory at start-up.
+On a shared GPU, set `XLA_PYTHON_CLIENT_PREALLOCATE=false` or lower `XLA_PYTHON_CLIENT_MEM_FRACTION`.
 The CPU warm times vary by a factor of 3 between runs on this laptop (0.08 ms to 0.36 ms for one spectrum), with the clock throttling under load; take them as an order of magnitude.
