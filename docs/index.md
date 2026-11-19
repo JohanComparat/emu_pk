@@ -26,7 +26,7 @@ import numpy as np
 from emu_pk import PkEmulator
 
 emu = PkEmulator()
-k = np.logspace(-3, 1, 200)
+k = np.logspace(-4, np.log10(300), 200)  # h/Mpc
 theta = np.array([0.02237, 0.1200, 0.6736, 0.9649, 3.044, 0.06, -1.0, 0.0, 0.0, 1/3, 1/3])
 pk = emu.pk(k, z=0.5, params=theta)
 ```
